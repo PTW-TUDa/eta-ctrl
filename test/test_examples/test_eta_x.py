@@ -1,0 +1,57 @@
+import logging
+import shutil
+
+import pytest
+
+from examples.damped_oscillator.main import (
+    experiment_conventional as ex_oscillator,
+    get_path as get_oscillator_path,
+)
+from examples.pendulum.main import (
+    conventional as ex_pendulum_conventional,
+    get_path as get_pendulum_path,
+    machine_learning as ex_pendulum_learning,
+)
+
+
+class TestPendulumExample:
+    @pytest.fixture(scope="class")
+    def experiment_path(self):
+        path = get_pendulum_path()
+        yield path
+        shutil.rmtree(path / "results")
+
+    def test_conventional(self, experiment_path):
+        ex_pendulum_conventional(
+            experiment_path,
+            {
+                "settings": {"log_to_file": False},
+                "environment_specific": {"do_render": False},
+            },
+        )
+
+    def test_learning(self, experiment_path):
+        ex_pendulum_learning(
+            experiment_path,
+            {
+                "settings": {
+                    "n_episodes_learn": 2,
+                    "save_model_every_x_episodes": 2,
+                    "n_environments": 1,
+                    "log_to_file": False,
+                },
+                "environment_specific": {"do_render": False},
+            },
+        )
+
+
+class TestOscillatorExample:
+    @pytest.fixture(scope="class")
+    def experiment_path(self):
+        path = get_oscillator_path()
+        yield path
+        logging.shutdown()
+        shutil.rmtree(path / "results")
+
+    def test_oscillator(self, experiment_path):
+        ex_oscillator(experiment_path, {"settings": {"log_to_file": False}})

@@ -1,0 +1,254 @@
+[project]
+name = "eta-ctrl"
+version = "v0.0.1"
+description = "A framework for researching energy optimization of factory operations"
+license = "BSD-2-Clause"
+readme = "README.rst"
+requires-python = ">=3.10.16, <3.13.0"
+authors = [
+    {name = "Technical University of Darmstadt, Institute for Production Management, Technology and Machine Tools (PTW)", email="info@ptw.tu-darmstadt.de"}
+]
+maintainers = [
+  {name = "Andreas Clement", email = "A.Clement@PTW.TU-Darmstadt.de"},
+  {name = "Jerome Stock", email = "J.Stock@PTW.TU-Darmstadt.de"},
+  {name= "Julius Balzer", email = "julius.balzer@stud.tu-darmstadt.de"}
+]
+
+keywords = [
+    "rolling horizon optimization", "simulators","industrial energy optimization"
+]
+dynamic = ["classifiers", "dependencies"]
+
+[project.urls]
+homepage = "https://www.ptw.tu-darmstadt.de"
+repository = "https://github.com/PTW-TUDa/eta_ctrl/"
+documentation = "https://eta-ctrl.readthedocs.io/"
+issues = "https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/-/issues"
+
+[project.scripts]
+    install-julia = "eta_ctrl:install_julia"
+    update-julia-agent = "eta_ctrl:update_agent"
+
+[tool.poetry]
+requires-poetry = ">=2.0"
+# Classifiers are defined in the poetry section to dynamically add the python version
+classifiers = [
+    "License :: OSI Approved :: BSD License",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Manufacturing",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries",
+    "Operating System :: OS Independent",
+]
+include = [
+    {path="examples/", format=["sdist", "wheel"]}
+]
+
+
+#  '^' limits to the next major version, '~' limits to the next minor version
+# e.g. ^3.9.0: 3.9.0 <= x < 4.0.0 and ~3.9.0: 3.9.0 <= x < 3.10.0
+[tool.poetry.dependencies]
+# default dependencies of eta_ctrl
+attrs = "^25.3.0"
+python-dateutil = "^2.8.2"
+numpy = "^2.0.0"
+pandas = "~2.2.2"
+xlrd = "^2.0.1"
+requests = "^2.31.0"
+fmpy = "^0.3.5"
+pyyaml = "^6.0.2"
+toml = "^0.10.2"
+python-dotenv = "^1.0.1"
+
+# Specific requirements for eta-x
+gymnasium =  "==1.0.0" # no SemVer
+torch = "~2.4.0" # nvidia packages are not included in 2.0.1, see https://github.com/pytorch/pytorch/issues/100974
+stable-baselines3 = "^2.4.0"  # no SemVer
+tensorboard = "~2.14.0"
+pyomo = "~6.9.2"
+julia = "^0.6.2"
+eta-nexus = "^0.0.1"
+
+[tool.poetry.group.examples.dependencies]
+# Specific requirements for the examples
+matplotlib =  "~3.9.2"
+keyboard = "^0.13.5"
+pygame = "^2.5.2"
+pyglet = "<2"
+onnxruntime = "1.19.0"
+
+[tool.poetry.group.dev.dependencies]
+# Specific requirements for tests
+# tests
+pytest = "^8.0.0"
+pytest-cov = "^6.0.0"
+pytest-timeout = "^2.3.1"
+openpyxl = "^3.1.2"
+# Specific requirements for development
+sphinx = "^7.1.2"
+sphinx-rtd-theme = "^1.3.0"
+sphinx-copybutton = "^0.5.2"
+pre-commit = "^3.4.0"
+black = "~23.7.0"
+blacken_docs = "~1.16.0"
+# MyPy requirements and typing packages
+mypy = "~1.9.0"
+types-python-dateutil = "^2.8.19.14"
+types-requests = "^2.31.0.4"
+types-pytz = "^2024.1.0.20240203"
+# Ruff
+ruff = "~0.9.6"
+codespell = "^2.3.0"
+
+
+# [tool.poetry.extras]
+# develop = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo", "julia",  # include eta-x
+#             "matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime",    # include examples
+#             "pytest", "pytest-cov", "openpyxl", "sphinx", "sphinx-rtd-theme", "sphinx-copybutton", "pre-commit",
+#             "black", "blacken_docs", "mypy", "types-python-dateutil",
+#             "types-requests", "types-pytz", "ruff", "codespell"]
+# eta-x = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo", "julia"]
+# examples = ["matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime"]
+
+[tool.mypy]
+python_version = "3.9"
+files = ["eta_ctrl", "examples"]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+warn_unused_ignores = true
+warn_unreachable = true
+show_column_numbers = true
+
+exclude = [
+    "docs/conf.py",
+    "^test/",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "fmpy.*",
+    "pandas.*",
+    "gymnasium.*",
+    "opcua.*",
+    "pyModbusTCP.*",
+    "pyomo.*",
+    "lxml.*",
+    "julia.*",
+    "setuptools",
+    "keyboard.*",
+    "onnxruntime.*",
+    "matplotlib.*",
+    "torch.*",
+    "wetterdienst.*",
+    "requests_cache.*",
+    "toml.*",
+    "yaml.*",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "test.*"
+ignore_errors = true
+
+[tool.pytest.ini_options]
+addopts = ["--cov-config=pyproject.toml", "--color=yes"]
+log_cli = true
+log_cli_level = 20
+log_cli_format = "[%(levelname)s: %(name)s] %(message)s"
+testpaths = [
+    "test",
+]
+markers = [
+    "disable_logging: Disable logging for the marked test",
+]
+
+# Configuration for pytest-cov
+[tool.coverage.run]
+source = [
+    "eta_ctrl",
+]
+omit = [
+    "*/venv/*",
+    "*/.venv/*",
+    "*/docs/*",
+    "*/build/*",
+    "*/dist/*",
+    "*/eta_ctrl/type_hints/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    # These lines are excluded from coverage because they are not meant to be tested
+    'pragma: no cover',
+    'if TYPE_CHECKING:',
+    'raise NotImplementedError',
+    'pass',
+]
+
+[tool.ruff]
+
+line-length = 120
+indent-width = 4
+
+required-version = ">=0.4.0"
+target-version= "py39"
+
+# Only fix with $ruff check --fix
+fix = false
+
+output-format = "concise"
+
+[tool.ruff.lint]
+select = [
+    "F",       # Pyflakes
+    "E", "W",  # Pycodestyle, Error and Warning
+    "I",       # Isort
+    "N",       # Pep8-naming conventions
+    "UP",      # Pyupgrade
+    "PL",      # Pylint
+    "ERA",     # Eradicate
+    "PD",      # Pandas-vet
+    "NPY",     # NumPy-specific
+    "RUF",     # Ruff
+
+    # Flake8:
+    # 2020, asyncio, bugbear, builtins, commas, comprehensions, future-annotations, implicit-str-concat
+    "YTT", "ASYNC", "B", "A", "COM", "C4", "FA", "ISC",
+    # logging, no-pep420, print, pyi, pytest-style, return, simplify, use-pathlib, todo
+    "LOG", "INP", "T20", "PYI", "PT", "RET", "SIM", "PTH", "TD",
+    ]
+
+ignore = [
+    "PLR2004",  # Pylint: magic values
+    "SIM105",   # Don't forcce contextlib.suppress
+    "TD002",    # Ignore TODO authors
+    # Recommended to ignore as they conflict with the formatter
+    "W191", "E111", "E114", "E117", "D206", "D300", "COM812", "COM819", "ISC001",
+]
+
+
+[tool.ruff.lint.extend-per-file-ignores]
+"__init__.py" = ["PLC0414"]
+"test/*" = ["RUF012"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-wrap-aliases = true
+
+[tool.ruff.lint.pylint]
+max-args = 15
+max-branches = 21
+max-statements = 62
+max-returns = 6
+
+[tool.codespell]
+skip = "*.js, *.html, *.lock, */Manifest.toml, ./docs/_build"
+ignore-words-list = ["Temperatur"]
+quiet-level = 3
+
+[build-system]
+requires = ["poetry-core>=2.0"]
+build-backend = "poetry.core.masonry.api"
