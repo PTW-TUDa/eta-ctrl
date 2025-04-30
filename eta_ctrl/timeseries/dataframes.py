@@ -63,7 +63,7 @@ def df_from_csv(
     if isinstance(infer_datetime_from, str):
         infer_datetime_format = infer_datetime_from == "dates"
         conversion_string = time_conversion_str if infer_datetime_from == "string" else None
-    elif isinstance(infer_datetime_from, (list, tuple)):
+    elif isinstance(infer_datetime_from, list | tuple):
         if not len(infer_datetime_from) == 2:
             raise ValueError(
                 f"Field for date format must be specified in the format ['row', 'col']. Got {infer_datetime_from}"
@@ -81,7 +81,7 @@ def df_from_csv(
         reader = csv.reader(f, delimiter=delimiter)
         try:
             first_line = next(reader)
-            if isinstance(infer_datetime_from, (list, tuple)):
+            if isinstance(infer_datetime_from, list | tuple):
                 if infer_datetime_from[0] > 0:
                     for _ in range(1, infer_datetime_from[0]):
                         conversion_line = next(reader)
@@ -114,7 +114,7 @@ def df_from_csv(
         delimiter=delimiter,
         index_col=0,
         parse_dates=parse_dates,
-        converters={y: converter for y in range(1, length)},
+        converters=dict.fromkeys(range(1, length), converter),
     )
 
     if conversion_string:

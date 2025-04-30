@@ -95,7 +95,7 @@ and continuous integration checks:
 
 .. code-block:: console
 
-   $ poetry install -E develop
+   $ poetry install
 
 .. note::
     Updating the project dependencies is done with the same command.

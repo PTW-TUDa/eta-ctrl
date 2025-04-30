@@ -475,7 +475,7 @@ class ConfigOptSettings:
         elif self.interact_with_env is True and self.interaction_env is None:
             log.warning(
                 "Interaction with an environment has been requested, but no section 'interaction_env_specific' "
-                "found in settings. Re-using 'environment_specific' section."
+                "found in settings. Reusing 'environment_specific' section."
             )
             self.interaction_env = self.environment
 

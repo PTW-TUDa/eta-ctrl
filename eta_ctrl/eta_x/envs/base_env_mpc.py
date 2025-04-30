@@ -491,13 +491,13 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                 values = cts.values()
 
             if _index is not None and values is not None:
-                cts = dict(zip(_index, values))
+                cts = dict(zip(_index, values, strict=False))
             elif _index is not None and values is None:
                 raise ValueError("Unsupported timeseries type for index conversion.")
 
             return cts
 
-        if isinstance(_ts, (pd.DataFrame, Mapping)):
+        if isinstance(_ts, pd.DataFrame | Mapping):
             for key, t in _ts.items():
                 # Determine whether the timeseries should be returned, based on the timeseries name and the requested
                 #  component name.
@@ -555,7 +555,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                 component = self._concrete_model.component(param)
                 if (
                     component is not None
-                    and (component.is_indexed() or isinstance(component, (pyo.Set, pyo.RangeSet)))
+                    and (component.is_indexed() or isinstance(component, pyo.Set | pyo.RangeSet))
                     and not isinstance(updated_params[param], Mapping)
                 ):
                     updated_params[str(param) + nonindex_param_append_string] = updated_params[param]
@@ -568,7 +568,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                 parameter_name = parameter_name.split(".")[-1]
 
             if parameter_name in updated_params:
-                if isinstance(parameter, (pyo_base.param.ScalarParam, pyo_base.var.ScalarVar)):
+                if isinstance(parameter, pyo_base.param.ScalarParam | pyo_base.var.ScalarVar):
                     # update all simple parameters (single values)
                     parameter.value = updated_params[parameter_name]
                 elif isinstance(parameter, pyo_base.indexed_component.IndexedComponent):
@@ -602,7 +602,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                 continue  # Only include names that where asked for
 
             # For simple variables we need just the values, for everything else we want time indexed dictionaries
-            if isinstance(com, (pyo.ScalarVar, pyo_base.objective.SimpleObjective, pyo_base.param.ScalarParam)):
+            if isinstance(com, pyo.ScalarVar | pyo_base.objective.SimpleObjective | pyo_base.param.ScalarParam):
                 solution[com.name] = pyo.value(com)
             else:
                 solution[com.name] = {}
@@ -630,7 +630,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         ):
             return self.state_config.vars[component.name].low_value
 
-        if isinstance(component, (pyo.Set, pyo.RangeSet)):
+        if isinstance(component, pyo.Set | pyo.RangeSet):
             val = round(pyo.value(component.at(at)), 5)
         elif component.is_indexed() and (
             not hasattr(component, "stale") or (hasattr(component, "stale") and not component.stale)
