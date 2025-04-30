@@ -5,8 +5,8 @@ from logging import getLogger
 from typing import TYPE_CHECKING
 
 import numpy as np
-
 from eta_nexus.connections import LiveConnect
+
 from eta_ctrl.eta_x.envs import BaseEnv
 
 if TYPE_CHECKING:
@@ -101,7 +101,7 @@ class BaseEnvLive(BaseEnv, abc.ABC):
                 **_files,
             )
         else:
-            self.live_connector = LiveConnect.from_json(
+            self.live_connector = LiveConnect.from_config(
                 files=_files, step_size=self.sampling_time, max_error_count=self.max_error_count
             )
 

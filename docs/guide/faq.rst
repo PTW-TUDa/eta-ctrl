@@ -226,7 +226,7 @@ After following these steps, you should have a new FMU file that contains the co
 
 This resolution has been tested on macOS Ventura 13.4.1 (xarm64: M1).
 See also:
-https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/-/issues/200
+https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/-/issues/200
 
 
 I want to start a julia experiment, but there is a PyJulia import error with PyCall

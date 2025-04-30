@@ -246,7 +246,7 @@ class FMUSimulator:
 
         # Get values from the FMU and convert to specified output format (dict or list)
         output_values = self.fmu.getReal(refs)
-        return dict(zip(vars_, output_values)) if self._return_dict else output_values
+        return dict(zip(vars_, output_values, strict=False)) if self._return_dict else output_values
 
     def set_values(self, values: Sequence[Number | bool] | Mapping[str, Number | bool]) -> None:
         """Set values of simulation variables without advancing a simulation step or the simulation time.

@@ -128,7 +128,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         for key in self.state_config.ext_inputs:
             try:
                 value = state[key]
-                if isinstance(value, (int, float)):
+                if isinstance(value, int | float):
                     scale_config = self.state_config.ext_scale[key]
                     value = value / scale_config["multiply"] - scale_config["add"]
                 step_inputs.append(value)
@@ -153,7 +153,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         if step_success:
             for idx, name in enumerate(self.state_config.ext_outputs):
                 value = step_output[idx]
-                if isinstance(value, (int, float)):
+                if isinstance(value, int | float):
                     scale_config = self.state_config.ext_scale[name]
                     value = (value + scale_config["add"]) * scale_config["multiply"]
                 output[name] = value
@@ -286,7 +286,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         self.state = {} if self.additional_state is None else self.additional_state
         for idx, name in enumerate(self.state_config.ext_outputs):
             value = output[idx]
-            if isinstance(value, (int, float)):
+            if isinstance(value, int | float):
                 scale_config = self.state_config.ext_scale[name]
                 value = (value + scale_config["add"]) * scale_config["multiply"]
             self.state[name] = value

@@ -1,21 +1,15 @@
+
 default_language_version:
   python: python3
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.9.6
+    rev: v0.11.2
     hooks:
       # Run the linter.
       - id: ruff
         args: ["--fix"]
       # Run the formatter.
       - id: ruff-format
-  - repo: https://github.com/asottile/blacken-docs
-    rev: 1.16.0
-    hooks:
-      - id: blacken-docs
-        additional_dependencies:
-          - black==23.7.0
-        args: [ "--line-length", "120", "--target-version", "py39"]
   - repo: https://github.com/codespell-project/codespell
     rev: v2.3.0
     hooks:
@@ -49,7 +43,6 @@ repos:
         additional_dependencies:
          - tokenize-rt==3.2.0
          - types-python-dateutil==2.8.19.14
-         - types-requests==2.31.0.10
          - types-pytz==2024.1.0.20240203
          - attrs==23.2.0
          - gymnasium==1.0.0
