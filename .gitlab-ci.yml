@@ -57,7 +57,7 @@ update-cache:
   before_script: []
   script:
     # Remove torch and add torch+cpu because nvidia packages (cuda) are not needed
-    - poetry remove torch
+    - poetry remove torch --lock
     - poetry source add --priority explicit pytorch_cpu https://download.pytorch.org/whl/cpu
     - poetry add --source pytorch_cpu torch==2.4.0
     - poetry sync

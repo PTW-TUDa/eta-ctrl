@@ -44,7 +44,7 @@ COPY eta_ctrl ${APP_PATH}/eta_ctrl
 # Install poetry and dependencies
 RUN curl -sSL https://install.python-poetry.org | POETRY_VERSION=${POETRY_VERSION} python3 - && \
     # Remove torch and add torch+cpu because nvidia packages (cuda) are not needed
-    poetry remove torch && \
+    poetry remove torch --lock && \
     poetry source add --priority explicit pytorch_cpu https://download.pytorch.org/whl/cpu && \
     poetry add --source pytorch_cpu torch==2.4.0 && \
     poetry sync && \
