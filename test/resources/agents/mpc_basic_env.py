@@ -2,7 +2,7 @@ import gymnasium
 import numpy as np
 import pyomo.environ as pyo
 
-from eta_ctrl.eta_x.envs import BaseEnvMPC
+from eta_ctrl.envs import BaseEnvMPC
 
 
 class MPCBasicEnv(BaseEnvMPC):

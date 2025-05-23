@@ -73,7 +73,7 @@ matplotlib =  "~3.9.2"
 keyboard = "^0.13.5"
 pygame = "^2.5.2"
 pyglet = "<2"
-onnxruntime = "1.19.0"
+onnxruntime = "1.21.0"
 
 [tool.poetry.group.dev.dependencies]
 # Specific requirements for tests
@@ -115,14 +115,12 @@ module = [
     "pandas.*",
     "gymnasium.*",
     "pyomo.*",
-    "lxml.*",
     "julia.*",
     "setuptools",
     "keyboard.*",
     "onnxruntime.*",
     "matplotlib.*",
     "torch.*",
-    "requests_cache.*",
     "toml.*",
     "yaml.*",
 ]

@@ -57,5 +57,5 @@ def config_fmu():
 
 
 @pytest.fixture(scope="session")
-def config_etax_resources_path():
+def config_resources_path():
     return pathlib.Path(__file__).parent / "resources" / "agents"

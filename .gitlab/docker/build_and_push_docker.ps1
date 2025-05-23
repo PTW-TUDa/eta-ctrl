@@ -63,4 +63,3 @@ foreach ($PYTHON_VERSION in $PYTHON_VERSIONS) {
 }
 
 Write-Host "All Docker images built and pushed successfully!"
-

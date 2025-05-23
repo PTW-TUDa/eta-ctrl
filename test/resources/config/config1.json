@@ -1,13 +1,13 @@
 {
     "setup": {
-        "environment_import": "eta_ctrl.eta_x.envs.BaseEnvMPC",
-        "agent_import": "eta_ctrl.eta_x.agents.MPCBasic",
+        "environment_import": "eta_ctrl.envs.BaseEnvMPC",
+        "agent_import": "eta_ctrl.agents.MPCBasic",
         "interaction_env_class": "BaseEnvMPC",
-        "interaction_env_package": "eta_ctrl.eta_x.envs",
+        "interaction_env_package": "eta_ctrl.envs",
         "vectorizer_class": "DummyVecEnv",
         "vectorizer_package": "stable_baselines3.common.vec_env.dummy_vec_env",
         "policy_class": "NoPolicy",
-        "policy_package": "eta_ctrl.eta_x.common"
+        "policy_package": "eta_ctrl.common"
     },
     "paths": {
         "relpath_results": "results",

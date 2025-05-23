@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
     from fmpy.model_description import ModelDescription
 
-    from eta_ctrl.type_hints import Number, Path, TimeStep
+    from eta_ctrl.util.type_annotations import Number, Path, TimeStep
 
 log = getLogger(__name__)
 

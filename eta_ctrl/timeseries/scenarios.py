@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from typing import SupportsFloat
 
-    from eta_ctrl.type_hints import FillMethod, Path, TimeStep
+    from eta_ctrl.util.type_annotations import FillMethod, Path, TimeStep
 
 
 def scenario_from_csv(

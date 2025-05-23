@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from eta_ctrl.eta_x.agents import RuleBased
-from eta_ctrl.eta_x.common import is_vectorized_env
+from eta_ctrl.agents import RuleBased
+from eta_ctrl.common import is_vectorized_env
 
 if TYPE_CHECKING:
     from typing import Any

@@ -19,15 +19,15 @@ else:
         angle_normalize,
     )
 
-from eta_ctrl.eta_x.envs import BaseEnv, StateConfig, StateVar
+from eta_ctrl.envs import BaseEnv, StateConfig, StateVar
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from datetime import datetime
     from typing import Any
 
-    from eta_ctrl.eta_x import ConfigOptRun
-    from eta_ctrl.type_hints import ObservationType, StepResult, TimeStep
+    from eta_ctrl.config import ConfigOptRun
+    from eta_ctrl.util.type_annotations import ObservationType, StepResult, TimeStep
 
 log = getLogger(__name__)
 
