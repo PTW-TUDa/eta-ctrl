@@ -11,4 +11,4 @@ pushfirst!(
 )
 pushfirst!(PyVector(pyimport("sys")."path"), normpath(joinpath(splitdir(source_path())[1], "../../../")))
 
-include("etax/agents/NSGA2.jl")
+include("agents/NSGA2.jl")

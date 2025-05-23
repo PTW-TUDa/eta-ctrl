@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
     from typing import Literal
 
-    from eta_ctrl.type_hints import FillMethod, Path, TimeStep
+    from eta_ctrl.util.type_annotations import FillMethod, Path, TimeStep
 
 log = getLogger(__name__)
 

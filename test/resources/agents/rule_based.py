@@ -4,7 +4,7 @@ import numpy as np
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.vec_env import VecEnv
 
-from eta_ctrl.eta_x.agents import RuleBased
+from eta_ctrl.agents import RuleBased
 
 
 class RuleBasedController(RuleBased):

@@ -4,7 +4,7 @@ import pathlib
 from typing import TYPE_CHECKING
 
 from eta_ctrl import get_logger
-from eta_ctrl.eta_x import ETAx
+from eta_ctrl.core import EtaCtrl
 
 if TYPE_CHECKING:
     from typing import Any
@@ -25,7 +25,7 @@ def conventional(root_path: pathlib.Path, overwrite: dict[str, Any] | None = Non
     :param root_path: Root path of the experiment.
     :param overwrite: Additional config values to overwrite values from JSON.
     """
-    experiment = ETAx(root_path, "config_conventional", overwrite, relpath_config=".")
+    experiment = EtaCtrl(root_path, "config_conventional", overwrite, relpath_config=".")
     experiment.play("conventional_series", "run1")
 
 
@@ -38,7 +38,7 @@ def machine_learning(root_path: pathlib.Path, overwrite: dict[str, Any] | None =
     """
     # --main--
 
-    experiment = ETAx(root_path, "config_learning", overwrite, relpath_config=".")
+    experiment = EtaCtrl(root_path, "config_learning", overwrite, relpath_config=".")
     experiment.learn("learning_series", "run1", reset=True)
     experiment.play("learning_series", "run1")
     # --main--

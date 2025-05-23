@@ -7,16 +7,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from eta_ctrl.eta_x.common import episode_results_path
-from eta_ctrl.eta_x.envs import BaseEnvSim, StateConfig, StateVar
+from eta_ctrl.common import episode_results_path
+from eta_ctrl.envs import BaseEnvSim, StateConfig, StateVar
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from datetime import datetime
     from typing import Any
 
-    from eta_ctrl.eta_x import ConfigOptRun
-    from eta_ctrl.type_hints import ObservationType, StepResult, TimeStep
+    from eta_ctrl.config import ConfigOptRun
+    from eta_ctrl.util.type_annotations import ObservationType, StepResult, TimeStep
 
 
 class DampedOscillatorEnv(BaseEnvSim):
