@@ -9,7 +9,6 @@ import pyomo.environ as pyo
 from pyomo import opt
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.vec_env import VecEnv, VecNormalize
-from typing_extensions import deprecated
 
 if TYPE_CHECKING:
     import io
@@ -290,8 +289,3 @@ class MathSolver(BaseAlgorithm):
         model: MathSolver = super().load(path, env, device, custom_objects, print_system_info, force_reset, **kwargs)
 
         return model
-
-
-@deprecated("Use `MathSolver` instead of `MPCBasic`.")
-class MPCBasic(MathSolver):
-    """Deprecated MPCBasic class. Use `MathSolver` instead."""

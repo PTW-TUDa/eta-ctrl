@@ -3,7 +3,7 @@ import pytest
 from eta_ctrl.agents.math_solver import MathSolver
 from eta_ctrl.common import NoPolicy
 from eta_ctrl.config import ConfigOptRun
-from test.resources.agents.mpc_basic_env import MPCBasicEnv
+from test.resources.agents.mpc_basic_env import MathSolverEnv
 
 
 class TestMathSolver:
@@ -18,7 +18,7 @@ class TestMathSolver:
         )
 
         # Create the environment
-        env = MPCBasicEnv(
+        env = MathSolverEnv(
             env_id=1,
             config_run=config_run,
             prediction_horizon=10,

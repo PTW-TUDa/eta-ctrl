@@ -39,12 +39,6 @@ class TestConfigOpt:
         assert config_opt.settings.agent["solver_name"] == "foobar"
         assert config_opt.settings.environment["scenario_files"][0]["path"] == "foobar.csv"
 
-    @pytest.mark.usefixtures("_load_config_mp")
-    def test_deprecated_from_json(self, recwarn):
-        ConfigOpt.from_json(file="", path_root="")
-        warning = recwarn.pop(DeprecationWarning)
-        assert warning.message.args[0] == "Use `ConfigOpt.from_config_file()` instead."
-
     def test_from_config_file_fail(self, config_dict, monkeypatch):
         config_dict.pop("settings")
         monkeypatch.setattr(ConfigOpt, "_load_config_file", lambda x: config_dict)

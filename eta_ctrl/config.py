@@ -7,7 +7,6 @@ from logging import getLogger
 from typing import TYPE_CHECKING
 
 from attrs import Factory, converters, define, field, fields, validators
-from typing_extensions import deprecated
 
 from eta_ctrl.util import deep_mapping_update, dict_pop_any, json_import, toml_import, yaml_import
 
@@ -83,11 +82,6 @@ class ConfigOpt:
 
         if self.relpath_scenarios is not None:
             object.__setattr__(self, "path_scenarios", self.path_root / self.relpath_scenarios)
-
-    @classmethod
-    @deprecated("Use `ConfigOpt.from_config_file()` instead.")
-    def from_json(cls, file: Path, path_root: Path, overwrite: Mapping[str, Any] | None = None) -> ConfigOpt:
-        return cls.from_config_file(file=file, path_root=path_root, overwrite=overwrite)
 
     @classmethod
     def from_config_file(cls, file: Path, path_root: Path, overwrite: Mapping[str, Any] | None = None) -> ConfigOpt:
