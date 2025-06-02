@@ -18,7 +18,7 @@ Path = str | PathLike
 Number = float | int | np.floating | np.signedinteger | np.unsignedinteger
 TimeStep = int | float | datetime.timedelta
 
-FillMethod = Literal["ffill" | "fillna" | "bfill" | "interpolate" | "asfreq"]
+FillMethod = Literal["ffill", "bfill", "interpolate", "asfreq"]
 
 
 ActionType = np.ndarray

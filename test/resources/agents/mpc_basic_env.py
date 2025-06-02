@@ -5,7 +5,7 @@ import pyomo.environ as pyo
 from eta_ctrl.envs import BaseEnvMPC
 
 
-class MPCBasicEnv(BaseEnvMPC):
+class MathSolverEnv(BaseEnvMPC):
     """Environment for MPC basic agent, that implements a quadratic optimization problem. The goal is to
     minimize the sum of the squared values of both x and u over the prediction horizon. The environment
     was created for testing purposes.

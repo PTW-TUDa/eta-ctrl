@@ -1,6 +1,6 @@
 setup:
   environment_import: eta_ctrl.envs.BaseEnvMPC
-  agent_import: eta_ctrl.agents.MPCBasic
+  agent_import: eta_ctrl.agents.MathSolver
   interaction_env_class: BaseEnvMPC
   interaction_env_package: eta_ctrl.envs
   vectorizer_class: DummyVecEnv
