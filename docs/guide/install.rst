@@ -7,7 +7,7 @@ This section explains how to install the ETA Ctrl Functions for usage only. For 
 what to consider during the installation process if you want to contribute to development of
 the utility functions, please see the development guide :ref:`development`.
 
-You can install the basic package (without *eta_x*) or the entire library, both options are
+You can install the basic package (without *ETA Ctrl*) or the entire library, both options are
 shown below.
 
 .. _create_virtual_environment:
@@ -68,9 +68,9 @@ It's recommended to install the package in a virtual environment. See :ref:`crea
 
 There are multiple classes of optional requirements. If you would like to use some of the optional components, please install one or more of the following:
 
-- *eta-x*: Contains dependencies for the optimization part of the framework
+- *ETA Ctrl*: Contains dependencies for the optimization part of the framework
 - *examples*: Dependencies required to run the examples
-- *develop*: All of the above and additional dependencies for the continuous integration processes. Required when performing development work on eta_ctrl.
+- *develop*: All of the above and additional dependencies for the continuous integration processes. Required when performing development work on ETA Ctrl.
 
 The optional requirements can be installed using pip. For example:
 
@@ -110,4 +110,4 @@ and inside the eta-ctrl directory execute the following command:
 
 Make sure to install Julia using the same Python virtual environment that you are using to execute your code.
 
-This command will install PyJulia, configure PyCall in your system, and install the Julia extensions package (ju_extensions) from eta_ctrl.
+This command will install PyJulia, configure PyCall in your system, and install the Julia extensions package (ju_extensions) from ETA Ctrl.

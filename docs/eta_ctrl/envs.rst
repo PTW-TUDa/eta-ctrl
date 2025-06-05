@@ -2,9 +2,9 @@
 
 Environments
 ===============
-*eta_ctrl* environments are based on the interfaces offered by `stable_baselines3
+*ETA Ctrl* environments are based on the interfaces offered by `stable_baselines3
 <https://stable-baselines3.readthedocs.io/en/master/guide/custom_env.html>`_ which are in turn based on the
-`Farama gymnasium environments <https://gymnasium.farama.org/api/env/>`_. The *eta_x* environments are provided as
+`Farama gymnasium environments <https://gymnasium.farama.org/api/env/>`_. The *ETA Ctrl* environments are provided as
 abstract classes which must be subclassed to create useful implementations. For the specific use cases they are
 intended for, these base classes make the creation of new environments much easier.
 
@@ -14,8 +14,8 @@ the functions available to simplify implementation of specific functionality in 
 at the :ref:`examples` for some inspiration what custom environments can look like.
 
 The custom environments created with the utilities described here can be used directly with *stable_baselines3* or
-*gymnasium*. However, using the :py:class:`eta_ctrl.eta_x::ETAx` class is recommended (see :ref:`intro_etax`).
-When using the *ETAx* class for your optimization runs, the parameters required for environment instantiation must
+*gymnasium*. However, using the :py:class:`eta_ctrl::Core` class is recommended (see :ref:`intro_Core`).
+When using the *Core* class for your optimization runs, the parameters required for environment instantiation must
 be configured in the *environment_specific* section of the configuration. If interaction between environments is also
 configured, additional parameters can be set in the configuration file. To configure the interaction environment, use
 the section *interaction_env_specific*. If that section is not present, the parameters from the *environment_specific*
@@ -24,16 +24,16 @@ section will be used for both environments.
 Environment State Configuration
 --------------------------------
 
-The most important concept to understand when working with the environment utilities provided by *eta_ctrl* is
+The most important concept to understand when working with the environment utilities provided by *ETA Ctrl* is
 is the handling and configuration of the environment state. The state is represented by
-:py:class:`eta_ctrl.eta_x.envs::StateVar` objects which each correspond to one variable of the environment. All
+:py:class:`eta_ctrl.envs::StateVar` objects which each correspond to one variable of the environment. All
 StateVar objects of an environment are combined into the StateConfig object. From the StateConfig object we can
 determine most other aspects of the environment, such as for example the observation space and action space. The
 *gymnasium* documentation provides more information about `Spaces <https://gymnasium.farama.org/api/spaces/>`_.
 
 Each state variable is represented by a *StateVar* object:
 
-.. autoclass:: eta_ctrl.eta_x.envs::StateVar
+.. autoclass:: eta_ctrl.envs::StateVar
     :members:
     :noindex:
     :exclude-members: from_dict
@@ -91,7 +91,7 @@ Each state variable is represented by a *StateVar* object:
 
 All state variables are combined into the *StateConfig* object:
 
-.. autoclass:: eta_ctrl.eta_x.envs::StateConfig
+.. autoclass:: eta_ctrl.envs::StateConfig
     :members:
     :noindex:
     :exclude-members: loc, from_dict,
@@ -111,7 +111,7 @@ as actions.
 Base Environment
 ------------------
 
-.. autoclass:: eta_ctrl.eta_x.envs::BaseEnv
+.. autoclass:: eta_ctrl.envs::BaseEnv
     :members:
     :private-members:
     :inherited-members: abc.ABC
@@ -123,7 +123,7 @@ Model Predictive Control (MPC) Environment
 ------------------------------------------------
 The BaseEnvMPC is a class for the optimization of mathematical MPC models.
 
-.. autoclass:: eta_ctrl.eta_x.envs::BaseEnvMPC
+.. autoclass:: eta_ctrl.envs::BaseEnvMPC
     :members:
     :private-members:
     :inherited-members: abc.ABC
@@ -136,7 +136,7 @@ Simulation (FMU) Environment
 The BaseEnvSim supports the optimization of FMU simulation models. Make sure to set the *fmu_name* attribute when
 subclassing this environment. The FMU file will be loaded from the same directory as the environment itself.
 
-.. autoclass:: eta_ctrl.eta_x.envs::BaseEnvSim
+.. autoclass:: eta_ctrl.envs::BaseEnvSim
     :members:
     :private-members:
     :inherited-members: abc.ABC
@@ -150,7 +150,7 @@ The BaseEnvLive is an environment which create direct (live) connections to actu
 :py:class:`eta_ctrl.connectors.LiveConnect` to achieve this. Please also read the corresponding documentation
 because LiveConnect needs additional configuration.
 
-.. autoclass:: eta_ctrl.eta_x.envs::BaseEnvLive
+.. autoclass:: eta_ctrl.envs::BaseEnvLive
     :members:
     :private-members:
     :inherited-members: abc.ABC
@@ -166,7 +166,7 @@ where your julia file is located. In contrast to the other environments, the Jul
 imported in the setup file for the parameter *environment_import*. The parameter *julia_env_file* is located in the
 *settings* section of the configuration file. See also :ref:`eta_experiment_config`.
 
-.. autoclass:: eta_ctrl.eta_x.envs::JuliaEnv
+.. autoclass:: eta_ctrl.envs::JuliaEnv
     :members:
     :private-members:
     :inherited-members: abc.ABC

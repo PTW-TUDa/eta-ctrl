@@ -4,11 +4,11 @@ Functional Mockup Units
 ====================================================
 Functional Mockup Units (FMUs) are packaged simulation models. The standard makes it quite easy to use simulation
 models and it can be exported by many different simulation software packages. More information about the
-standard can be found on the `FMI Homepage <https://fmi-standard.org/>`_. The *simulators* in *eta_ctrl* are
+standard can be found on the `FMI Homepage <https://fmi-standard.org/>`_. The *simulators* in *ETA Ctrl* are
 based on the `fmpy package <https://fmpy.readthedocs.io/en/latest/>`_.
 
 *fmpy* is a Python implementation of the standard and offers limited additional functionality. For this reason and
-because the standard is written for C, fmpy is neither very Pythonic nor very easy to use. Therefore, *eta_ctrl*
+because the standard is written for C, fmpy is neither very Pythonic nor very easy to use. Therefore, *ETA Ctrl*
 implements wrappers which allow for the simulation of both ModelExchange and Co-Simulation FMU models. The wrappers
 have an interface similar to *LiveConnect* with regard to the *step* function. This enables easy substitution of
 simulation models with direct connections to actual devices.
