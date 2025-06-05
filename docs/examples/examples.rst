@@ -2,11 +2,11 @@
 
 Usage examples
 ================
-*eta_ctrl* contains example implementations for different usages of the package.
+*ETA Ctrl* contains example implementations for different usages of the package.
 This page gives a short overview of the examples.
 
 
-eta_x Optimization
+ETA Ctrl Optimization
 --------------------
 Examples for the optimization part of the framework are also provided. The *pendulum* example is the
 simplest one of them. It implements an inverse pendulum, similar to
@@ -20,7 +20,7 @@ based on the *BaseEnvSim* class. In this simple example, only the StateConfig an
 render function need to be specified to obtain a completely functional environment.
 In the example, the controller will just supply random action values.
 
-Finally, the *cyber_physical_system* example shows the full capabilities of the *eta_ctrl*
+Finally, the *cyber_physical_system* example shows the full capabilities of the *ETA Ctrl*
 framework. It utilizes the interaction between a simulation and an actual machine to
 supply advanced observations to an agent which controls the tank heating unit of
 an industrial parts cleaning machine. To be able to run this example, a Dymola license is needed.

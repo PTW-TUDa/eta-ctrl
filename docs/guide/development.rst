@@ -3,7 +3,7 @@
 Installation and Guide for Developers
 =================================================================================
 
-This section describes how to install *eta_ctrl* using *poetry*, and how to contribute to development.
+This section describes how to install *ETA Ctrl* using *poetry*, and how to contribute to development.
 
 Contributing to development
 -----------------------------
@@ -14,12 +14,12 @@ implement your changes there.
 
 If you are planning to develop on this package, based on the requirements of another
 package, you might want to import directly from a local git repository. To do this,
-uninstall eta_ctrl from the other projects virtual environment and add the path to the local
-*eta_ctrl* repository to the other projects main file:
+uninstall ETA Ctrl from the other projects virtual environment and add the path to the local
+*ETA Ctrl* repository to the other projects main file:
 
 .. code-block::
 
-    sys.path.append("<path to local eta_ctrl repository>")
+    sys.path.append("<path to local ETA Ctrl repository>")
 
 
 .. _install_poetry:
@@ -66,7 +66,7 @@ The virtual environments will be installed in:
 For more information, see the `Poetry documentation <https://python-poetry.org/docs/#installing-with-pipx>`_.
 
 
-Installation of eta_ctrl
+Installation of ETA Ctrl
 -------------------------------------
 First, clone the repository to a directory of your choosing. You can use a git GUI for this or
 execute the following command. See also :ref:`install_git`.
@@ -163,7 +163,7 @@ For more information, see the `Poetry docs <https://python-poetry.org/docs/manag
 Testing your code
 -------------------------------
 Please always execute the tests before committing changes. You can do this by navigating to the main
-folder of the *eta_ctrl* repository and executing the following command in a terminal.
+folder of the *ETA Ctrl* repository and executing the following command in a terminal.
 
 .. code-block:: console
 
@@ -187,7 +187,7 @@ Editing this documentation
 -----------------------------
 
 Sphinx is used as a documentation-generator. The relevant files are located in the *docs*
-folder of the repository. If you correctly installed *eta_ctrl* with the develop
+folder of the repository. If you correctly installed *ETA Ctrl* with the develop
 extension, sphinx should already be installed.
 
 You can edit the *.rst-files* in the *docs* folder. A simple text editor is sufficient for this.
