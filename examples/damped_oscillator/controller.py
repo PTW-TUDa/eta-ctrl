@@ -28,7 +28,7 @@ class DampedOscillatorControl(RuleBased):
 
     def __init__(
         self, policy: type[BasePolicy], env: VecEnv, verbose: int = 1, *, p: float, i: float, d: float, **kwargs: Any
-    ):
+    ) -> None:
         super().__init__(policy=policy, env=env, verbose=verbose, **kwargs)
 
         #: Proportional factor for the PID controller.

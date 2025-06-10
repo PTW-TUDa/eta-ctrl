@@ -65,16 +65,17 @@ class _VariableParameters:
             return [cls("int", minimum=0, maximum=int(dim)) for dim in space.nvec]
 
         if isinstance(space, spaces.MultiBinary):
-            return [cls(dtype="int", minimum=0, maximum=1) for _ in range(space.n)]  # type: ignore
+            return [cls(dtype="int", minimum=0, maximum=1) for _ in range(space.n)]  # type: ignore[call-overload]
 
         if isinstance(space, spaces.Discrete):
             return [cls(dtype="int", minimum=0, maximum=int(space.n))]
 
-        raise ValueError("Unknown type of space for variable parameters.")
+        msg = "Unknown type of space for variable parameters."
+        raise ValueError(msg)
 
 
 class Nsga2(BaseAlgorithm):
-    """The NSGA2 class implements the non-dominated sorting genetic algorithm 2
+    """The NSGA2 class implements the non-dominated sorting genetic algorithm 2.
 
     The agent can work with discrete event systems and with continuous or mixed integer problems. Alternatively a
     mixture of the above may be specified.
@@ -140,7 +141,7 @@ class Nsga2(BaseAlgorithm):
         **kwargs: Any,
     ) -> None:
         # Some types are incorrectly defined in the super class; this fixes it for this class and suppresses warnings
-        self.start_time: float | None  # type: ignore
+        self.start_time: float | None  # type: ignore[assignment]
         self.lr_schedule: Callable
         self.policy_class: type[BasePolicy]
         self.policy: BasePolicy
@@ -169,13 +170,13 @@ class Nsga2(BaseAlgorithm):
         log.setLevel(int(verbose * 10))
         ju_extensions.set_logger(log.level)
 
-        if self.env is None:
-            raise ValueError("The NSGA2 agent needs a specific environment to work correctly. Cannot use env = None.")
-        if isinstance(self.env, VecNormalize):
-            raise TypeError("The NSGA2 agent does not allow the use of normalized environments.")
+        if isinstance(self.get_env(), VecNormalize):
+            msg = "The NSGA2 agent does not allow the use of normalized environments."
+            raise TypeError(msg)
 
         if sense not in {"minimize", "maximize"}:
-            raise ValueError(f"The optimization sense must be one of 'minimize' or 'maximize', got {sense}.")
+            msg = f"The optimization sense must be one of 'minimize' or 'maximize', got {sense}."
+            raise ValueError(msg)
 
         #: Maximum number of parallel solutions (>= 2).
         self.population: int = population
@@ -271,6 +272,12 @@ class Nsga2(BaseAlgorithm):
 
         self._check_learn_config()
 
+    def get_env(self) -> VecEnv:
+        if self.env is None:
+            msg = "Can't access attribute 'self.env', initialize environment first"
+            raise AttributeError(msg)
+        return self.env
+
     @property
     def last_evaluation_actions(self) -> np.ndarray | None:
         if len(self.ep_actions_buffer) >= 1:
@@ -306,11 +313,10 @@ class Nsga2(BaseAlgorithm):
             # Extract events space
             if "events" in self.action_space.spaces:
                 if not isinstance(self.action_space.spaces["events"], spaces.Discrete):
-                    raise ValueError(
-                        f"Events must be specified as a discrete space. Received {type(self.action_space['events'])}."
-                    )
+                    msg = f"Events must be specified as a discrete space. Received {type(self.action_space['events'])}."
+                    raise ValueError(msg)
 
-                event_params = self.action_space.spaces["events"].n  # type: ignore
+                event_params = self.action_space.spaces["events"].n  # type: ignore[assignment]
 
             # Extract variables spaces.
             if "variables" in self.action_space.spaces:
@@ -373,15 +379,17 @@ class Nsga2(BaseAlgorithm):
     def _check_learn_config(self) -> None:
         # Check configuration of the algorithm for compatibility
         if self.population is None or self.population < 2:
-            raise ValueError("The population size must be at least two.")
+            msg = "The population size must be at least two."
+            raise ValueError(msg)
         if self.mutations is None or (not 0 <= self.mutations < 1):
-            raise ValueError("The mutation rate must be between 0 and 1.")
+            msg = "The mutation rate must be between 0 and 1."
+            raise ValueError(msg)
         if self.crossovers is None or (not 0 <= self.crossovers < 0.5):
-            raise ValueError(
-                "The crossover rate must be between 0 and 0.5 (cannot cross more than half of population)."
-            )
+            msg = "The crossover rate must be between 0 and 0.5 (cannot cross more than half of population)."
+            raise ValueError(msg)
         if not 0 <= self.max_cross_len <= 1:
-            raise ValueError("The maximum crossover length must be between 0 and 1 (proportion of total length).")
+            msg = "The maximum crossover length must be between 0 and 1 (proportion of total length)."
+            raise ValueError(msg)
 
     def learn(
         self,
@@ -406,7 +414,6 @@ class Nsga2(BaseAlgorithm):
         :param progress_bar: Parameter to show progress bar, used by stable_baselines (currently unused!)
         :return: the trained model
         """
-
         if self.n_generations is not None and total_timesteps > self.n_generations:
             total_timesteps = self.n_generations
 
@@ -504,9 +511,7 @@ class Nsga2(BaseAlgorithm):
         callback.on_training_end()
 
     def _initialize_parent_generation_if_empty(self) -> None:
-        """
-        Initialize parent generation if generation_parent is empty
-        """
+        """Initialize parent generation if generation_parent is empty."""
         if Jl.length(self.generation_parent) == 0:
             log.debug("Initializing parent generation.")
             self.generation_parent = self._jl_create_generation(self.__jl_agent, False)
@@ -525,12 +530,13 @@ class Nsga2(BaseAlgorithm):
             log.info(f"Successfully initialized first parent generation with {self.population} solutions.")
 
     def _display_training_infos(self) -> None:
-        """
-        Display training infos.
-        """
-        assert self.ep_info_buffer is not None, "Make sure that ep_info_buffer is exists before starting to learn."
-        assert self.start_time is not None, "Make sure that start_time is set before starting to learn."
-
+        """Display training infos."""
+        if self.ep_info_buffer is None:
+            msg = "Make sure that ep_info_buffer is exists before starting to learn."
+            raise TypeError(msg)
+        if self.start_time is None:
+            msg = "Make sure that start_time is set before starting to learn."
+            raise TypeError(msg)
         self.logger.record("time/iterations", self.training_infos_buffer["iteration"], exclude="tensorboard")
         if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
             self.logger.record("general/ep_rew_mean", safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]))
@@ -572,19 +578,17 @@ class Nsga2(BaseAlgorithm):
         )
 
     def _evaluate(self, generation: _jlwrapper) -> tuple[_jlwrapper, int]:
-        """Evaluate all solutions in the generation and store rewards
+        """Evaluate all solutions in the generation and store rewards.
 
         :param generation: Sequence of solutions to evaluate
         :return: Sequence of evaluated solutions
         """
-        assert self.env is not None, "The agent needs to know the environment to evaluate solutions."
-
         rewards = np.array([])
         retries = 0
         infos: list[dict[str, Any]] = []
 
         while retries < self.max_retries:
-            _observations, rewards, terminated, truncated, infos = self.env.step(self._jl_get_actions(generation))  # type: ignore
+            _observations, rewards, terminated, truncated, infos = self.get_env().step(self._jl_get_actions(generation))  # type: ignore[misc]
             dones = terminated | truncated
             self._update_info_buffer(infos, dones)
 
@@ -607,14 +611,13 @@ class Nsga2(BaseAlgorithm):
                 f"there were too many invalid solutions: {len(solution_invalid)}; retries: {retries}"
             )
 
-        assert rewards is not None
         self._jl_store_reward(generation, rewards)
         return generation, retries
 
     def set_random_seed(self, seed: int | None = None) -> None:
         """
         Set the seed of the pseudo-random generators
-        (python, numpy, pytorch, gymnasium, julia)
+        (python, numpy, pytorch, gymnasium, julia).
 
         :param seed: Seed for the pseudo random generators.
         """
@@ -625,12 +628,11 @@ class Nsga2(BaseAlgorithm):
 
     def _excluded_save_params(self) -> list[str]:
         """
-        Returns the names of the parameters that should be excluded from being
+        Return the names of the parameters that should be excluded from being
         saved by pickling.
 
         :return: List of parameters that should be excluded from being saved with pickle.
         """
-
         excluded_params = super()._excluded_save_params()
         excluded_params.extend(
             [

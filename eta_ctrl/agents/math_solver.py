@@ -85,15 +85,12 @@ class MathSolver(BaseAlgorithm):
         log.setLevel(int(verbose * 10))  # Set logging verbosity
 
         # Check configuration for MILP compatibility
-        if self.env is None:
-            raise ValueError("The MPC agent needs a specific environment to work correctly. Cannot use env = None.")
-
         if self.n_envs is not None and self.n_envs > 1:
-            raise ValueError(
-                "The MPC agent can only use one environment. It cannot work on multiple vectorized environments."
-            )
-        if isinstance(self.env, VecNormalize):
-            raise TypeError("The MPC agent does not allow the use of normalized environments.")
+            msg = "The MPC agent can only use one environment. It cannot work on multiple vectorized environments."
+            raise ValueError(msg)
+        if isinstance(self.get_env(), VecNormalize):
+            msg = "The MPC agent does not allow the use of normalized environments."
+            raise TypeError(msg)
 
         # Solver parameters
         self.solver_name: str = solver_name
@@ -113,13 +110,18 @@ class MathSolver(BaseAlgorithm):
 
     def _setup_model(self) -> None:
         """Load the MILP model from the environment."""
-        assert self.env is not None, "The MPC agent needs a specific environment to work. Cannot use env = None."
-        self.model, self.actions_order = self.env.get_attr("model", 0)[0]
+        self.model, self.actions_order = self.get_env().get_attr("model", 0)[0]
         if self.policy_class is not None:
-            self.policy: type[BasePolicy] = self.policy_class(  # type: ignore
+            self.policy: type[BasePolicy] = self.policy_class(  # type: ignore[assignment]
                 self.observation_space,
                 self.action_space,
             )
+
+    def get_env(self) -> VecEnv:
+        if self.env is None:
+            msg = "Can't access attribute 'self.env', initialize environment first"
+            raise AttributeError(msg)
+        return self.env
 
     def solve(self) -> pyo.ConcreteModel:
         """Solve the current pyomo model instance with given parameters. This could also be used separately to solve
@@ -127,8 +129,6 @@ class MathSolver(BaseAlgorithm):
 
         :return: Solved pyomo model instance.
         """
-        assert self.env is not None, "The MPC agent needs a specific environment to work. Cannot use env = None."
-
         solver = pyo.SolverFactory(self.solver_name)
         solver.options.update(self.solver_options)  # Adjust solver settings
 
@@ -137,39 +137,39 @@ class MathSolver(BaseAlgorithm):
         if _tee:
             print("\n")  # noqa: T201 (print is ok here, because cplex prints directly to console).
         log.debug(
-            "Problem information: \n"
-            "\t+----------------------------------+\n"
-            + "\n".join(
+            "Problem information:\n%s\n%s\n%s",
+            "\t+----------------------------------+",
+            "\n".join(
                 f"\t {item}: {value.value} "
                 for item, value in result["Problem"][0].items()
                 if not isinstance(value.value, opt.UndefinedData)
-            )
-            + "\n\t+----------------------------------+"
+            ),
+            "\t+----------------------------------+",
         )
 
         # Log status after the optimization
         log.info(
-            "Solver information: \n"
-            "\t+----------------------------------+\n"
-            + "\n".join(
+            "Solver information:\n%s\n%s\n%s",
+            "\t+----------------------------------+",
+            "\n".join(
                 f"\t {item}: {value.value} "
                 for item, value in result["Solver"][0].items()
                 if item != "Statistics" and not isinstance(value.value, opt.UndefinedData)
-            )
-            + "\n\t+----------------------------------+"
+            ),
+            "\t+----------------------------------+",
         )
 
         # Log status after the optimization
         if len(result["Solution"]) >= 1:
             log.debug(
-                "Solution information: \n"
-                "\t+----------------------------------+\n"
-                + "\n".join(
+                "Solution information:\n%s\n%s\n\t%s",
+                "\t+----------------------------------+",
+                "\n".join(
                     f"\t {item}: {value.value} "
                     for item, value in result["Solution"][0].items()
                     if not isinstance(value.value, opt.UndefinedData)
-                )
-                + "\n\t+----------------------------------+"
+                ),
+                "\t+----------------------------------+",
             )
 
         # Interrupt execution if no optimal solution could be found
@@ -178,7 +178,7 @@ class MathSolver(BaseAlgorithm):
             or result.solver.status != opt.SolverStatus.ok
         ):
             log.error("Problem can not be solved - aborting.")
-            self.env.env_method("solve_failed", self.model, result)
+            self.get_env().env_method("solve_failed", self.model, result)
             sys.exit(1)
 
         return self.model
@@ -200,10 +200,9 @@ class MathSolver(BaseAlgorithm):
                                    deterministic actions.
         :return: Tuple of the model's action and the next state (not used here).
         """
-        assert self.env is not None, "The MPC agent needs a specific environment to work. Cannot use env = None."
-        self.model, _ = self.env.get_attr("model", 0)[0]
+        self.model, _ = self.get_env().get_attr("model", 0)[0]
         self.solve()
-        self.env.set_attr("model", self.model, 0)
+        self.get_env().set_attr("model", self.model, 0)
 
         # Aggregate the agent actions from pyomo component objects
         solution = {}
@@ -213,7 +212,7 @@ class MathSolver(BaseAlgorithm):
             try:
                 solution[com.name] = pyo.value(com[com.index_set().at(self.action_index + 1)])
             except ValueError:
-                pass
+                log.exception("Couldn't fetch the value for action {}")
 
         # Make sure that actions are returned to the correct order and as a numpy array.
         actions: np.ndarray = np.ndarray((1, len(self.actions_order)))
@@ -232,7 +231,8 @@ class MathSolver(BaseAlgorithm):
         logp: bool = False,
     ) -> None:
         """The MPC approach cannot predict probabilities of single actions."""
-        raise NotImplementedError("The MPC agent cannot predict probabilities of single actions.")
+        msg = "The MPC agent cannot predict probabilities of single actions."
+        raise NotImplementedError(msg)
 
     def learn(
         self,
@@ -243,8 +243,8 @@ class MathSolver(BaseAlgorithm):
         reset_num_timesteps: bool = True,
         progress_bar: bool = False,
     ) -> MathSolver:
-        """The MPC approach cannot learn a new model. Specify the model attribute as a pyomo Concrete model instead,
-        to use the prediction function of this agent.
+        """The MPC approach cannot learn a new model.
+        Specify the model attribute as a pyomo Concrete model instead, to use the prediction function of this agent.
 
         :param total_timesteps: The total number of samples (env steps) to train on
         :param callback: callback(s) called at every step with state of the algorithm.
@@ -254,7 +254,6 @@ class MathSolver(BaseAlgorithm):
         :param progress_bar: Display a progress bar using tqdm and rich.
         :return: The trained model.
         """
-
         return self
 
     @classmethod
@@ -268,8 +267,8 @@ class MathSolver(BaseAlgorithm):
         force_reset: bool = True,
         **kwargs: Any,
     ) -> MathSolver:
-        """
-        Load the model from a zip-file.
+        """Load the model from a zip-file.
+
         Warning: ``load`` re-creates the model from scratch, it does not update it in-place!
 
         :param path: path to the file (or a file-like) where to load the agent from
@@ -285,7 +284,8 @@ class MathSolver(BaseAlgorithm):
         :return: new model instance with loaded parameters
         """
         if env is None:
-            raise ValueError("Parameter env must be specified.")
+            msg = "Parameter env must be specified."
+            raise ValueError(msg)
         model: MathSolver = super().load(path, env, device, custom_objects, print_system_info, force_reset, **kwargs)
 
         return model

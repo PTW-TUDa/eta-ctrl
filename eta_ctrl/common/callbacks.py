@@ -4,10 +4,11 @@ from typing import TYPE_CHECKING
 
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 
-from eta_ctrl.envs import BaseEnv
-
 if TYPE_CHECKING:
     from stable_baselines3.common.type_aliases import MaybeCallback
+
+    from eta_ctrl.envs import BaseEnv
+
 from logging import getLogger
 
 log = getLogger(__name__)
@@ -60,6 +61,7 @@ def merge_callbacks(*args: MaybeCallback) -> CallbackList:
         elif cb is None:
             continue
         else:
-            raise ValueError(f"Invalid callback type: {type(cb)}.")
+            msg = f"Invalid callback type: {type(cb)}."
+            raise ValueError(msg)
 
     return CallbackList(cb_list)

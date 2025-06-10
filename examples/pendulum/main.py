@@ -26,7 +26,7 @@ def conventional(root_path: pathlib.Path, overwrite: dict[str, Any] | None = Non
     :param overwrite: Additional config values to overwrite values from JSON.
     """
     experiment = EtaCtrl(root_path, "config_conventional", overwrite, relpath_config=".")
-    experiment.play("conventional_series", "run1")
+    experiment.play(series_name="conventional_series", run_name="run1")
 
 
 def machine_learning(root_path: pathlib.Path, overwrite: dict[str, Any] | None = None) -> None:
@@ -39,8 +39,8 @@ def machine_learning(root_path: pathlib.Path, overwrite: dict[str, Any] | None =
     # --main--
 
     experiment = EtaCtrl(root_path, "config_learning", overwrite, relpath_config=".")
-    experiment.learn("learning_series", "run1", reset=True)
-    experiment.play("learning_series", "run1")
+    experiment.learn(series_name="learning_series", run_name="run1", reset=True)
+    experiment.play(series_name="learning_series", run_name="run1")
     # --main--
 
 

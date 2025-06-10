@@ -133,7 +133,8 @@ def initialize_model(
     algo_kwargs = {}
     if tensorboard_log:
         if _log_path is None:
-            raise ValueError("If tensorboard logging is enabled, a path for results must be specified as well.")
+            msg = "If tensorboard logging is enabled, a path for results must be specified as well."
+            raise ValueError(msg)
         log.info(f"Tensorboard logging is enabled. Log file: {_log_path}")
         log.info(
             f"Please run the following command in the console to start tensorboard: \n"
@@ -152,7 +153,7 @@ def initialize_model(
         )
 
     # create model instance
-    return algo(policy, envs, **algo_settings, **algo_kwargs)  # type: ignore
+    return algo(policy, envs, **algo_settings, **algo_kwargs)  # type: ignore[arg-type]
 
 
 def load_model(
@@ -179,13 +180,15 @@ def load_model(
     _log_path = log_path if log_path is None or isinstance(log_path, pathlib.Path) else pathlib.Path(log_path)
 
     if not _path_model.exists():
-        raise OSError(f"Model couldn't be loaded. Path not found: {_path_model}")
+        msg = f"Model couldn't be loaded. Path not found: {_path_model}"
+        raise OSError(msg)
 
     # tensorboard logging
     algo_kwargs = {}
     if tensorboard_log:
         if _log_path is None:
-            raise ValueError("If tensorboard logging is enabled, a path for results must be specified as well.")
+            msg = "If tensorboard logging is enabled, a path for results must be specified as well."
+            raise ValueError(msg)
         log.info(f"Tensorboard logging is enabled. Log file: {_log_path}")
         log.info(
             f"Please run the following command in the console to start tensorboard: \n"
@@ -194,10 +197,11 @@ def load_model(
         algo_kwargs = {"tensorboard_log": str(_log_path)}
 
     try:
-        model = algo.load(_path_model, envs, **algo_settings, **algo_kwargs)  # type: ignore
+        model = algo.load(_path_model, envs, **algo_settings, **algo_kwargs)  # type: ignore[arg-type]
         log.debug("Model loaded successfully.")
     except OSError as e:
-        raise OSError(f"Model couldn't be loaded: {e.strerror}. Filename: {e.filename}") from e
+        msg = f"Model couldn't be loaded: {e.strerror}. Filename: {e.filename}"
+        raise OSError(msg) from e
 
     return model
 
@@ -208,14 +212,13 @@ def log_to_file(config: ConfigOpt, config_run: ConfigOptRun) -> None:
     :param config: Configuration to figure out the logging settings.
     :param config_run: Configuration for this optimization run.
     """
-
     file_path = config_run.path_log_output
 
     if config.settings.log_to_file:
         try:
             log_add_filehandler(filename=file_path)
         except Exception:
-            log.error("Log file could not be created.")
+            log.exception("Log file could not be created.")
 
 
 def log_run_info(config: ConfigOpt, config_run: ConfigOptRun) -> None:
@@ -292,7 +295,8 @@ def deserialize_net_arch(
                 else:
                     network.append(process(**_net))
             except TypeError as e:
-                raise TypeError(f"Could not instantiate processing module {process.__name__}: {e}") from e
+                msg = f"Could not instantiate processing module {process.__name__}: {e}"
+                raise TypeError(msg) from e
 
         elif "layer" in net:
             layer = getattr(th.nn, _net.pop("layer"))
@@ -304,16 +308,19 @@ def deserialize_net_arch(
                 else:
                     network.append(layer(**_net))
             except TypeError as e:
-                raise TypeError(f"Could not instantiate layer module {layer.__name__}: {e}") from e
+                msg = f"Could not instantiate layer module {layer.__name__}: {e}"
+                raise TypeError(msg) from e
 
         elif "activation_func" in net:
             activation_func = _net.pop("activation_func")
             try:
                 network.append(getattr(th.nn, activation_func)(**_net))
             except TypeError as e:
-                raise TypeError(f"Could not instantiate activation function module {activation_func}: {e}") from e
+                msg = f"Could not instantiate activation function module {activation_func}: {e}"
+                raise TypeError(msg) from e
         else:
-            raise ValueError(f"Unknown process or layer type: {net}.")
+            msg = f"Unknown process or layer type: {net}."
+            raise ValueError(msg)
 
         _features = dict_get_any(_net, "out_channels", "out_features", fail=False, default=_features)
 

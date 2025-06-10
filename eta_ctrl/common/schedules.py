@@ -15,14 +15,15 @@ class BaseSchedule(ABC):
         :param progress_remaining: Remaining progress, which is calculated in the base class: 1 (start), 0 (end).
         :return: Output value.
         """
-        raise NotImplementedError("You can only instantiate subclasses of BaseSchedule.")
+        msg = "You can only instantiate subclasses of BaseSchedule."
+        raise NotImplementedError(msg)
 
     def __call__(self, progress_remaining: float) -> float:
         """Take the current progress remaining and return the result of self.value."""
         return self.value(progress_remaining)
 
     def __repr__(self) -> str:
-        """Representation of the Schedule
+        """Representation of the Schedule.
 
         :return: String representation.
         """
@@ -38,7 +39,7 @@ class LinearSchedule(BaseSchedule):
     :param final_p: Final output value.
     """
 
-    def __init__(self, initial_p: float, final_p: float):
+    def __init__(self, initial_p: float, final_p: float) -> None:
         self.initial_p = initial_p
         self.final_p = final_p
 

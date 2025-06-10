@@ -13,7 +13,6 @@ import pandas as pd
 from gymnasium import Env
 
 from eta_ctrl import timeseries
-from eta_ctrl.envs.state import StateConfig
 from eta_ctrl.util import csv_export
 
 if TYPE_CHECKING:
@@ -21,6 +20,7 @@ if TYPE_CHECKING:
     from typing import Any
 
     from eta_ctrl.config import ConfigOptRun
+    from eta_ctrl.envs.state import StateConfig
     from eta_ctrl.util.type_annotations import ObservationType, Path, StepResult, TimeStep
 
 
@@ -69,13 +69,13 @@ class BaseEnv(Env, abc.ABC):
     @property
     @abc.abstractmethod
     def version(self) -> str:
-        """Version of the environment"""
+        """Version of the environment."""
         return ""
 
     @property
     @abc.abstractmethod
     def description(self) -> str:
-        """Long description of the environment"""
+        """Long description of the environment."""
         return ""
 
     def __init__(
@@ -161,16 +161,14 @@ class BaseEnv(Env, abc.ABC):
             self.scenario_time_end = datetime.strptime(scenario_time_end, "%Y-%m-%d %H:%M")
         # Check if scenario begin and end times make sense
         if self.scenario_time_begin > self.scenario_time_end:
-            raise ValueError("Start time of the scenario should be smaller than or equal to end time.")
+            msg = "Start time of the scenario should be smaller than or equal to end time."
+            raise ValueError(msg)
 
         #: The time series DataFrame contains all time series scenario data. It can be filled by the
         #: import_scenario method.
         self.timeseries: pd.DataFrame = pd.DataFrame()
         #: Data frame containing the currently valid range of time series data.
         self.ts_current: pd.DataFrame = pd.DataFrame()
-
-        #: Configuration to describe what the environment state looks like.
-        self.state_config: StateConfig | None = None
 
         # Store data logs and log other information
         #: Episode timer (stores the start time of the episode).
@@ -192,8 +190,22 @@ class BaseEnv(Env, abc.ABC):
         #: Number of simulation steps to be taken for each sample. This must be a divisor of 'sampling_time'.
         self.sim_steps_per_sample: int = int(sim_steps_per_sample)
 
+        self._state_config: StateConfig | None = None
+
+    @property
+    def state_config(self) -> StateConfig:
+        """Configuration to describe what the environment state looks like."""
+        if self._state_config is None:
+            msg = "StateConfig must be specified in the environment."
+            raise TypeError(msg)
+        return self._state_config
+
+    @state_config.setter
+    def state_config(self, state_config: StateConfig) -> None:
+        self._state_config = state_config
+
     def import_scenario(self, *scenario_paths: Mapping[str, Any], prefix_renamed: bool = True) -> pd.DataFrame:
-        """Load data from csv into self.timeseries_data by using scenario_from_csv
+        """Load data from csv into self.timeseries_data by using scenario_from_csv.
 
         :param scenario_paths: One or more scenario configuration dictionaries (or a list of dicts), which each contain
             a path for loading data from a scenario file. The dictionary should have the following structure, with <X>
@@ -262,8 +274,6 @@ class BaseEnv(Env, abc.ABC):
 
         :return: Scenario data for current time step.
         """
-        assert self.state_config is not None, "StateConfig must be specified in the environment."
-
         scenario_state = {}
         for scen in self.state_config.scenarios:
             scenario_state[scen] = self.ts_current[self.state_config.map_scenario_ids[scen]].iloc[self.n_steps]
@@ -296,7 +306,8 @@ class BaseEnv(Env, abc.ABC):
               used for logging purposes in the future but typically do not currently serve a purpose.
 
         """
-        raise NotImplementedError("Cannot step an abstract Environment.")
+        msg = "Cannot step an abstract Environment."
+        raise NotImplementedError(msg)
 
     def _actions_valid(self, action: np.ndarray) -> None:
         """Check whether the actions are within the specified action space.
@@ -305,10 +316,11 @@ class BaseEnv(Env, abc.ABC):
         :raise: RuntimeError, when the actions are not inside of the action space.
         """
         if self.action_space.shape is not None and self.action_space.shape != action.shape:
-            raise RuntimeError(
+            msg = (
                 f"Agent action {action} (shape: {action.shape})"
                 f" does not correspond to shape of environment action space (shape: {self.action_space.shape})."
             )
+            raise RuntimeError(msg)
 
     def _create_new_state(self, additional_state: dict[str, float] | None) -> None:
         """Take some initial values and create a new environment state object, stored in self.state.
@@ -322,7 +334,6 @@ class BaseEnv(Env, abc.ABC):
 
         :param actions: Actions taken by the agent.
         """
-        assert self.state_config is not None, "Set state_config before calling _actions_to_state function."
         for idx, act in enumerate(self.state_config.actions):
             self.state[act] = actions[idx]
 
@@ -332,7 +343,6 @@ class BaseEnv(Env, abc.ABC):
 
         :return: Observations for the agent as determined by state_config.
         """
-        assert self.state_config is not None, "Set state_config before calling _observations function."
         return np.array([self.state[name] for name in self.state_config.observations], dtype=np.float64)
 
     def _done(self) -> bool:
@@ -349,7 +359,7 @@ class BaseEnv(Env, abc.ABC):
         seed: int | None = None,
         options: dict[str, Any] | None = None,
     ) -> tuple[ObservationType, dict[str, Any]]:
-        """Resets the environment to an initial internal state, returning an initial observation and info.
+        """Reset the environment to an initial internal state, returning an initial observation and info.
 
         This method generates a new starting state often with some randomness to ensure that the agent explores the
         state space and learns a generalised policy about the environment. This randomness can be controlled
@@ -381,14 +391,11 @@ class BaseEnv(Env, abc.ABC):
         return super().reset(seed=seed, options=options)
 
     def _reduce_state_log(self) -> list[dict[str, float]]:
-        """Removes unwanted parameters from state_log before storing in state_log_longtime
+        """Remove unwanted parameters from state_log before storing in state_log_longtime.
 
         :return: The return value is a list of dictionaries,
          where the parameters that should not be stored were removed
         """
-
-        assert self.state_config is not None, "Set state_config before calling reduced_state_log."
-
         dataframe = pd.DataFrame(self.state_log)
         return dataframe.drop(columns=list(set(dataframe.keys()) - self.state_config.add_to_state_log)).to_dict(
             "records"
@@ -416,11 +423,12 @@ class BaseEnv(Env, abc.ABC):
         """Close the environment. This should always be called when an entire run is finished. It should be used to
         close any resources (i.e. simulation models) used by the environment.
         """
-        raise NotImplementedError("Cannot close an abstract Environment.")
+        msg = "Cannot close an abstract Environment."
+        raise NotImplementedError(msg)
 
     @abc.abstractmethod
     def render(self) -> None:
-        """Render the environment
+        """Render the environment.
 
         The set of supported modes varies per environment. Some environments do not support rendering at
         all. By convention in Farama *gymnasium*, if mode is:
@@ -432,7 +440,8 @@ class BaseEnv(Env, abc.ABC):
               The text can include newlines and ANSI escape sequences (e.g. for colors).
 
         """
-        raise NotImplementedError("Cannot render an abstract Environment.")
+        msg = "Cannot render an abstract Environment."
+        raise NotImplementedError(msg)
 
     @classmethod
     def get_info(cls) -> tuple[str, str]:
@@ -440,7 +449,7 @@ class BaseEnv(Env, abc.ABC):
 
         :return: Tuple of version and description.
         """
-        return cls.version, cls.description  # type: ignore
+        return cls.version, cls.description  # type: ignore[return-value]
 
     def export_state_log(
         self,
@@ -450,7 +459,7 @@ class BaseEnv(Env, abc.ABC):
         sep: str = ";",
         decimal: str = ".",
     ) -> None:
-        """Extension of csv_export to include timeseries on the data
+        """Extension of csv_export to include timeseries on the data.
 
         :param names: Field names used when data is a Matrix without column names.
         :param sep: Separator to use between the fields.

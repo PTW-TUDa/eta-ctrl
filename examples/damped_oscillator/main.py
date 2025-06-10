@@ -28,7 +28,7 @@ def experiment_conventional(root_path: pathlib.Path, overwrite: dict[str, Any] |
     """
     # --main--
     experiment = EtaCtrl(root_path, "config_conventional", overwrite, relpath_config=".")
-    experiment.play("conventional_series", "run1")
+    experiment.play(series_name="conventional_series", run_name="run1")
     # --main--
     return experiment
 
@@ -42,8 +42,8 @@ def experiment_learning(root_path: pathlib.Path, overwrite: dict[str, Any] | Non
     """
     # --main--
     experiment = EtaCtrl(root_path, "config_learning", overwrite, relpath_config=".")
-    experiment.learn("learning_series", "run1")
-    experiment.play("learning_series", "run1")
+    experiment.learn(series_name="learning_series", run_name="run1")
+    experiment.play(series_name="learning_series", run_name="run1")
     # --main--
 
 

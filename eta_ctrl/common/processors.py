@@ -33,7 +33,7 @@ class Split1d(th.nn.ModuleList):
     :param net_arch: List of torch.nn Modules. Each value of this list corresponds to one value of the 'sizes' list.
     """
 
-    def __init__(self, in_features: int, sizes: Sequence[None | int], net_arch: Sequence[th.nn.Module]):
+    def __init__(self, in_features: int, sizes: Sequence[None | int], net_arch: Sequence[th.nn.Module]) -> None:
         super().__init__()
 
         self.sizes = self.get_full_sizes(in_features, sizes)
@@ -41,10 +41,11 @@ class Split1d(th.nn.ModuleList):
 
         # Check that the number of extractor architectures is equal to the  number of sizes specified.
         if len(net_arch) != len(self.sizes):
-            raise ValueError(
+            msg = (
                 f"There must be one extractor architecture (there are {len(net_arch)}) "
                 f"for each split in the data (there are {len(self.sizes)})."
             )
+            raise ValueError(msg)
 
         for net in net_arch:
             self.append(net)
@@ -63,10 +64,11 @@ class Split1d(th.nn.ModuleList):
         :return: Output tensor
         """
         if tensor.shape[1] != self.in_features:
-            raise ValueError(
+            msg = (
                 f"The tensor is shorter ({len(tensor)}) than the number of elements specified "
                 f"for the split process ({self.in_features})"
             )
+            raise ValueError(msg)
 
         tensors = th.split(tensor, self.sizes, dim=1)
         outputs = [self[item](tensor) for item, tensor in enumerate(tensors)]
@@ -84,35 +86,26 @@ class Split1d(th.nn.ModuleList):
         :return: List of sizes without the missing value.
         """
         # Check if the sizes list contains None and sum all elements that are not None.
-        nones = 0
-        none_idx: int = 0
-        _sum = 0
-        for idx, s in enumerate(sizes):
-            if s is None:
-                none_idx = idx
-                nones += 1
-            else:
-                _sum += s
+        none_indices = [idx for idx, val in enumerate(sizes) if val is None]
+        int_sizes = [val for val in sizes if isinstance(val, int)]
+        _sum = sum(int_sizes)
 
-        if nones > 1:
-            raise ValueError(
-                "Please only specify None once in the configuration for the split process. None is where "
-                "all remaining elements will be processed."
+        if len(none_indices) > 1:
+            msg = (
+                "Please only specify None once in the configuration for the split process. "
+                "None is where all remaining elements will be processed."
             )
-        if nones == 1:
-            # mypy does not correctly understand how we are removing None values.
-            _sizes: list[int] = list(sizes)  # type: ignore
-            _sizes[none_idx] = in_features - _sum
-        else:
-            if _sum != in_features:
-                raise ValueError(
-                    f"If None is not specified in the split process configuration, the sum of elements "
-                    f"specified in 'sizes' ({_sum}) must be equal to in_features ({in_features})."
-                )
-            # mypy does not correctly understand how we are removing None values.
-            _sizes = list(sizes)  # type: ignore
+            raise ValueError(msg)
+        if len(none_indices) == 0 and _sum != in_features:
+            msg = (
+                f"If None is not specified in the split process configuration, the sum of elements "
+                f"specified in 'sizes' ({_sum}) must be equal to in_features ({in_features})."
+            )
+            raise ValueError(msg)
 
-        return _sizes
+        int_sizes.insert(none_indices[0], in_features - _sum)
+
+        return int_sizes
 
 
 class Fold1d(th.nn.Module):
@@ -122,7 +115,7 @@ class Fold1d(th.nn.Module):
     :param out_channels: Number of dimensions of the output tensor.
     """
 
-    def __init__(self, out_channels: int):
+    def __init__(self, out_channels: int) -> None:
         super().__init__()
         self.out_channels = out_channels
 

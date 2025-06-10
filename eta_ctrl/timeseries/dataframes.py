@@ -1,5 +1,5 @@
-"""Simple helpers for reading timeseries data from a csv file and getting slices or resampled data. This module
-handles data using pandas dataframe objects.
+"""Simple helpers for reading timeseries data from a csv file and getting slices or resampled data.
+This module handles data using pandas dataframe objects.
 """
 
 from __future__ import annotations
@@ -65,16 +65,16 @@ def df_from_csv(
         infer_datetime_format = infer_datetime_from == "dates"
         conversion_string = time_conversion_str if infer_datetime_from == "string" else None
     elif isinstance(infer_datetime_from, list | tuple):
-        if not len(infer_datetime_from) == 2:
-            raise ValueError(
-                f"Field for date format must be specified in the format ['row', 'col']. Got {infer_datetime_from}"
-            )
+        if len(infer_datetime_from) != 2:
+            msg = f"Field for date format must be specified in the format ['row', 'col']. Got {infer_datetime_from}"
+            raise ValueError(msg)
 
     else:
-        raise ValueError(
+        msg = (
             "infer_datetime_from must be one of 'dates', 'string', or a tuple of ('row', 'col'), "
             f"Got: {infer_datetime_from}"
         )
+        raise TypeError(msg)
 
     # Read names from header and format them such that they can be used easily as dataframe indices.
     # If required by infer_datetime_from also read time format from the file.
@@ -90,10 +90,11 @@ def df_from_csv(
                     conversion_line = first_line
                 conversion_string = "%" + conversion_line[infer_datetime_from[1]].split("%", 1)[1].strip()
         except StopIteration:
-            raise EOFError(
+            msg = (
                 f"The CSV file does not contain the specified date format field {infer_datetime_from}. \n"
                 f"File path: {path}"
-            ) from None
+            )
+            raise EOFError(msg) from None
 
         # Find number of fields, names of fields and a conversion string for time
         length = len(first_line)
@@ -151,7 +152,8 @@ def find_time_slice(
         total_time = timedelta(seconds=total_time) if not isinstance(total_time, timedelta) else total_time
         time_end = time_begin + total_time if time_end is None else time_end
     else:
-        raise ValueError("At least one of time_end and total_time must be specified to fully constrain the interval.")
+        msg = "At least one of time_end and total_time must be specified to fully constrain the interval."
+        raise ValueError(msg)
 
     round_to_interval = (
         round_to_interval.total_seconds() if isinstance(round_to_interval, timedelta) else round_to_interval
@@ -205,16 +207,17 @@ def df_time_slice(
                    random slice of length total_time in the interval between time_begin and time_end.
     :return: Sliced data frame.
     """
-
     slice_begin, slice_end = find_time_slice(time_begin, time_end, total_time, round_to_interval, random)
-    return df[slice_begin:slice_end].copy()  # type: ignore
+    return df[slice_begin:slice_end].copy()  # type: ignore[misc]
 
 
 def df_resample(
     dataframe: pd.DataFrame, *periods_deltas: TimeStep, missing_data: FillMethod | None = None
 ) -> pd.DataFrame:
-    """Resample the time index of a data frame. This method can be used for resampling in multiple different
-    periods with multiple different deltas between single time entries.
+    """Resample the time index of a data frame.
+
+    This method can be used for resampling in multiple different periods
+    with multiple different deltas between single time entries.
 
     :param df: DataFrame for processing.
     :param periods_deltas: If one argument is specified, this will resample the data to the specified interval
@@ -233,7 +236,8 @@ def df_resample(
 
     valid_methods = get_args(FillMethod)
     if missing_data not in valid_methods:
-        raise ValueError(f"Invalid value for 'missing_data': {missing_data}. Valid values are: {valid_methods}")
+        msg = f"Invalid value for 'missing_data': {missing_data}. Valid values are: {valid_methods}"
+        raise ValueError(msg)
 
     interpolation_method = op.methodcaller(missing_data)
 

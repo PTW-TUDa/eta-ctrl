@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING
 
 import torch as th
@@ -10,6 +9,7 @@ from stable_baselines3.common.utils import get_device
 from .common import deserialize_net_arch
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
     from typing import Any
 
     import gymnasium
@@ -36,9 +36,9 @@ class CustomExtractor(BaseFeaturesExtractor):
         *,
         net_arch: Sequence[Mapping[str, Any]],
         device: th.device | str = "auto",
-    ):
+    ) -> None:
         device = get_device(device)
-        network = deserialize_net_arch(net_arch, in_features=observation_space.shape[0], device=device)  # type: ignore
+        network = deserialize_net_arch(net_arch, in_features=observation_space.shape[0], device=device)  # type: ignore[index]
 
         # Check output dimension of the network
         with th.no_grad():

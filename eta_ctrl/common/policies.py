@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import torch as th
 from stable_baselines3.common import policies
 
 if TYPE_CHECKING:
     from typing import Any
+
+    import torch as th
 
 
 class NoPolicy(policies.BasePolicy):
@@ -20,10 +21,11 @@ class NoPolicy(policies.BasePolicy):
         the typical policy functions but is a simple interface that can be used and ignored. There is no need
         to worry about the implementation details of policies.
         """
-        raise NotImplementedError("'NoPolicy' should be used only, when predictions are calculated otherwise.")
+        msg = "'NoPolicy' should be used only, when predictions are calculated otherwise."
+        raise NotImplementedError(msg)
 
     # type ignored because mypy doesn't seem to think the following is equivalent to the super class...
-    def _predict(self, observation: th.Tensor, deterministic: bool = False) -> th.Tensor:  # type: ignore
+    def _predict(self, observation: th.Tensor, deterministic: bool = False) -> th.Tensor:  # type: ignore[override]
         """Get the action according to the policy for a given observation.
 
         Not implemented in NoPolicy.
@@ -32,13 +34,14 @@ class NoPolicy(policies.BasePolicy):
         :param deterministic: Whether to use stochastic or deterministic actions.
         :return: Taken action according to the policy.
         """
-        raise NotImplementedError("'NoPolicy' should be used only, when predictions are calculated otherwise.")
+        msg = "'NoPolicy' should be used only, when predictions are calculated otherwise."
+        raise NotImplementedError(msg)
 
     # type ignored because mypy doesn't seem to think the following is equivalent to the super class...
-    def state_dict(  # type: ignore
+    def state_dict(  # type: ignore[override]
         self, *, destination: dict[str, Any] | None = None, prefix: str = "", keep_vars: bool = False
     ) -> dict[str, Any]:
-        """Returns a dictionary containing a whole state of the module. The dictionary is empty in NoPolicy.
+        """Return a dictionary containing a whole state of the module. The dictionary is empty in NoPolicy.
 
         :param destination: If provided, the state will be updated into the dictionary and the same object returned.
         :param prefix: Prefix added to parameter and buffer names when composing keys in state_dict.
@@ -48,8 +51,8 @@ class NoPolicy(policies.BasePolicy):
         return {}
 
     # type ignored because mypy doesn't seem to think the following is equivalent to the super class...
-    def load_state_dict(self, state_dict: dict[str, Any] | None = None, strict=True) -> None:  # type: ignore
-        """Loads the state dictionary. Since the dictionary is always empty, this method doesn't do anything in
+    def load_state_dict(self, state_dict: dict[str, Any] | None = None, strict: bool = True) -> None:  # type: ignore[override]
+        """Load the state dictionary. Since the dictionary is always empty, this method doesn't do anything in
         NoPolicy.
 
         state_dict (dict): a dict containing parameters and
@@ -58,4 +61,3 @@ class NoPolicy(policies.BasePolicy):
                 in :attr:`state_dict` match the keys returned by this module's
                 :meth:`~torch.nn.Module.state_dict` function. Default: ``True``
         """
-        pass

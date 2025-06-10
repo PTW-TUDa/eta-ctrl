@@ -13,8 +13,9 @@ log = getLogger(__name__)
 
 
 def dict_get_any(dikt: dict[str, Any], *names: str, fail: bool = True, default: Any = None) -> Any:
-    """Get any of the specified items from dictionary, if any are available. The function will return
-    the first value it finds, even if there are multiple matches.
+    """Get any of the specified items from dictionary, if any are available.
+
+    The function will return the first value it finds, even if there are multiple matches.
 
     :param dikt: Dictionary to get values from.
     :param names: Item names to look for.
@@ -30,16 +31,18 @@ def dict_get_any(dikt: dict[str, Any], *names: str, fail: bool = True, default: 
             return dikt[name]
 
     if fail is True:
-        raise KeyError(
+        msg = (
             f"Did not find one of the required keys in the configuration: {names}. Possibly Check the correct spelling"
         )
+        raise KeyError(msg)
     return default
 
 
 def dict_pop_any(dikt: dict[str, Any], *names: str, fail: bool = True, default: Any = None) -> Any:
-    """Pop any of the specified items from dictionary, if any are available. The function will return
-    the first value it finds, even if there are multiple matches. This function removes the found values from the
-    dictionary!
+    """Pop any of the specified items from dictionary, if any are available.
+
+    The function will return the first value it finds, even if there are multiple matches.
+    This function removes the found values from the dictionary!
 
     :param dikt: Dictionary to pop values from.
     :param names: Item names to look for.
@@ -55,13 +58,15 @@ def dict_pop_any(dikt: dict[str, Any], *names: str, fail: bool = True, default: 
             return dikt.pop(name)
 
     if fail is True:
-        raise KeyError(f"Did not find one of the required keys in the configuration: {names}")
+        msg = f"Did not find one of the required keys in the configuration: {names}"
+        raise KeyError(msg)
 
     return default
 
 
 def dict_search(dikt: dict[str, str], val: str) -> str:
-    """Function to get key of _psr_types dictionary, given value.
+    """Get key of _psr_types dictionary, given value.
+
     Raise ValueError in case of value not specified in data.
 
     :param val: value to search
@@ -71,7 +76,8 @@ def dict_search(dikt: dict[str, str], val: str) -> str:
     for key, value in dikt.items():
         if val == value:
             return key
-    raise ValueError(f"Value: {val} not specified in specified dictionary")
+    msg = f"Value: {val} not specified in specified dictionary"
+    raise ValueError(msg)
 
 
 def deep_mapping_update(

@@ -87,18 +87,12 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                 prediction_scope if not isinstance(prediction_scope, timedelta) else prediction_scope.total_seconds()
             )
 
-        errors = False
         if self.prediction_scope % self.sampling_time != 0:
-            log.error(
+            msg = (
                 "The sampling_time must fit evenly into the prediction_scope "
                 "(prediction_scope % sampling_time must equal 0)."
             )
-            errors = True
-
-        if errors:
-            raise ValueError(
-                "Some configuration parameters do not conform to the MPC environment requirements (see log)."
-            )
+            raise ValueError(msg)
 
         # Make some more settings easily accessible
         #: Number of steps in the prediction (prediction_scope/sampling_time).
@@ -144,11 +138,12 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         if self._concrete_model is None:
             self._concrete_model = self._model()
 
-        if self.state_config is None:
-            _vars = []
-            for com in self._concrete_model.component_objects(pyo.Var):
-                if not isinstance(com, pyo.ScalarVar):
-                    _vars.append(StateVar(com.name, is_agent_action=True))
+        if self._state_config is None:
+            _vars = [
+                StateVar(com.name, is_agent_action=True)
+                for com in self._concrete_model.component_objects(pyo.Var)
+                if not isinstance(com, pyo.ScalarVar)
+            ]
 
             self.state_config = StateConfig(*_vars)
 
@@ -161,7 +156,8 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         :param value: The pyomo.ConcreteModel object which should be used as the model.
         """
         if not isinstance(value, pyo.ConcreteModel):
-            raise TypeError("The model attribute can only be set with a pyomo concrete model.")
+            msg = "The model attribute can only be set with a pyomo concrete model."
+            raise TypeError(msg)
         self._concrete_model = value
 
     @abc.abstractmethod
@@ -170,7 +166,8 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
         :return: Abstract pyomo model.
         """
-        raise NotImplementedError("The abstract MPC environment does not implement a model.")
+        msg = "The abstract MPC environment does not implement a model."
+        raise NotImplementedError(msg)
 
     def step(self, action: np.ndarray) -> StepResult:
         """Perform one time step and return its results. This is called for every event or for every time step during
@@ -204,13 +201,6 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         """
         self._actions_valid(action)
 
-        assert self.state_config is not None, "Set state_config before calling step function."
-        assert self._concrete_model is not None, (
-            "Access the 'model' attribute or call reset at least once before "
-            "trying to use the environment. This initializes the model and "
-            "should be done automatically when using the MathSolver agent."
-        )
-
         observations = self.update()
 
         # Update and log current state
@@ -221,7 +211,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             self.state[obs] = observations[idx]
         self.state_log.append(self.state)
 
-        reward = pyo.value(next(self._concrete_model.component_objects(pyo.Objective)))
+        reward = pyo.value(next(self.model[0].component_objects(pyo.Objective)))
 
         # Render the environment at each step
         if self.render_mode is not None:
@@ -235,13 +225,6 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         :param observations: Observations from another environment.
         :return: Full array of current observations.
         """
-        assert self.state_config is not None, "Set state_config before calling update function."
-        assert self._concrete_model is not None, (
-            "Access the 'model' attribute or call reset at least once before "
-            "trying to use the environment. This initializes the model and "
-            "should be done automatically when using the MathSolver agent."
-        )
-
         # Update shift counter for rolling MPC approach
         self.n_steps += 1
 
@@ -292,7 +275,9 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         return_obs = []  # Array for all current observations
         for var_name in self.state_config.observations:
             settings = self.state_config.vars[var_name]
-            assert isinstance(settings.interact_id, int), "The interact_id value for observations must be an integer."
+            if not isinstance(settings.interact_id, int):
+                msg = "The interact_id value for observations must be an integer."
+                raise TypeError(msg)
             value = None
 
             # Read values from external environment (for example simulation)
@@ -305,7 +290,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                 return_obs.append(value)
             else:
                 # Read additional values from the mathematical model
-                for component in self._concrete_model.component_objects():
+                for component in self.model[0].component_objects():
                     if component.name == var_name:
                         # Get value for the component from specified index
                         value = round(pyo.value(component[list(component.keys())[int(settings.index)]]), 5)
@@ -332,8 +317,8 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         self.model = model
         try:
             self.render()
-        except Exception as e:
-            log.error(f"Rendering partial results failed: {e!s}")
+        except Exception:
+            log.exception("Rendering partial results failed")
         self.reset()
 
     def reset(
@@ -342,7 +327,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         seed: int | None = None,
         options: dict[str, Any] | None = None,
     ) -> tuple[np.ndarray, dict[str, Any]]:
-        """Resets the environment to an initial internal state, returning an initial observation and info.
+        """Reset the environment to an initial internal state, returning an initial observation and info.
 
         This method generates a new starting state often with some randomness to ensure that the agent explores the
         state space and learns a generalised policy about the environment. This randomness can be controlled
@@ -369,14 +354,10 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                 :meth:`step`. Info is a dictionary containing auxiliary information complementing ``observation``. It
                 should be analogous to the ``info`` returned by :meth:`step`.
         """
-        assert self.state_config is not None, "Set state_config before calling update function."
-
         if self.n_steps > 0:
-            self._concrete_model = self._model()
+            self.model = self._model()
 
         super().reset(seed=seed, options=options)
-
-        assert self._concrete_model is not None, "Mathematical model is not initialized. Call reset another time."
 
         # Initialize state with the initial observation
         self.state = {} if self.additional_state is None else self.additional_state
@@ -384,7 +365,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         for var_name in self.state_config.observations:
             # Try getting the first value from initialized variables. Use the configured low_value from state_config
             # for all others.
-            obs_val = self.pyo_get_component_value(self._concrete_model.component(var_name), allow_stale=True)
+            obs_val = self.pyo_get_component_value(self.model[0].component(var_name), allow_stale=True)
             obs_val = obs_val if obs_val is not None else 0
             observations.append(obs_val)
             self.state[var_name] = obs_val
@@ -406,7 +387,6 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
 
         Default behavior for the MPC environment is to do nothing.
         """
-        pass
 
     def pyo_component_params(
         self,
@@ -493,7 +473,8 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             if _index is not None and values is not None:
                 cts = dict(zip(_index, values, strict=False))
             elif _index is not None and values is None:
-                raise ValueError("Unsupported timeseries type for index conversion.")
+                msg = "Unsupported timeseries type for index conversion."
+                raise ValueError(msg)
 
             return cts
 
@@ -534,7 +515,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         updated_params: MutableMapping[str | None, Any],
         nonindex_param_append_string: str | None = None,
     ) -> None:
-        """Updates model parameters and indexed parameters of a pyomo instance with values given in a dictionary.
+        """Update model parameters and indexed parameters of a pyomo instance with values given in a dictionary.
         It assumes that the dictionary supplied in updated_params has the correct pyomo format.
 
         :param updated_params: Dictionary with the updated values.
@@ -542,17 +523,11 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
             be used if indexed parameters need to be set with values that do not have an index.
         :return: Updated model instance.
         """
-        assert self._concrete_model is not None, (
-            "Access the 'model' attribute or call reset at least once before "
-            "trying to use the environment. This initializes the model and "
-            "should be done automatically when using the MathSolver agent."
-        )
-
         # append string to non indexed values that are used to set indexed parameters.
         if nonindex_param_append_string is not None:
             original_indices = set(updated_params.keys()).copy()
             for param in original_indices:
-                component = self._concrete_model.component(param)
+                component = self.model[0].component(param)
                 if (
                     component is not None
                     and (component.is_indexed() or isinstance(component, pyo.Set | pyo.RangeSet))
@@ -561,7 +536,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
                     updated_params[str(param) + nonindex_param_append_string] = updated_params[param]
                     del updated_params[param]
 
-        for parameter in self._concrete_model.component_objects():
+        for parameter in self.model[0].component_objects():
             parameter_name = str(parameter)
             if parameter_name not in updated_params:
                 # last entry is the parameter name for abstract models which are instanced
@@ -588,14 +563,9 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         :return: Dictionary of {parameter name: value} pairs. Value may be a dictionary of {time: value} pairs which
                  contains one value for each optimization time step.
         """
-        assert self._concrete_model is not None, (
-            "Access the 'model' attribute or call reset at least once before "
-            "trying to use the environment. This initializes the model and "
-            "should be done automatically when using the MathSolver agent."
-        )
         solution = {}
 
-        for com in self._concrete_model.component_objects():
+        for com in self.model[0].component_objects():
             if com.ctype not in {pyo.Var, pyo.Param, pyo.Objective}:
                 continue
             if names is not None and com.name not in names:
@@ -621,16 +591,14 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
         return solution
 
     def pyo_get_component_value(
-        self, component: pyo.Component, at: int = 1, allow_stale: bool = False
+        self, component: pyo.Component, *, at: int = 1, allow_stale: bool = False
     ) -> float | int | None:
-        assert self.state_config is not None, "Can only get component values after state_config is loaded."
         if allow_stale and (
-            (hasattr(component, "stale") and component.stale)
-            or (hasattr(component, "_value") and component._value is component.NoValue)
+            (getattr(component, "stale", None)) or (getattr(component, "value", None) is component.NoValue)
         ):
             return self.state_config.vars[component.name].low_value
 
-        if isinstance(component, pyo.Set | pyo.RangeSet):
+        if isinstance(component, pyo.Var | pyo.RangeSet):
             val = round(pyo.value(component.at(at)), 5)
         elif component.is_indexed() and (
             not hasattr(component, "stale") or (hasattr(component, "stale") and not component.stale)

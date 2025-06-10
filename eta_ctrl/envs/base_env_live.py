@@ -4,7 +4,6 @@ import abc
 from logging import getLogger
 from typing import TYPE_CHECKING
 
-import numpy as np
 from eta_nexus.connections import LiveConnect
 
 from eta_ctrl.envs import BaseEnv
@@ -13,6 +12,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
     from datetime import datetime
     from typing import Any
+
+    import numpy as np
 
     from eta_ctrl.config import ConfigOptRun
     from eta_ctrl.util.type_annotations import ObservationType, Path, StepResult, TimeStep
@@ -41,7 +42,7 @@ class BaseEnvLive(BaseEnv, abc.ABC):
     @property
     @abc.abstractmethod
     def config_name(self) -> str:
-        """Name of the live_connect configuration"""
+        """Name of the live_connect configuration."""
         return ""
 
     def __init__(
@@ -90,9 +91,9 @@ class BaseEnvLive(BaseEnv, abc.ABC):
         _files = self.live_connect_config if files is None else files
         self.live_connect_config = _files
 
-        assert _files is not None, (
-            "Configuration files or a dictionary must be specified before the connector can be initialized."
-        )
+        if _files is None:
+            msg = "Configuration files or a dictionary must be specified before the connector can be initialized."
+            raise TypeError(msg)
 
         if isinstance(_files, dict):
             self.live_connector = LiveConnect.from_dict(
@@ -136,8 +137,6 @@ class BaseEnvLive(BaseEnv, abc.ABC):
         """
         self._actions_valid(action)
 
-        assert self.state_config is not None, "Set state_config before calling step function."
-
         self.n_steps += 1
         self._create_new_state(self.additional_state)
 
@@ -175,7 +174,7 @@ class BaseEnvLive(BaseEnv, abc.ABC):
         seed: int | None = None,
         options: dict[str, Any] | None = None,
     ) -> tuple[ObservationType, dict[str, Any]]:
-        """Resets the environment to an initial internal state, returning an initial observation and info.
+        """Reset the environment to an initial internal state, returning an initial observation and info.
 
         This method generates a new starting state often with some randomness to ensure that the agent explores the
         state space and learns a generalised policy about the environment. This randomness can be controlled
@@ -202,8 +201,6 @@ class BaseEnvLive(BaseEnv, abc.ABC):
                 :meth:`step`. Info is a dictionary containing auxiliary information complementing ``observation``. It
                 should be analogous to the ``info`` returned by :meth:`step`.
         """
-        assert self.state_config is not None, "Set state_config before calling reset function."
-
         super().reset(seed=seed, options=options)
         self._init_live_connector()
 
@@ -211,9 +208,7 @@ class BaseEnvLive(BaseEnv, abc.ABC):
         self.state = {} if self.additional_state is None else self.additional_state
 
         # Update scenario data, read out the start conditions from opc ua server and store the results
-        start_obs = []
-        for name in self.state_config.ext_outputs:
-            start_obs.append(str(self.state_config.map_ext_ids[name]))
+        start_obs = [str(self.state_config.map_ext_ids[name] for name in self.state_config.ext_outputs)]
 
         # Read out and store start conditions
         results = self.live_connector.read(*start_obs)
