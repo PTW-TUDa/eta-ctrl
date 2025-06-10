@@ -54,7 +54,7 @@ class DampedOscillatorEnv(BaseEnvSim):
         scale_actions: bool = False,
         render_mode: str | None = None,
         **kwargs: Any,
-    ):
+    ) -> None:
         super().__init__(
             env_id,
             config_run,

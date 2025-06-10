@@ -2,7 +2,7 @@ import logging
 import shutil
 from datetime import timedelta
 
-import matplotlib
+import matplotlib as mpl
 import pandas as pd
 import pytest
 
@@ -27,7 +27,7 @@ class TestStateLog:
 
     @pytest.fixture(scope="class")
     def damped_oscillator_eta(self, experiment_path):
-        matplotlib.use("Agg")  # Prevents GUI from opening
+        mpl.use("Agg")  # Prevents GUI from opening
         return ex_oscillator(experiment_path, {"settings": {"log_to_file": False}})
 
     def test_export_state_log(self, damped_oscillator_eta, results_path):

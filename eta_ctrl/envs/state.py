@@ -38,56 +38,56 @@ class StateVar:
     #: Name of the state variable (This must always be specified).
     name: str = field(validator=validators.instance_of(str))
     #: Should the agent specify actions for this variable? (default: False).
-    is_agent_action: bool = _default_field(False)
+    is_agent_action: bool = _default_field(default=False)
     #: Should the agent be allowed to observe the value of this variable? (default: False).
-    is_agent_observation: bool = _default_field(False)
+    is_agent_observation: bool = _default_field(default=False)
 
     #: Should the state log of this episode be added to state_log_longtime? (default: True).
-    add_to_state_log: bool = _default_field(True)
+    add_to_state_log: bool = _default_field(default=True)
 
     #: Name or identifier (order) of the variable in the external interaction model
     #: (e.g.: environment or FMU) (default: StateVar.name if (is_ext_input or is_ext_output) else None).
-    ext_id: str | None = _id_field(str)
+    ext_id: str | None = _id_field(dtype=str)
 
     #: Should this variable be passed to the external model as an input? (default: False).
-    is_ext_input: bool = _default_field(False)
+    is_ext_input: bool = _default_field(default=False)
     #: Should this variable be parsed from the external model output? (default: False).
-    is_ext_output: bool = _default_field(False)
+    is_ext_output: bool = _default_field(default=False)
     #: Value to add to the output from an external model (default: 0.0).
-    ext_scale_add: float = _default_field(0.0)
+    ext_scale_add: float = _default_field(default=0.0)
     #: Value to multiply to the output from an external model (default: 1.0).
-    ext_scale_mult: float = _default_field(1.0)
+    ext_scale_mult: float = _default_field(default=1.0)
 
     #: Name or identifier (order) of the variable in an interaction environment (default: None).
-    interact_id: int | None = _id_field(int)
+    interact_id: int | None = _id_field(dtype=int)
     #: Should this variable be read from the interaction environment? (default: False).
-    from_interact: bool = _default_field(False)
+    from_interact: bool = _default_field(default=False)
     #: Value to add to the value read from an interaction (default: 0.0).
-    interact_scale_add: float = _default_field(0.0)
+    interact_scale_add: float = _default_field(default=0.0)
     #: Value to multiply to the value read from  an interaction (default: 1.0).
-    interact_scale_mult: float = _default_field(1.0)
+    interact_scale_mult: float = _default_field(default=1.0)
 
     #: Name of the scenario variable, this value should be read from (default: None).
-    scenario_id: str | None = _id_field(str)
+    scenario_id: str | None = _id_field(dtype=str)
     #: Should this variable be read from imported timeseries date? (default: False).
-    from_scenario: bool = _default_field(False)
+    from_scenario: bool = _default_field(default=False)
     #: Value to add to the value read from a scenario file (default: 0.0).
-    scenario_scale_add: float = _default_field(0.0)
+    scenario_scale_add: float = _default_field(default=0.0)
     #: Value to multiply to the value read from a scenario file (default: 1.0).
-    scenario_scale_mult: float = _default_field(1.0)
+    scenario_scale_mult: float = _default_field(default=1.0)
 
     #: Lowest possible value of the state variable (default: -np.inf).
-    low_value: float = _default_field(-np.inf)
+    low_value: float = _default_field(default=-np.inf)
     #: Highest possible value of the state variable (default: np.inf).
-    high_value: float = _default_field(np.inf)
+    high_value: float = _default_field(default=np.inf)
     #: If the value of the variable dips below this, the episode should be aborted (default: -np.inf).
-    abort_condition_min: float = _default_field(-np.inf)
+    abort_condition_min: float = _default_field(default=-np.inf)
     #: If the value of the variable rises above this, the episode should be aborted (default: np.inf).
-    abort_condition_max: float = _default_field(np.inf)
+    abort_condition_max: float = _default_field(default=np.inf)
 
     #: Determine the index, where to look (useful for mathematical optimization, where multiple time steps could be
     #: returned). In this case, the index values might be different for actions and observations.
-    index: int = _default_field(0)
+    index: int = _default_field(default=0)
 
     def __attrs_post_init__(self) -> None:
         if (self.is_ext_input or self.is_ext_output) and self.ext_id is None:
@@ -95,9 +95,11 @@ class StateVar:
             log.info(f"Using name as ext_id for variable {self.name}")
 
         if (not self.from_interact) ^ (self.interact_id is None):
-            raise KeyError(f"Variable {self.name} is either missing `interact_id` or `from_interact`.")
+            msg = f"Variable {self.name} is either missing `interact_id` or `from_interact`."
+            raise KeyError(msg)
         if (not self.from_scenario) ^ (self.scenario_id is None):
-            raise KeyError(f"Variable {self.name} is either missing `scenario_id` or `from_scenario`.")
+            msg = f"Variable {self.name} is either missing `scenario_id` or `from_scenario`."
+            raise KeyError(msg)
 
     @classmethod
     def from_dict(cls, mapping: Mapping[str, Any] | pd.Series) -> StateVar:
@@ -182,7 +184,7 @@ class StateConfig:
 
     @classmethod
     def from_dict(cls, mapping: Sequence[Mapping[str, Any]] | pd.DataFrame) -> StateConfig:
-        """This will convert a potentially incomplete StateConfig DataFrame or a list of dictionaries to the
+        """Convert a potentially incomplete StateConfig DataFrame or a list of dictionaries to the
         standardized StateConfig format. This will ignore any additional columns.
 
         :param mapping: Mapping to be converted to the StateConfig format.
@@ -212,7 +214,6 @@ class StateConfig:
         :param state: The state array to check for conformance.
         :return: Result of the check (False if the state does not conform to the required conditions).
         """
-
         valid_min = all(state[name] >= self.vars[name].abort_condition_min for name in state)
         if not valid_min:
             log.warning("Minimum abort condition exceeded by at least one value.")

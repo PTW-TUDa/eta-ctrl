@@ -1,12 +1,9 @@
 from __future__ import annotations
 
 import pathlib
-from datetime import datetime
 from functools import partial
 from logging import getLogger
 from typing import TYPE_CHECKING
-
-import numpy as np
 
 from eta_ctrl.envs import BaseEnv
 from eta_ctrl.util.julia_utils import check_julia_package
@@ -18,8 +15,11 @@ if check_julia_package():
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from datetime import datetime
     from types import ModuleType
     from typing import Any
+
+    import numpy as np
 
     from eta_ctrl.config import ConfigOptRun
     from eta_ctrl.util.type_annotations import StepResult, TimeStep
@@ -118,9 +118,8 @@ class JuliaEnv(BaseEnv):
         # Make sure that all required functions are implemented in julia.
         for func in ("Environment", "step!", "reset!", "close!", "render", "first_update!", "update!"):
             if not hasattr(self.__jl, func):
-                raise NotImplementedError(
-                    f"Implementation of abstract method {func} missing from julia implementation of JuliaEnv."
-                )
+                msg = f"Implementation of abstract method {func} missing from julia implementation of JuliaEnv."
+                raise NotImplementedError(msg)
 
         #: Initialized julia environment (written in julia).
         self._jlenv = self.__jl.Environment(self)
@@ -179,7 +178,7 @@ class JuliaEnv(BaseEnv):
         return observations, reward, terminated, truncated, info
 
     def _reduce_state_log(self) -> list[dict[str, float]]:
-        """Removes unwanted parameters from state_log before storing in state_log_longtime
+        """Remove unwanted parameters from state_log before storing in state_log_longtime.
 
         :return: The return value is a list of dictionaries, where the parameters that
                  should not be stored were removed
@@ -192,7 +191,7 @@ class JuliaEnv(BaseEnv):
         seed: int | None = None,
         options: dict[str, Any] | None = None,
     ) -> tuple[np.ndarray, dict[str, Any]]:
-        """Resets the environment to an initial internal state, returning an initial observation and info.
+        """Reset the environment to an initial internal state, returning an initial observation and info.
 
         This method generates a new starting state often with some randomness to ensure that the agent explores the
         state space and learns a generalised policy about the environment. This randomness can be controlled
@@ -234,7 +233,7 @@ class JuliaEnv(BaseEnv):
         return self.__jl.close_b(self._jlenv)
 
     def render(self, **kwargs: Any) -> None:
-        """Render the environment
+        """Render the environment.
 
         The set of supported modes varies per environment. Some environments do not support rendering at
         all. By convention in Farama *gymnasium*, if mode is:
@@ -259,15 +258,16 @@ class JuliaEnv(BaseEnv):
         if "_jlenv" in self.__dict__:
             try:
                 return getattr(self._jlenv, name)
-            except Exception:
+            except AttributeError:
                 pass
 
             try:
                 return partial(getattr(self.__jl, name), self._jlenv)
-            except Exception:
+            except AttributeError:
                 pass
 
-        raise AttributeError(f"Could not get {name} from python or julia environment.")
+        msg = f"Could not get {name} from python or julia environment."
+        raise AttributeError(msg)
 
     def __setattr__(self, name: str, value: Any) -> None:
         # Try to set on _jlenv
@@ -275,7 +275,8 @@ class JuliaEnv(BaseEnv):
             try:
                 jl_setattribute(self._jlenv, name, value)
             except BaseException as e:
-                raise AttributeError(f"Could not set {name} on julia environment: {e}") from e
+                msg = f"Could not set {name} on julia environment: {e}"
+                raise AttributeError(msg) from e
 
         # Otherwise set on the python environment.
         super().__setattr__(name, value)

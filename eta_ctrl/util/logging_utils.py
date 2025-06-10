@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import io
 import logging
 import pathlib
 import sys
+import warnings
 from datetime import datetime
 from logging import getLogger
 from typing import TYPE_CHECKING
@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from dateutil import tz
 
 if TYPE_CHECKING:
+    import io
     from typing import Any
 
     from eta_ctrl.util.type_annotations import Path
@@ -28,6 +29,7 @@ LOG_FORMATS = {
 
 
 def get_logger(
+    name: str | None = None,  # for legacy reasons
     level: int = 10,
     log_format: str = "simple",
 ) -> logging.Logger:
@@ -44,6 +46,12 @@ def get_logger(
     :param log_format: Format of the log output. One of: simple, logname, time. (default: simple).
     :return: The *eta_ctrl* logger.
     """
+    if name is not None:
+        warnings.warn(
+            "The 'name' argument is deprecated and will be removed in future versions.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     # Main logger
     log = logging.getLogger(LOG_PREFIX)

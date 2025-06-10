@@ -8,9 +8,12 @@ import numpy as np
 try:
     import pygame  # noqa: F401
 except ModuleNotFoundError:
-    raise ModuleNotFoundError(
+    msg = (
         "For the PendulumEnv example, the pygame module is required. Install eta_ctrl with the "
-        "[examples] option to get all packages required for running examples.",
+        "[examples] option to get all packages required for running examples."
+    )
+    raise ModuleNotFoundError(
+        msg,
         name="pygame",
     ) from None
 else:
@@ -78,7 +81,7 @@ class PendulumEnv(BaseEnv, GymPendulum):
         do_render: bool = True,
         screen_dim: int = 500,
         render_mode: str = "human",
-    ):
+    ) -> None:
         super().__init__(
             env_id,
             config_run,
@@ -222,7 +225,7 @@ class PendulumEnv(BaseEnv, GymPendulum):
         if self.do_render:
             state = self.state.copy()
             self.state = (
-                [self.state["th"], self.state["th_dot"]] if not isinstance(state, np.ndarray) else state  # type: ignore
+                [self.state["th"], self.state["th_dot"]] if not isinstance(state, np.ndarray) else state  # type: ignore[unreachable, assignment]
             )
             GymPendulum.last_u = self.last_u
             GymPendulum.render(self)

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import pathlib
 from contextlib import contextmanager
 from datetime import datetime
@@ -25,6 +24,7 @@ from eta_ctrl.common import (
 from eta_ctrl.config import ConfigOpt, ConfigOptRun
 
 if TYPE_CHECKING:
+    import os
     from collections.abc import Generator, Mapping
     from typing import Any
 
@@ -65,32 +65,51 @@ class EtaCtrl:
         self.config_run: ConfigOptRun | None = None
 
         #: The vectorized environments.
-        self.environments: VecEnv | VecNormalize | None = None
+        self._environments: VecEnv | VecNormalize | None = None
         #: Vectorized interaction environments.
         self.interaction_env: VecEnv | None = None
         #: The model or algorithm.
-        self.model: BaseAlgorithm | None = None
+        self._model: BaseAlgorithm | None = None
+
+    @property
+    def environments(self) -> VecEnv | VecNormalize:
+        if self._environments is None:
+            msg = "Initialized environments could not be found. Call prepare_environments first."
+            raise TypeError(msg)
+        return self._environments
+
+    @environments.setter
+    def environments(self, environments: VecEnv | VecNormalize) -> None:
+        self._environments = environments
+
+    @property
+    def model(self) -> BaseAlgorithm:
+        if self._model is None:
+            msg = "Initialized model could not be found. Call prepare_environments first."
+            raise TypeError(msg)
+        return self._model
+
+    @model.setter
+    def model(self, model: BaseAlgorithm) -> None:
+        self._model = model
 
     @contextmanager
     def prepare_environments_models(
         self,
+        *,
         series_name: str | None,
         run_name: str | None,
         run_description: str = "",
         reset: bool = False,
         training: bool = False,
     ) -> Generator:
-        if is_env_closed(self.environments) or self.model is None:
+        if is_env_closed(self._environments) or self._model is None:
             _series_name = series_name if series_name is not None else ""
             _run_name = run_name if run_name is not None else ""
             self.prepare_run(_series_name, _run_name, run_description)
 
-        with self.prepare_environments(training):
-            assert self.environments is not None, (
-                "Initialized environments could not be found. Call prepare_environments first."
-            )
-
-            self.prepare_model(reset)
+        with self.prepare_environments(training=training):
+            self.prepare_model(reset=reset)
             yield
 
     def prepare_run(self, series_name: str, run_name: str, run_description: str = "") -> None:
@@ -115,24 +134,21 @@ class EtaCtrl:
 
         log.info("Run prepared successfully.")
 
-    def prepare_model(self, reset: bool = False) -> None:
+    def prepare_model(self, *, reset: bool = False) -> None:
         """Check for existing model and load it or back it up and create a new model.
 
         :param reset: Flag to determine whether an existing model should be reset.
         """
         self._prepare_model(reset=reset)
 
-    def _prepare_model(self, reset: bool = False) -> None:
+    def _prepare_model(self, *, reset: bool = False) -> None:
         """Check for existing model and load it or back it up and create a new model.
 
         :param reset: Flag to determine whether an existing model should be reset.
         """
-        assert self.config_run is not None, (
-            "Set the config_run attribute before trying to initialize the model (for example by calling prepare_run)."
-        )
-        assert self.environments is not None, (
-            "Initialize the environments before trying to initialize the model(for example by calling prepare_run)."
-        )
+        if self.config_run is None:
+            msg = "Set the config_run attribute before trying to initialize the model (e.g. by calling prepare_run)."
+            raise ValueError(msg)
 
         path_model = self.config_run.path_run_model
         if path_model.is_file() and reset:
@@ -166,7 +182,7 @@ class EtaCtrl:
         )
 
     @contextmanager
-    def prepare_environments(self, training: bool = True) -> Generator:
+    def prepare_environments(self, *, training: bool = True) -> Generator:
         """Context manager which prepares the environments and closes them after it exits.
 
         :param training: Should preparation be done for training (alternative: playing)?
@@ -186,15 +202,14 @@ class EtaCtrl:
             self.config.settings.n_environments = self.config.settings.agent["population"]
 
         try:
-            self._prepare_environments(training)
+            self._prepare_environments(training=training)
             yield
         finally:
-            # close all environments when done (kill processes)
-            if self.environments is not None:
+            try:
                 log.debug("Closing environments.")
                 self.environments.close()
-            else:
-                log.error("Environment initialization failed.")
+            except TypeError:
+                log.exception("Environment initialization failed.")
 
             if self.config.settings.interact_with_env:
                 if self.interaction_env is not None:
@@ -203,7 +218,7 @@ class EtaCtrl:
                 else:
                     log.error("Interaction environment initialization failed.")
 
-    def _prepare_environments(self, training: bool = True) -> None:
+    def _prepare_environments(self, *, training: bool = True) -> None:
         """Vectorize and prepare the environments and potentially the interaction environments.
 
         :param training: Should preparation be done for training (alternative: playing)?
@@ -222,10 +237,9 @@ class EtaCtrl:
                 )
             self.config.settings.n_environments = self.config.settings.agent["population"]
 
-        assert self.config_run is not None, (
-            "Set the config_run attribute before trying to initialize the environments "
-            "(for example by calling prepare_run)."
-        )
+        if self.config_run is None:
+            msg = "Set the config_run attribute before trying to initialize the model (e.g. by calling prepare_run)."
+            raise ValueError(msg)
 
         env_class = self.config.setup.environment_class
         self.config_run.set_env_info(env_class)
@@ -249,13 +263,11 @@ class EtaCtrl:
         if self.config.settings.interact_with_env:
             # Perform some checks to ensure the interaction environment is configured correctly.
             if self.config.setup.interaction_env_class is None:
-                raise ValueError(
-                    "If 'interact_with_env' is specified, an interaction env class must be specified as well."
-                )
+                msg = "If 'interact_with_env' is specified, an interaction env class must be specified as well."
+                raise ValueError(msg)
             if self.config.settings.interaction_env is None:
-                raise ValueError(
-                    "If 'interact_with_env' is specified, the interaction_env settings must be specified as well."
-                )
+                msg = "If 'interact_with_env' is specified, the interaction_env settings must be specified as well."
+                raise ValueError(msg)
             interaction_env_class = self.config.setup.interaction_env_class
             self.config_run.set_interaction_env_info(interaction_env_class)
 
@@ -271,6 +283,7 @@ class EtaCtrl:
 
     def learn(
         self,
+        *,
         series_name: str | None = None,
         run_name: str | None = None,
         run_description: str = "",
@@ -286,12 +299,14 @@ class EtaCtrl:
                            model exists and reset is false.
         :param callbacks: Provide additional callbacks to send to the model.learn() call.
         """
-        with self.prepare_environments_models(series_name, run_name, run_description, reset, training=True):
-            assert self.config_run is not None, "Run configuration could not be found. Call prepare_run first."
-            assert self.environments is not None, (
-                "Initialized environments could not be found. Call prepare_environments first."
-            )
-            assert self.model is not None, "Initialized model could not be found. Call prepare_model first."
+        with self.prepare_environments_models(
+            series_name=series_name, run_name=run_name, run_description=run_description, reset=reset, training=True
+        ):
+            if self.config_run is None:
+                msg = (
+                    "Set the config_run attribute before trying to initialize the model (e.g. by calling prepare_run)."
+                )
+                raise ValueError(msg)
 
             # Log some information about the model and configuration
             log_net_arch(self.model, self.config_run)
@@ -303,12 +318,9 @@ class EtaCtrl:
                 total_timesteps = self.config.settings.agent["n_generations"]
             else:
                 # Check if all required config values are present
-                if self.config.settings.episode_duration is None:
-                    raise ValueError("Missing configuration values for learning: 'episode_duration'.")
-                if self.config.settings.sampling_time is None:
-                    raise ValueError("Missing configuration values for learning: 'sampling_time'.")
                 if self.config.settings.n_episodes_learn is None:
-                    raise ValueError("Missing configuration values for learning: 'n_episodes_learn'.")
+                    msg = "Missing configuration values for learning: 'n_episodes_learn'."
+                    raise ValueError(msg)
 
                 # define callback for periodically saving models
                 save_freq = int(
@@ -352,7 +364,8 @@ class EtaCtrl:
                 log.debug("Resetting environment one more time to call environment callback one last time.")
                 self.environments.reset()
             except ValueError as e:
-                raise ValueError("An error occurred when the environment is resetting.") from e
+                msg = "An error occurred when the environment is resetting."
+                raise ValueError(msg) from e
 
             # Save model
             log.debug(f"Saving model to file: {self.config_run.path_run_model}.")
@@ -363,22 +376,25 @@ class EtaCtrl:
 
         log.info(f"Learning finished: {series_name} / {run_name}")
 
-    def play(self, series_name: str | None = None, run_name: str | None = None, run_description: str = "") -> None:
+    def play(self, *, series_name: str | None = None, run_name: str | None = None, run_description: str = "") -> None:
         """Play with previously learned agent model in environment.
 
         :param series_name: Name for a series of runs.
         :param run_name: Name for a specific run.
         :param run_description: Description for a specific run.
         """
-        with self.prepare_environments_models(series_name, run_name, run_description, reset=False, training=False):
-            assert self.config_run is not None, "Run configuration could not be found. Call prepare_run first."
-            assert self.environments is not None, (
-                "Initialized environments could not be found. Call prepare_environments first."
-            )
-            assert self.model is not None, "Initialized model could not be found. Call prepare_model first."
+        with self.prepare_environments_models(
+            series_name=series_name, run_name=run_name, run_description=run_description, reset=False, training=False
+        ):
+            if self.config_run is None:
+                msg = (
+                    "Set the config_run attribute before trying to initialize the model (e.g. by calling prepare_run)."
+                )
+                raise ValueError(msg)
 
             if self.config.settings.n_episodes_play is None:
-                raise ValueError("Missing configuration value for playing: 'n_episodes_play' in section 'settings'")
+                msg = "Missing configuration value for playing: 'n_episodes_play' in section 'settings'"
+                raise ValueError(msg)
 
             # Log some information about the model and configuration
             log_net_arch(self.model, self.config_run)
@@ -391,9 +407,8 @@ class EtaCtrl:
                 log.debug("Resetting environments before starting to play.")
                 observations = self._reset_envs()
             except ValueError as e:
-                raise ValueError(
-                    "It is likely that returned observations do not conform to the specified state config."
-                ) from e
+                msg = "It is likely that returned observations do not conform to the specified state config."
+                raise ValueError(msg) from e
             n_episodes = 0
 
             log.debug("Start playing process of agent in environment.")
@@ -409,7 +424,7 @@ class EtaCtrl:
                 try:
                     observations, dones = self._play_step(_round_actions, _scale_actions, observations)
                 except BaseException as e:
-                    log.error(
+                    log.exception(
                         "Exception occurred during an environment step. Aborting and trying to reset environments."
                     )
                     try:
@@ -417,18 +432,16 @@ class EtaCtrl:
                     except BaseException as followup_exception:
                         raise e from followup_exception
                     log.debug("Environment reset successful - re-raising exception")
-                    raise e
+                    raise
 
                 n_episodes += sum(dones)
 
     def _play_step(
         self, _round_actions: int | None, _scale_actions: float, observations: VecEnvObs
     ) -> tuple[VecEnvObs, np.ndarray]:
-        assert self.environments is not None, "Initialized environments could not be found. Call prepare_run first."
-
         # set policy prediction to deterministic for playing; type: ignore
         # Type ignored because typing in eta_ctrl is bad
-        action, _ = self.model.predict(observation=observations, deterministic=True)  # type: ignore
+        action, _ = self.model.predict(observation=observations, deterministic=True)  # type: ignore[arg-type]
         # Round and scale actions if required
         if _round_actions is not None:
             action = np.round(action * _scale_actions, _round_actions)
@@ -436,9 +449,9 @@ class EtaCtrl:
             action *= _scale_actions
         # Some agents (i.e. MPC) can interact with an additional environment
         if self.config.settings.interact_with_env:
-            assert self.interaction_env is not None, (
-                "Initialized interaction environments could not be found. Call prepare_run first."
-            )
+            if self.interaction_env is None:
+                msg = "Initialized interaction environments could not be found. Call prepare_run first."
+                raise ValueError(msg)
 
             # Perform a step  with the interaction environment and update the normal environment with
             # its observations
@@ -459,14 +472,13 @@ class EtaCtrl:
 
         :return: Observations after reset.
         """
-        assert self.environments is not None, "Initialized environments could not be found. Call prepare_run first."
         log.debug("Resetting environments.")
 
         self.environments.seed(self.config.settings.seed)
         if self.config.settings.interact_with_env:
-            assert self.interaction_env is not None, (
-                "Initialized interaction environments could not be found. Call prepare_run first."
-            )
+            if self.interaction_env is None:
+                msg = "Initialized interaction environments could not be found. Call prepare_run first."
+                raise ValueError(msg)
             self.interaction_env.seed(self.config.settings.seed)
             observations = self.interaction_env.reset()
             return self._reset_env_interaction(observations)
@@ -478,7 +490,6 @@ class EtaCtrl:
         :param Observations: Observations from the interaction env.
         :return: Observations after reset.
         """
-        assert self.environments is not None, "Initialized environments could not be found. Call prepare_run first."
         log.debug("Resetting main environment during environment interaction.")
 
         try:
@@ -487,6 +498,6 @@ class EtaCtrl:
             if "first_update" in str(e):
                 observations = self.environments.reset()
             else:
-                raise e
+                raise
 
         return observations

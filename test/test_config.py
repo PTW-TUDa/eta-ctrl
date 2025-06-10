@@ -22,7 +22,7 @@ def config_dict() -> dict:
 class TestConfigOpt:
     @pytest.fixture
     def _load_config_mp(self, monkeypatch, config_dict) -> None:
-        monkeypatch.setattr(ConfigOpt, "_load_config_file", lambda x: config_dict)
+        monkeypatch.setattr(ConfigOpt, "_load_config_file", lambda _: config_dict)
 
     @pytest.mark.usefixtures("_load_config_mp")
     def test_from_config_file(self):
@@ -41,7 +41,7 @@ class TestConfigOpt:
 
     def test_from_config_file_fail(self, config_dict, monkeypatch):
         config_dict.pop("settings")
-        monkeypatch.setattr(ConfigOpt, "_load_config_file", lambda x: config_dict)
+        monkeypatch.setattr(ConfigOpt, "_load_config_file", lambda _: config_dict)
         error_msg = re.escape("The section 'settings' is not present in configuration file foobar.")
         with pytest.raises(ValueError, match=error_msg):
             ConfigOpt.from_config_file(file="foobar", path_root="")
@@ -62,7 +62,7 @@ class TestConfigOpt:
 
     def test_load_config_file_fail2(self, base_path: Path, monkeypatch):
         file_path = base_path / "config2"
-        monkeypatch.setattr(toml, "load", lambda x: ["settings"])
+        monkeypatch.setattr(toml, "load", lambda _: ["settings"])
         error_msg = re.escape(f"Config file {file_path} must define a dictionary of options.")
         with pytest.raises(TypeError, match=error_msg):
             ConfigOpt._load_config_file(file_path)
@@ -100,7 +100,7 @@ class TestConfigOpt:
 
 
 class TestConfigOptSetup:
-    missing_classes = [
+    missing_classes_fail = [
         "interaction_env_class",
         "interaction_env_package",
         "vectorizer_class",
@@ -109,17 +109,17 @@ class TestConfigOptSetup:
         "policy_package",
     ]
 
-    @pytest.mark.parametrize("missing_class", missing_classes)
+    @pytest.mark.parametrize("missing_class", missing_classes_fail)
     def test_from_dict_no_fail(self, config_dict: dict, missing_class: str):
         config_dict["setup"].pop(missing_class)
         ConfigOptSetup.from_dict(config_dict["setup"])
 
-    missing_classes = [
+    missing_classes_no_fail = [
         "environment_import",
         "agent_import",
     ]
 
-    @pytest.mark.parametrize("missing_class", missing_classes)
+    @pytest.mark.parametrize("missing_class", missing_classes_no_fail)
     def test_from_dict_fail(self, config_dict: dict, missing_class: str, caplog):
         config_dict["setup"].pop(missing_class)
         missing = missing_class.rsplit("_", 1)[0]

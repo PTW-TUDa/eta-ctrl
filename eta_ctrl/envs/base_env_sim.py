@@ -1,20 +1,20 @@
 from __future__ import annotations
 
 import abc
-import pathlib
 import time
 from logging import getLogger
 from typing import TYPE_CHECKING
-
-import numpy as np
 
 from eta_ctrl.envs import BaseEnv
 from eta_ctrl.simulators import FMUSimulator
 
 if TYPE_CHECKING:
+    import pathlib
     from collections.abc import Callable, Mapping
     from datetime import datetime
     from typing import Any
+
+    import numpy as np
 
     from eta_ctrl.config import ConfigOptRun
     from eta_ctrl.util.type_annotations import ObservationType, StepResult, TimeStep
@@ -43,7 +43,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
     @property
     @abc.abstractmethod
     def fmu_name(self) -> str:
-        """Name of the FMU file"""
+        """Name of the FMU file."""
         return ""
 
     def __init__(
@@ -96,7 +96,6 @@ class BaseEnvSim(BaseEnv, abc.ABC):
 
         :param init_values: Dictionary of initial values for some FMU variables.
         """
-        assert self.state_config is not None, "Set state_config before calling _init_simulator function."
         _init_vals = {} if init_values is None else init_values
 
         if hasattr(self, "simulator") and isinstance(self.simulator, FMUSimulator):
@@ -122,7 +121,6 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         :return: Output of the simulation, boolean showing whether all simulation steps where successful, time elapsed
                  during simulation.
         """
-        assert self.state_config is not None, "Set state_config before calling simulate function."
         # generate FMU input from current state
         step_inputs = []
         for key in self.state_config.ext_inputs:
@@ -133,17 +131,18 @@ class BaseEnvSim(BaseEnv, abc.ABC):
                     value = value / scale_config["multiply"] - scale_config["add"]
                 step_inputs.append(value)
             except KeyError as e:
-                raise KeyError(f"{e!s} is unavailable in environment state.") from e
+                msg = f"{e!s} is unavailable in environment state."
+                raise KeyError(msg) from e
 
         sim_time_start = time.time()
 
         step_success = True
         try:
-            step_output = self.simulator.step(step_inputs)
+            step_output = self.simulator.step(input_values=step_inputs)
 
-        except Exception as e:
+        except Exception:
             step_success = False
-            log.error(e)
+            log.exception("Simulation failed")
 
         # stop timer for simulation step time debugging
         sim_time_elapsed = time.time() - sim_time_start
@@ -214,7 +213,6 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         :param action: Actions to perform in the environment.
         :return: Success of the simulation, time taken for simulation.
         """
-        assert self.state_config is not None, "Set state_config before calling _update_state function."
         # Store actions
         new_state = {} if self.additional_state is None else self.additional_state
         for idx, act in enumerate(self.state_config.actions):
@@ -244,7 +242,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
         seed: int | None = None,
         options: dict[str, Any] | None = None,
     ) -> tuple[ObservationType, dict[str, Any]]:
-        """Resets the environment to an initial internal state, returning an initial observation and info.
+        """Reset the environment to an initial internal state, returning an initial observation and info.
 
         This method generates a new starting state often with some randomness to ensure that the agent explores the
         state space and learns a generalised policy about the environment. This randomness can be controlled
@@ -271,16 +269,13 @@ class BaseEnvSim(BaseEnv, abc.ABC):
                 :meth:`step`. Info is a dictionary containing auxiliary information complementing ``observation``. It
                 should be analogous to the ``info`` returned by :meth:`step`.
         """
-        assert self.state_config is not None, "Set state_config before calling reset function."
         super().reset(seed=seed, options=options)
 
         # reset the FMU after every episode with new parameters
         self._init_simulator(self.model_parameters)
 
         # Update scenario data, read values from the fmu without time step and store the results
-        start_obs = []
-        for obs in self.state_config.ext_outputs:
-            start_obs.append(str(self.state_config.map_ext_ids[obs]))
+        start_obs = [str(self.state_config.map_ext_ids[name]) for name in self.state_config.ext_outputs]
 
         output = self.simulator.read_values(start_obs)
         self.state = {} if self.additional_state is None else self.additional_state

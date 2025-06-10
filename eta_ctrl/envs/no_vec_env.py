@@ -64,24 +64,27 @@ class NoVecEnv(DummyVecEnv):
 
         # Check if the environment itself is multithreaded and raise an error if it is not
         if not (hasattr(self.envs[0], "is_multithreaded") and self.envs[0].is_multithreaded is True):
-            raise ValueError(
+            msg = (
                 "The given environment cannot be used with NoVecEnv because it does not specify the attribute "
                 "is_multithreaded (or the attribute is not set to True)."
             )
+            raise ValueError(msg)
 
     def step_wait(self) -> VecEnvStepReturn:
-        """Store observations and reset environments
+        """Store observations and reset environments.
 
         :return: Tuple with stepping result sequences (observations, rewards, dones, infos)
         """
-        assert self.actions is not None, "Stepping the environment is only possible when actions are set."
+        if getattr(self, "actions", None) is None:
+            msg = "Stepping the environment is only possible when actions are set."
+            raise TypeError(msg)
 
         # Re-initialize the observation buffers (necessary because the number of action sets is not known beforehand).
-        obs, self.buf_rews, _terminated, truncated, self.buf_infos = self.envs[0].step(self.actions)  # type: ignore
+        obs, self.buf_rews, _terminated, truncated, self.buf_infos = self.envs[0].step(self.actions)  # type: ignore[assignment]
 
         for idx in range(self.num_envs):
-            self.buf_dones[idx] = _terminated[idx]  # type: ignore
-            self.buf_infos[idx]["TimeLimit.truncated"] = truncated[idx] and not _terminated[idx]  # type: ignore
+            self.buf_dones[idx] = _terminated[idx]  # type: ignore[index]
+            self.buf_infos[idx]["TimeLimit.truncated"] = truncated[idx] and not _terminated[idx]  # type: ignore[index]
 
             if self.buf_dones[idx]:
                 self.buf_infos[idx]["terminal_observation"] = obs[idx]
@@ -90,7 +93,7 @@ class NoVecEnv(DummyVecEnv):
 
         # The type of the return value is currently not correct because stablesbaslines3 v2.2.1 has not completely
         # migrated gymnasium into the project but ETA Ctrl still needs five return parameters.
-        return (  # type: ignore
+        return (  # type: ignore[return-value]
             self._obs_from_buf(),
             np.copy(self.buf_rews),
             np.copy(self.buf_dones),
@@ -113,7 +116,7 @@ class NoVecEnv(DummyVecEnv):
         return self._obs_from_buf()
 
     def _get_target_envs(self, indices: VecEnvIndices) -> list[gymnasium.Env]:
-        """Return the 0 target environment (because there can only ever be one...)
+        """Return the 0 target environment (because there can only ever be one...).
 
         :param indices: Indices of the environments. Values don't not really matter here, only length is important.
         :return: List of environments to target.

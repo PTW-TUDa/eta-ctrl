@@ -29,7 +29,7 @@ class PendulumControl(RuleBased):
         super().__init__(policy=policy, env=env, verbose=verbose, **kwargs)
         assert self.action_space is not None, "action_space not initialized correctly."
         # set initial state
-        self.initial_state = np.zeros(self.action_space.shape)  # type: ignore
+        self.initial_state = np.zeros(self.action_space.shape)  # type: ignore[type-var]
 
     def control_rules(self, observation: np.ndarray) -> np.ndarray:
         """This function is abstract and should be used to implement control rules which determine actions from
@@ -40,8 +40,9 @@ class PendulumControl(RuleBased):
         """
         # Handle vectorized environments
         # correct type ensured by is_vectorized_env
-        if is_vectorized_env(self.env) and self.env.num_envs > 1:  # type: ignore
-            raise ValueError("The PendulumController can only work on a single environment at once")
+        if is_vectorized_env(self.env) and self.get_env().num_envs > 1:
+            msg = "The PendulumController can only work on a single environment at once"
+            raise ValueError(msg)
 
         # Calculate actions according to the observations (manually extracting observation values
         cos_th = observation[0]

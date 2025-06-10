@@ -50,6 +50,12 @@ class RuleBased(BaseAlgorithm, abc.ABC):
         if _init_setup_model:
             self._setup_model()
 
+    def get_env(self) -> VecEnv:
+        if self.env is None:
+            msg = "Can't access attribute 'self.env', initialize environment first"
+            raise AttributeError(msg)
+        return self.env
+
     @abc.abstractmethod
     def control_rules(self, observation: np.ndarray) -> np.ndarray:
         """This function is abstract and should be used to implement control rules which determine actions from
@@ -95,8 +101,8 @@ class RuleBased(BaseAlgorithm, abc.ABC):
         _init_setup_model: bool = False,
         **kwargs: Any,
     ) -> RuleBased:
-        """
-        Load the model from a zip-file.
+        """Load the model from a zip-file.
+
         Warning: ``load`` re-creates the model from scratch, it does not update it in-place!
 
         :param path: path to the file (or a file-like) where to
@@ -118,18 +124,21 @@ class RuleBased(BaseAlgorithm, abc.ABC):
         :param kwargs: extra arguments to change the model when loading.
         """
         if env is None:
-            raise ValueError("Parameter env must be specified.")
+            msg = "Parameter env must be specified."
+            raise ValueError(msg)
         model: RuleBased = super().load(path, env, device, custom_objects, print_system_info, force_reset, **kwargs)
 
         return model
 
     def _get_pretrain_placeholders(self) -> None:
-        """Getting tensorflow pretrain placeholders is not implemented for the rule based agent."""
-        raise NotImplementedError("The rule based agent cannot provide tensorflow pretrain placeholders.")
+        """Get tensorflow pretrain placeholders is not implemented for the rule based agent."""
+        msg = "The rule based agent cannot provide tensorflow pretrain placeholders."
+        raise NotImplementedError(msg)
 
     def get_parameter_list(self) -> None:
-        """Getting tensorflow parameters is not implemented for the rule based agent."""
-        raise NotImplementedError("The rule based agent cannot provide a tensorflow parameter list.")
+        """Get tensorflow parameters is not implemented for the rule based agent."""
+        msg = "The rule based agent cannot provide a tensorflow parameter list."
+        raise NotImplementedError(msg)
 
     def learn(
         self,
@@ -150,12 +159,11 @@ class RuleBased(BaseAlgorithm, abc.ABC):
         :param progress_bar: Display a progress bar using tqdm and rich.
         :return: The trained model.
         """
-
         return self
 
     def _setup_model(self) -> None:
         if self.policy_class is not None:
-            self.policy: type[BasePolicy] = self.policy_class(  # type: ignore
+            self.policy: type[BasePolicy] = self.policy_class(  # type: ignore[assignment]
                 self.observation_space,
                 self.action_space,
             )
@@ -169,5 +177,7 @@ class RuleBased(BaseAlgorithm, abc.ABC):
         **kwargs: Any,
     ) -> None:
         """Get the model's action probability distribution from an observation. This is not implemented for this
-        agent."""
-        raise NotImplementedError("The rule based agent cannot calculate action probabilities.")
+        agent.
+        """
+        msg = "The rule based agent cannot calculate action probabilities."
+        raise NotImplementedError(msg)

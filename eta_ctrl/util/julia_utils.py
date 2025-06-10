@@ -55,7 +55,7 @@ def import_jl(importstr: str) -> ModuleType:
 
 
 def importstr_to_path(importstr: str, _stack: int = 1) -> pathlib.Path:
-    """Converts an import string into a python path. The syntax is equivalent to python import strings. If the
+    """Convert an import string into a python path. The syntax is equivalent to python import strings. If the
     import string starts with a '.', the import path is interpreted as relative to the file calling this function.
     If the import string is absolute, it will use the python sys.path list to look for the file.
 
@@ -86,15 +86,17 @@ def importstr_to_path(importstr: str, _stack: int = 1) -> pathlib.Path:
                 break
 
     if not found and relative and file:
-        raise ImportError(f"Could not find the specified julia file. Looking for {file}")
+        msg = f"Could not find the specified julia file. Looking for {file}"
+        raise ImportError(msg)
     if not found or not file:
-        raise ImportError(f"Could not find the specified julia file. Looking for {pathstr}")
+        msg = f"Could not find the specified julia file. Looking for {pathstr}"
+        raise ImportError(msg)
 
     return file
 
 
 def update_agent() -> None:
-    """Updates the NSGA2 agent model file"""
+    """Update the NSGA2 agent model file."""
     import tempfile
 
     from test.test_agents.test_nsga2 import TestNSGA2
@@ -104,7 +106,7 @@ def update_agent() -> None:
 
 
 def install_julia() -> None:
-    """Checks if Julia language is available in the system and install and configure pyjulia.
+    """Check if Julia language is available in the system and install and configure pyjulia.
     Also install ju_extensions in Julia environmnent.
     """
     if which("julia") is None:
@@ -143,25 +145,28 @@ def check_julia_package() -> bool:
     try:
         import julia
     except ModuleNotFoundError:
-        raise ImportError(
+        msg = (
             "Could not find the python julia package. Please run the command: install-julia "
             "inside the python virtual environment where eta-ctlr is installed."
-        ) from None
+        )
+        raise ImportError(msg) from None
 
     try:
         from julia import ju_extensions  # noqa: F401
     except julia.core.UnsupportedPythonError as e:
-        raise ImportError(
+        msg = (
             "PyCall for Julia is installed for a different python binary than you are currently "
             "using. Please run the command: install-julia inside the python virtual environment "
             "where eta-ctlr is installed."
-        ) from e
+        )
+        raise ImportError(msg) from e
     except (ModuleNotFoundError, ImportError, AttributeError) as e:
-        raise ImportError(
+        msg = (
             "Could not find julia extension module for eta_ctrl (ju_extensions missing). Please "
             "run the command: install-julia inside the python virtual environment where eta-ctlr "
             "is installed."
-        ) from e
+        )
+        raise ImportError(msg) from e
 
     return True
 

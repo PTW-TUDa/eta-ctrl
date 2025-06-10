@@ -37,14 +37,14 @@ def _get_class(instance: ConfigOptSetup, attrib: Attribute, new_value: str | Non
         try:
             cls = getattr(importlib.import_module(module), cls_name)
         except ModuleNotFoundError as e:
-            raise ModuleNotFoundError(
-                f"Could not find module '{e.name}'. While importing class '{cls_name}' from '{attrib.name}' value."
-            ) from e
+            msg = f"Could not find module '{e.name}'. While importing class '{cls_name}' from '{attrib.name}' value."
+            raise ModuleNotFoundError(msg) from e
         except AttributeError as e:
-            raise AttributeError(
+            msg = (
                 f"Could not find class '{cls_name}' in module '{module}'. "
                 f"While importing class '{cls_name}' from '{attrib.name}' value."
-            ) from e
+            )
+            raise AttributeError(msg) from e
 
         cls_attr_name = f"{attrib.name.rsplit('_', 1)[0]}_class"
         setattr(instance, cls_attr_name, cls)
@@ -114,7 +114,8 @@ class ConfigOpt:
         # Ensure all required sections are present in configuration
         for section in ("setup", "settings", "paths"):
             if section not in config:
-                raise ValueError(f"The section '{section}' is not present in configuration file {file}.")
+                msg = f"The section '{section}' is not present in configuration file {file}."
+                raise ValueError(msg)
 
         return ConfigOpt.from_dict(config, file, _path_root)
 
@@ -135,10 +136,12 @@ class ConfigOpt:
                 result = import_func(_file_path)
                 break
         else:
-            raise FileNotFoundError(f"Config file not found: {file}")
+            msg = f"Config file not found: {file}"
+            raise FileNotFoundError(msg)
 
         if not isinstance(result, dict):
-            raise TypeError(f"Config file {file} must define a dictionary of options.")
+            msg = f"Config file {file} must define a dictionary of options."
+            raise TypeError(msg)
 
         return result
 
@@ -155,7 +158,8 @@ class ConfigOpt:
         def _pop_dict(dikt: dict[str, Any], key: str) -> dict[str, Any]:
             val = dikt.pop(key)
             if not isinstance(val, dict):
-                raise TypeError(f"'{key}' section must be a dictionary of settings.")
+                msg = f"'{key}' section must be a dictionary of settings."
+                raise TypeError(msg)
             return val
 
         if "environment_specific" not in config:
@@ -180,8 +184,8 @@ class ConfigOpt:
         _setup = _pop_dict(config, "setup")
         try:
             setup = ConfigOptSetup.from_dict(_setup)
-        except ValueError as e:
-            log.error(e)
+        except ValueError:
+            log.exception("Creating ConfigOptSetup object failed")
             errors = True
 
         # Settings section
@@ -198,8 +202,8 @@ class ConfigOpt:
 
         try:
             settings = ConfigOptSettings.from_dict(settings_raw)
-        except ValueError as e:
-            log.error(e)
+        except ValueError:
+            log.exception("Creating ConfigOptSettings object failed")
             errors = True
         # Log configuration values which were not recognized.
         for name in config:
@@ -209,9 +213,8 @@ class ConfigOpt:
             )
 
         if errors:
-            raise ValueError(
-                "Not all required values were found in setup section (see log). Could not load config file."
-            )
+            msg = "Not all required values were found in setup section (see log). Could not load config file."
+            raise ValueError(msg)
 
         return cls(
             config_name=str(file),
@@ -227,7 +230,8 @@ class ConfigOpt:
 
     def __setitem__(self, name: str, value: Any) -> None:
         if not hasattr(self, name):
-            raise KeyError(f"The key {name} does not exist - it cannot be set.")
+            msg = f"The key {name} does not exist - it cannot be set."
+            raise KeyError(msg)
         setattr(self, name, value)
 
 
@@ -253,7 +257,7 @@ class ConfigOptSetup:
     vectorizer_import: str = field(
         default="stable_baselines3.common.vec_env.dummy_vec_env.DummyVecEnv",
         on_setattr=_get_class,
-        converter=converters.default_if_none(  # type: ignore
+        converter=converters.default_if_none(  # type: ignore[misc]
             "stable_baselines3.common.vec_env.dummy_vec_env.DummyVecEnv"
         ),
     )  # mypy currently does not recognize converters.default_if_none
@@ -263,7 +267,7 @@ class ConfigOptSetup:
     policy_import: str = field(
         default="eta_ctrl.common.NoPolicy",
         on_setattr=_get_class,
-        converter=converters.default_if_none("eta_ctrl.common.NoPolicy"),  # type: ignore
+        converter=converters.default_if_none("eta_ctrl.common.NoPolicy"),  # type: ignore[misc]
     )  # mypy currently does not recognize converters.default_if_none
     #: Policy class (automatically determined from policy_import).
     policy_class: type[BasePolicy] = field(init=False)
@@ -289,7 +293,7 @@ class ConfigOptSetup:
     def from_dict(cls, dikt: dict[str, Any]) -> ConfigOptSetup:
         errors = []
 
-        def get_import(name: str, required: bool = False) -> str | Any:
+        def get_import(name: str, *, required: bool = False) -> str | Any:
             """Get import string or combination of package and class name from dictionary.
             :param name: Name of the configuration value.
             :param required: Flag to determine if the value is required.
@@ -358,7 +362,8 @@ class ConfigOptSetup:
 
     def __setitem__(self, name: str, value: Any) -> None:
         if not hasattr(self, name):
-            raise KeyError(f"The key {name} does not exist - it cannot be set.")
+            msg = f"The key {name} does not exist - it cannot be set."
+            raise KeyError(msg)
         setattr(self, name, value)
 
 
@@ -393,12 +398,12 @@ class ConfigOptSettings:
     #: Logging verbosity of the framework (default: 2).
     verbose: int = field(
         default=2,
-        converter=converters.pipe(converters.default_if_none(2), int),  # type: ignore
+        converter=converters.pipe(converters.default_if_none(2), int),  # type: ignore[misc]
     )  # mypy currently does not recognize converters.default_if_none
     #: Number of vectorized environments to instantiate (if not using DummyVecEnv) (default: 1).
     n_environments: int = field(
         default=1,
-        converter=converters.pipe(converters.default_if_none(1), int),  # type: ignore
+        converter=converters.pipe(converters.default_if_none(1), int),  # type: ignore[misc]
     )  # mypy currently does not recognize converters.default_if_none
 
     #: Number of episodes to execute when the agent is playing (default: None).
@@ -408,17 +413,17 @@ class ConfigOptSettings:
     #: Flag to determine whether the interaction env is used or not (default: False).
     interact_with_env: bool = field(
         default=False,
-        converter=converters.pipe(converters.default_if_none(False), bool),  # type: ignore
+        converter=converters.pipe(converters.default_if_none(default=False), bool),  # type: ignore[misc]
     )  # mypy currently does not recognize converters.default_if_none
     #: How often to save the model during training (default: 10 - after every ten episodes).
     save_model_every_x_episodes: int = field(
         default=10,
-        converter=converters.pipe(converters.default_if_none(1), int),  # type: ignore
+        converter=converters.pipe(converters.default_if_none(1), int),  # type: ignore[misc]
     )  # mypy currently does not recognize converters.default_if_none
     #: How many episodes to pass between each render call (default: 10 - after every ten episodes).
     plot_interval: int = field(
         default=10,
-        converter=converters.pipe(converters.default_if_none(1), int),  # type: ignore
+        converter=converters.pipe(converters.default_if_none(1), int),  # type: ignore[misc]
     )  # mypy currently does not recognize converters.default_if_none
 
     #: Duration of an episode in seconds (can be a float value).
@@ -438,7 +443,7 @@ class ConfigOptSettings:
     #: Settings dictionary for the environment.
     environment: dict[str, Any] = field(
         default=Factory(dict),
-        converter=converters.default_if_none(Factory(dict)),  # type: ignore
+        converter=converters.default_if_none(Factory(dict)),  # type: ignore[misc]
         on_setattr=_env_defaults,
     )  # mypy currently does not recognize converters.default_if_none
     #: Settings dictionary for the interaction environment (default: None).
@@ -446,7 +451,7 @@ class ConfigOptSettings:
     #: Settings dictionary for the agent.
     agent: dict[str, Any] = field(
         default=Factory(dict),
-        converter=converters.default_if_none(Factory(dict)),  # type: ignore
+        converter=converters.default_if_none(Factory(dict)),  # type: ignore[misc]
         # mypy currently does not recognize converters.default_if_none
         on_setattr=_agent_defaults,
     )
@@ -454,7 +459,7 @@ class ConfigOptSettings:
     #: Flag which is true if the log output should be written to a file
     log_to_file: bool = field(
         default=True,
-        converter=converters.pipe(converters.default_if_none(False), bool),  # type: ignore
+        converter=converters.pipe(converters.default_if_none(default=False), bool),  # type: ignore[misc]
     )
 
     def __attrs_post_init__(self) -> None:
@@ -473,7 +478,8 @@ class ConfigOptSettings:
             self.interaction_env = self.environment
 
         if self.n_episodes_play is None and self.n_episodes_learn is None:
-            raise ValueError("At least one of 'n_episodes_play' or 'n_episodes_learn' must be specified in settings.")
+            msg = "At least one of 'n_episodes_play' or 'n_episodes_learn' must be specified in settings."
+            raise ValueError(msg)
 
     @classmethod
     def from_dict(cls, dikt: dict[str, dict[str, Any]]) -> ConfigOptSettings:
@@ -481,7 +487,8 @@ class ConfigOptSettings:
 
         # Read general settings dictionary
         if "settings" not in dikt:
-            raise ValueError("Settings section not found in configuration. Cannot import config file.")
+            msg = "Settings section not found in configuration. Cannot import config file."
+            raise ValueError(msg)
         settings = dikt.pop("settings")
 
         if "seed" not in settings:
@@ -544,7 +551,8 @@ class ConfigOptSettings:
             )
 
         if errors:
-            raise ValueError("Not all required values were found in settings (see log). Could not load config file.")
+            msg = "Not all required values were found in settings (see log). Could not load config file."
+            raise ValueError(msg)
 
         return cls(
             seed=seed,
@@ -571,7 +579,8 @@ class ConfigOptSettings:
 
     def __setitem__(self, name: str, value: Any) -> None:
         if not hasattr(self, name):
-            raise KeyError(f"The key {name} does not exist - it cannot be set.")
+            msg = f"The key {name} does not exist - it cannot be set."
+            raise KeyError(msg)
         setattr(self, name, value)
 
 
@@ -587,7 +596,7 @@ class ConfigOptRun:
     name: str = field(validator=validators.instance_of(str))
     #: Description of an optimization run.
     description: str = field(
-        converter=converters.default_if_none(""),  # type: ignore
+        converter=converters.default_if_none(""),  # type: ignore[misc]
         validator=validators.instance_of(str),
     )
     #: Root path of the framework run.
@@ -678,7 +687,8 @@ class ConfigOptRun:
     @property
     def paths(self) -> dict[str, pathlib.Path]:
         """Dictionary of all paths for the optimization run. This is for easier access and contains all
-        paths as mentioned above."""
+        paths as mentioned above.
+        """
         paths = {
             "path_root": self.path_root,
             "path_results": self.path_results,
