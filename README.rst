@@ -1,82 +1,68 @@
-ETA Ctrl Functions
+ETA Ctrl Framework
 ======================
 
-While there are many tools which are useful in the area of energy optimized factory operations, at the
-`ETA-Fabrik <https://www.ptw.tu-darmstadt.de>`_ at Technical University of Darmstadt we have recognized a lack of
-comprehensive frameworks which combine functionality for optimization, simulation and communication with
-devices in the factory.
+The `ETA Ctrl` framework provides a standardized interface for developing digital twins of factories or machines in a factory. It is designed to facilitate rolling horizon optimization, simulation, and interaction with factory systems. The framework is based on the Gymnasium environment and integrates seamlessly with tools like FMUs, Julia, Pyomo models, and live connections to real-world assets.
 
-Therefore, we developed the *eta_ctrl* framework, which provides a standardized interface for the development
-of digital twins of factories or machines in a factory. The framework is based on the Gymnasium environment
-and follows a rolling horizon optimization approach. It provides standardized connectors for multiple
-communication protocols, including OPC UA and Modbus TCP. These facilities can be utilized to easily implement
-rolling horizon optimizations for factory systems and to directly control devices in the factory with the
-optimization results.
+Documentation
+===============
 
 Full Documentation can be found on the
-`Documentation Page <https://eta-ctrl.readthedocs.io/>`_.
-
-You can find the `source code on github <https://github.com/PTW-TUDa/eta_ctrl/>`_. If you would like to contribute, please
-check our `working repository <https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/>`_.
-
+`Documentation Page <https://eta-ctrl.readthedocs.io/>`_. (TODO: Make this a link as soon as first docs version is released.)
 
 .. warning::
     This is beta software. APIs and functionality might change without prior notice. Please fix the version you
-    are using in your requirements to ensure your software will not be broken by changes in *eta_ctrl*.
+    are using in your requirements to ensure your software will not be broken by changes in *ETA Ctrl*.
 
-The package *eta_ctrl* consists of three main modules and some additional functionality:
+Utilities Overview
+------------------
 
-- *eta_x* is the rolling horizon optimization module which combines the functionality of the
-  other modules. It is based on the *gymnasium* framework and utilizes
-  algorithms and functions from the *stable_baselines3* package. *eta_x* also contains extended base classes for
-  environments and additional agents (or algorithms).
-- *simulators* are interfaces based on the *fmpy* package which provide a way to simulate FMU
-  (Functional Mockup Unit) models.
-  The  *simulators* can be used to perform quick complete simulations or to step through simulation
-  models, as would be the case in rolling horizons optimization.
-- *timeseries* is an interface based on the *pandas* package to load and manipulate timeseries data
-  from CSV files. It can for example rename columns, resample data in more complex ways such as
-  multiple different resampling intervals or select random time slices from data. The *scenario_from_csv* function combines much of this functionality.
-- Other functionality includes some general utilities which are available on the top level of the
-  package.
+### Optimization Utilities
+- **`ETA Ctrl`**: Central controller for managing optimization workflows, including learning and execution processes.
 
-Some particularities
-----------------------
+### Configuration Utilities
+- **`ConfigOpt`**: Represents the configuration for an optimization run.
+- **`ConfigOptSetup`**: Defines setup configurations for optimization runs.
+- **`ConfigOptSettings`**: Represents settings for optimization runs.
+- **`ConfigOptRun`**: Handles paths and metadata for optimization runs.
 
-If you want to have logging output from ETA Ctrl, call:
+### Environment Utilities
+- **Base Classes**:
+  - **`BaseEnv`**: Abstract base class for creating custom environments.
+  - **`BaseEnvLive`**: Extends `BaseEnv` for live environments interacting with real-world systems.
+  - **`BaseEnvMPC`**: Extends `BaseEnv` for environments using Model Predictive Control (MPC).
+  - **`BaseEnvSim`**: Extends `BaseEnv` for environments using FMU-based simulations.
+  - **`JuliaEnv`**: Environment class for interacting with Julia-based simulation models.
+- **Vectorization**:
+  - **`NoVecEnv`**: Custom vectorizer for environments that handle multithreading internally.
 
-.. code-block::
+### Simulation Utilities
+- **`FMUSimulator`**: Provides functionality for simulating FMUs (Functional Mock-up Units).
 
-    from eta_ctrl import get_logger
-    get_logger()
+### Time Series Utilities
+- **`scenario_from_csv`**: Imports and processes scenario data from CSV files.
+- **`df_from_csv`**: Reads time series data from a CSV file and returns it as a pandas DataFrame.
+- **`df_resample`**: Resamples the time index of a DataFrame to a specified frequency.
+- **`df_interpolate`**: Interpolates missing values in a DataFrame with a specified frequency.
 
-**eta_ctrl** uses dataframes to pass timeseries data and the dataframes are ensured to
-contain timezone information where sensible.
+### State Management Utilities
+- **`StateVar`**: Represents a single variable in the state of an environment.
+- **`StateConfig`**: Configures the action and observation spaces based on `StateVar` instances.
 
-Citing this project
---------------------
+Contributing
+=============
 
-Please cite this project using our publication:
+Please read the `development guide <https://eta-utility.readthedocs.io/en/main/guide/development.html>`_ before starting development on *ETA Ctrl*
 
-.. code-block::
+
+Citing this Project / Authors
+================================
+
+See `AUTHORS.rst` for a full list of contributors.
+
+Please cite this repository as:
+
+  .. code-block::
 
     Grosch, B., Ranzau, H., Dietrich, B., Kohne, T., Fuhrländer-Völker, D., Sossenheimer, J., Lindner, M., Weigold, M.
     A framework for researching energy optimization of factory operations.
     Energy Inform 5 (Suppl 1), 29 (2022). https://doi.org/10.1186/s42162-022-00207-6
-
-We would like to thank the many contributors who developed functionality for the package, helped with
-documentation or provided insights which helped to create the framework architecture.
-
-- *Niklas Panten* for the first implementation of the rolling horizon optimization now available in
-  *eta_x*,
-- *Nina Strobel* for the first implementation of the connectors,
-- *Thomas Weber* for contributions to the rolling horizon optimization with MPC algorithms,
-- *Guilherme Fernandes*, *Tobias Koch*, *Tobias Lademann*, *Saahil Nayyer*, *Magdalena Patyna*, *Jerome Stock*,
-- and all others who made small and large contributions.
-
-Contributions
---------------------
-
-If you would like to contribute, please create an issue in the repository to discuss you suggestions.
-Once the general idea has been agreed upon, you can create a merge request from the issue and
-implement your changes there.
