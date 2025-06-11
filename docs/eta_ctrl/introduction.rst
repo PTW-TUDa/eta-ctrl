@@ -107,19 +107,19 @@ Experiment configuration
 -------------------------
 The central part of the ETA Ctrl module is the experiment configuration. This configuration can be
 read  from a JSON file and determines the setup of the entire experiment, including which agent and
-environment to load and how to set each one up. The configuration is defined by the *ConfigOpt*
-dataclass and its subsidiaries *ConfigOptSetup* and *ConfigOptSettings*.
+environment to load and how to set each one up. The configuration is defined by the *Config*
+dataclass and its subsidiaries *ConfigSetup* and *ConfigSettings*.
 
 When you are using Core (the class) the configuration will be read automatically.
 
-Use :func:`eta_ctrl::ConfigOpt.from_json` to read the configuration from a JSON file:
+Use :func:`eta_ctrl::Config.from_json` to read the configuration from a JSON file:
 
-.. autofunction:: eta_ctrl::ConfigOpt.from_json
+.. autofunction:: eta_ctrl::Config.from_json
 
 Configuration example
 ^^^^^^^^^^^^^^^^^^^^^^^^
 The following is the configuration for the pendulum example in this repository. It is relatively
-minimal in that it makes extensive use of the defaults defined in the *ConfigOpt* classes.
+minimal in that it makes extensive use of the defaults defined in the *Config* classes.
 
 .. literalinclude:: /../examples/pendulum/pendulum_learning.json
     :language: json
@@ -128,7 +128,7 @@ Config section 'setup'
 ^^^^^^^^^^^^^^^^^^^^^^^^
 The settings configured in the setup section are the following:
 
-.. autoclass:: eta_ctrl::ConfigOptSetup
+.. autoclass:: eta_ctrl::ConfigSetup
     :members:
     :noindex:
     :exclude-members: from_dict
@@ -137,8 +137,8 @@ Config section 'paths'
 ^^^^^^^^^^^^^^^^^^^^^^^^
 The paths section can contain the following relative paths:
 
-.. autoattribute:: eta_ctrl::ConfigOpt.relpath_results
-.. autoattribute:: eta_ctrl::ConfigOpt.relpath_scenarios
+.. autoattribute:: eta_ctrl::Config.relpath_results
+.. autoattribute:: eta_ctrl::Config.relpath_scenarios
 
 Config section 'settings'
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -151,25 +151,25 @@ The configuration options in the settings section are the following.
     for instantiation of the agent or environment. These arguments must be specified as parameters in
     the corresponding section.
 
-.. autoclass:: eta_ctrl::ConfigOptSettings
+.. autoclass:: eta_ctrl::ConfigSettings
     :members:
     :noindex:
     :exclude-members: from_dict
 
 Configuration for optimization runs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-An optimization run must also be configured. This is done through the *ConfigOptRun* class. The
+An optimization run must also be configured. This is done through the *ConfigRun* class. The
 class uses the series name and run names for initialization. It provides facilities to
 create the paths required for optimization and to store information about the environments.
-Below, you can see the parameters that ConfigOptRun offers. Full documentation is in the API
-docs: :py:class:`eta_ctrl.config.ConfigOptRun`.
+Below, you can see the parameters that ConfigRun offers. Full documentation is in the API
+docs: :py:class:`eta_ctrl.config.ConfigRun`.
 
 .. note::
     Core instantiates an object of this class automatically from the JSON configuration file. You do not need
     to specify any of the parameters listed here. They are listed here to show what is available for use
     during the optimization run.
 
-.. autoclass:: eta_ctrl::ConfigOptRun
+.. autoclass:: eta_ctrl::ConfigRun
     :members:
     :noindex:
     :exclude-members: from_dict, set_env_info, set_interaction_env_info, create_results_folders

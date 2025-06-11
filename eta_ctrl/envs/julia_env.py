@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
     import numpy as np
 
-    from eta_ctrl.config import ConfigOptRun
+    from eta_ctrl.config import ConfigRun
     from eta_ctrl.util.type_annotations import StepResult, TimeStep
 
 
@@ -77,7 +77,7 @@ class JuliaEnv(BaseEnv):
     def __init__(
         self,
         env_id: int,
-        config_run: ConfigOptRun,
+        config_run: ConfigRun,
         verbose: int = 2,
         callback: Callable | None = None,
         *,

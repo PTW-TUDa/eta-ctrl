@@ -16,13 +16,13 @@ if TYPE_CHECKING:
 
     import numpy as np
 
-    from eta_ctrl.config import ConfigOptRun
+    from eta_ctrl.config import ConfigRun
     from eta_ctrl.util.type_annotations import ObservationType, StepResult, TimeStep
 
 log = getLogger(__name__)
 
 
-class BaseEnvSim(BaseEnv, abc.ABC):
+class SimEnv(BaseEnv, abc.ABC):
     """Base class for FMU Simulation models environments.
 
     :param env_id: Identification for the environment, useful when creating multiple environments.
@@ -49,7 +49,7 @@ class BaseEnvSim(BaseEnv, abc.ABC):
     def __init__(
         self,
         env_id: int,
-        config_run: ConfigOptRun,
+        config_run: ConfigRun,
         verbose: int = 2,
         callback: Callable | None = None,
         *,

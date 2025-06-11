@@ -5,7 +5,7 @@ import pytest
 from stable_baselines3.common.vec_env import DummyVecEnv
 
 from eta_ctrl.common import NoPolicy
-from eta_ctrl.config import ConfigOptRun
+from eta_ctrl.config import ConfigRun
 from eta_ctrl.envs import NoVecEnv
 from eta_ctrl.util.julia_utils import julia_extensions_available
 
@@ -24,7 +24,7 @@ class TestNSGA2:
     def config_run(self, temp_dir):
         directory = pathlib.Path(temp_dir) if not isinstance(temp_dir, pathlib.Path) else temp_dir
 
-        return ConfigOptRun(
+        return ConfigRun(
             series="Nsga2_test_2023",
             name="test_nsga2",
             description="",

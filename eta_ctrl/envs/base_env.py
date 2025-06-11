@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
     from typing import Any
 
-    from eta_ctrl.config import ConfigOptRun
+    from eta_ctrl.config import ConfigRun
     from eta_ctrl.envs.state import StateConfig
     from eta_ctrl.util.type_annotations import ObservationType, Path, StepResult, TimeStep
 
@@ -81,7 +81,7 @@ class BaseEnv(Env, abc.ABC):
     def __init__(
         self,
         env_id: int,
-        config_run: ConfigOptRun,
+        config_run: ConfigRun,
         verbose: int = 2,
         callback: Callable | None = None,
         state_modification_callback: Callable | None = None,
@@ -103,7 +103,7 @@ class BaseEnv(Env, abc.ABC):
         # Set some standard path settings
         #: Information about the optimization run and information about the paths.
         #: For example, it defines path_results and path_scenarios.
-        self.config_run: ConfigOptRun = config_run
+        self.config_run: ConfigRun = config_run
         #: Path for storing results.
         self.path_results: pathlib.Path = self.config_run.path_series_results
         #: Path for the scenario data.

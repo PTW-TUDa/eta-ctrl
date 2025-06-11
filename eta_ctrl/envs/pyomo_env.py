@@ -20,14 +20,14 @@ if TYPE_CHECKING:
 
     from pyomo.opt import SolverResults
 
-    from eta_ctrl.config import ConfigOptRun
+    from eta_ctrl.config import ConfigRun
     from eta_ctrl.util.type_annotations import PyoParams, StepResult, TimeStep
 
 
 log = getLogger(__name__)
 
 
-class BaseEnvMPC(BaseEnv, abc.ABC):
+class PyomoEnv(BaseEnv, abc.ABC):
     """Base class for mathematical MPC models. This class can be used in conjunction with the MathSolver agent.
     You need to implement the *_model* method in a subclass and return a *pyomo.AbstractModel* from it.
 
@@ -49,7 +49,7 @@ class BaseEnvMPC(BaseEnv, abc.ABC):
     def __init__(
         self,
         env_id: int,
-        config_run: ConfigOptRun,
+        config_run: ConfigRun,
         verbose: int = 2,
         callback: Callable | None = None,
         *,

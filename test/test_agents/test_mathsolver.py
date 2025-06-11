@@ -2,14 +2,14 @@ import pytest
 
 from eta_ctrl.agents.math_solver import MathSolver
 from eta_ctrl.common import NoPolicy
-from eta_ctrl.config import ConfigOptRun
+from eta_ctrl.config import ConfigRun
 from test.resources.agents.mpc_basic_env import MPCBasicEnv
 
 
 class TestMathSolver:
     @pytest.fixture(scope="class")
     def mpc_basic_env(self, temp_dir):
-        config_run = ConfigOptRun(
+        config_run = ConfigRun(
             series="MPC_Basic_test_2023",
             name="test_mpc_basic",
             description="",
