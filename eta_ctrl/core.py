@@ -21,7 +21,7 @@ from eta_ctrl.common import (
     merge_callbacks,
     vectorize_environment,
 )
-from eta_ctrl.config import ConfigOpt, ConfigOptRun
+from eta_ctrl.config import Config, ConfigRun
 
 if TYPE_CHECKING:
     import os
@@ -57,12 +57,12 @@ class EtaCtrl:
         _relpath_config = relpath_config if isinstance(relpath_config, pathlib.Path) else pathlib.Path(relpath_config)
         #: Path to the configuration file.
         self.path_config = _root_path / _relpath_config / f"{config_name}"
-        #: ConfigOpt object for the optimization run.
-        self.config: ConfigOpt = ConfigOpt.from_config_file(self.path_config, root_path, config_overwrite)
+        #: Config object for the optimization run.
+        self.config: Config = Config.from_config_file(self.path_config, root_path, config_overwrite)
         log.setLevel(int(self.config.settings.verbose * 10))
 
         #: Configuration for an optimization run.
-        self.config_run: ConfigOptRun | None = None
+        self.config_run: ConfigRun | None = None
 
         #: The vectorized environments.
         self._environments: VecEnv | VecNormalize | None = None
@@ -119,7 +119,7 @@ class EtaCtrl:
         :param run_name: Name for a specific run.
         :param run_description: Description for a specific run.
         """
-        self.config_run = ConfigOptRun(
+        self.config_run = ConfigRun(
             series=series_name,
             name=run_name,
             description=run_description,
@@ -447,7 +447,7 @@ class EtaCtrl:
             action = np.round(action * _scale_actions, _round_actions)
         else:
             action *= _scale_actions
-        # Some agents (i.e. MPC) can interact with an additional environment
+        # Some agents (i.e. MathSolver) can interact with an additional environment
         if self.config.settings.interact_with_env:
             if self.interaction_env is None:
                 msg = "Initialized interaction environments could not be found. Call prepare_run first."

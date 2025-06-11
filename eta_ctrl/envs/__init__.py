@@ -1,10 +1,10 @@
 from eta_ctrl.util.julia_utils import julia_extensions_available
 
 from .base_env import BaseEnv as BaseEnv
-from .base_env_live import BaseEnvLive as BaseEnvLive
-from .base_env_mpc import BaseEnvMPC as BaseEnvMPC
-from .base_env_sim import BaseEnvSim as BaseEnvSim
+from .live_env import LiveEnv as LiveEnv
 from .no_vec_env import NoVecEnv as NoVecEnv
+from .pyomo_env import PyomoEnv as PyomoEnv
+from .sim_env import SimEnv as SimEnv
 from .state import (
     StateConfig as StateConfig,
     StateVar as StateVar,

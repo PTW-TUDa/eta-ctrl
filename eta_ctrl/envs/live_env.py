@@ -15,13 +15,13 @@ if TYPE_CHECKING:
 
     import numpy as np
 
-    from eta_ctrl.config import ConfigOptRun
+    from eta_ctrl.config import ConfigRun
     from eta_ctrl.util.type_annotations import ObservationType, Path, StepResult, TimeStep
 
 log = getLogger(__name__)
 
 
-class BaseEnvLive(BaseEnv, abc.ABC):
+class LiveEnv(BaseEnv, abc.ABC):
     """Base class for Live Connector environments. The class will prepare the initialization of the LiveConnect class
     and provide facilities to automatically read step results and reset the connection.
 
@@ -48,7 +48,7 @@ class BaseEnvLive(BaseEnv, abc.ABC):
     def __init__(
         self,
         env_id: int,
-        config_run: ConfigOptRun,
+        config_run: ConfigRun,
         verbose: int = 2,
         callback: Callable | None = None,
         *,

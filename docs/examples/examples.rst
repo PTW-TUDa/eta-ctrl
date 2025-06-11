@@ -16,7 +16,7 @@ different kinds of agents and includes examples for the PPO reinforcement learni
 agent as well as a simple rule based controller.
 
 The *damped_oscillator* example illustrates how simulation environments are created,
-based on the *BaseEnvSim* class. In this simple example, only the StateConfig and the
+based on the *SimEnv* class. In this simple example, only the StateConfig and the
 render function need to be specified to obtain a completely functional environment.
 In the example, the controller will just supply random action values.
 

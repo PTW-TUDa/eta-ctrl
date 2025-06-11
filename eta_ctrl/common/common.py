@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from stable_baselines3.common.base_class import BaseAlgorithm, BasePolicy
     from stable_baselines3.common.vec_env import VecEnv
 
-    from eta_ctrl.config import ConfigOpt, ConfigOptRun
+    from eta_ctrl.config import Config, ConfigRun
     from eta_ctrl.envs import BaseEnv
     from eta_ctrl.util.type_annotations import AlgoSettings, EnvSettings, Path
 from logging import getLogger
@@ -34,7 +34,7 @@ log = getLogger(__name__)
 
 def vectorize_environment(
     env: type[BaseEnv],
-    config_run: ConfigOptRun,
+    config_run: ConfigRun,
     env_settings: EnvSettings,
     callback: Callable[[BaseEnv], None],
     verbose: int = 2,
@@ -206,7 +206,7 @@ def load_model(
     return model
 
 
-def log_to_file(config: ConfigOpt, config_run: ConfigOptRun) -> None:
+def log_to_file(config: Config, config_run: ConfigRun) -> None:
     """Log output in terminal to the run_info file.
 
     :param config: Configuration to figure out the logging settings.
@@ -221,7 +221,7 @@ def log_to_file(config: ConfigOpt, config_run: ConfigOptRun) -> None:
             log.exception("Log file could not be created.")
 
 
-def log_run_info(config: ConfigOpt, config_run: ConfigOptRun) -> None:
+def log_run_info(config: Config, config_run: ConfigRun) -> None:
     """Save run configuration to the run_info file.
 
     :param config: Configuration for the framework.
@@ -328,7 +328,7 @@ def deserialize_net_arch(
     return network
 
 
-def log_net_arch(model: BaseAlgorithm, config_run: ConfigOptRun) -> None:
+def log_net_arch(model: BaseAlgorithm, config_run: ConfigRun) -> None:
     """Store network architecture or policy information in a file. This requires for the model to be initialized,
     otherwise it will raise a ValueError.
 

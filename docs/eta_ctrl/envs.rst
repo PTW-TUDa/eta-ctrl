@@ -110,6 +110,7 @@ as actions.
 
 Base Environment
 ------------------
+*TODO: What is an environment?*
 
 .. autoclass:: eta_ctrl.envs::BaseEnv
     :members:
@@ -121,9 +122,10 @@ Base Environment
 
 Model Predictive Control (MPC) Environment
 ------------------------------------------------
-The BaseEnvMPC is a class for the optimization of mathematical MPC models.
+PyomoEnv is a class for using Pyomo modelling language for environment representation.
 
-.. autoclass:: eta_ctrl.envs::BaseEnvMPC
+.. autoclass:: eta_ctrl.eta_x.envs::PyomoEnv
+
     :members:
     :private-members:
     :inherited-members: abc.ABC
@@ -133,10 +135,11 @@ The BaseEnvMPC is a class for the optimization of mathematical MPC models.
 
 Simulation (FMU) Environment
 -----------------------------
-The BaseEnvSim supports the optimization of FMU simulation models. Make sure to set the *fmu_name* attribute when
+The SimEnv supports the control of environments represented as FMU simulation models. Make sure to set the *fmu_name* attribute when
 subclassing this environment. The FMU file will be loaded from the same directory as the environment itself.
 
-.. autoclass:: eta_ctrl.envs::BaseEnvSim
+.. autoclass:: eta_ctrl.envs::SimEnv
+
     :members:
     :private-members:
     :inherited-members: abc.ABC
@@ -146,11 +149,12 @@ subclassing this environment. The FMU file will be loaded from the same director
 
 Live Connection Environment
 -----------------------------
-The BaseEnvLive is an environment which create direct (live) connections to actual devices. It utilizes
-:py:class:`eta_ctrl.connectors.LiveConnect` to achieve this. Please also read the corresponding documentation
-because LiveConnect needs additional configuration.
+The LiveEnv is an environment which creates direct (live) connections to actual devices. It utilizes
+:py:class:`eta_nexus.ConnectionManager` to achieve this. Please also read the corresponding documentation
+because ConnectionManager needs additional configuration.
 
-.. autoclass:: eta_ctrl.envs::BaseEnvLive
+.. autoclass:: eta_ctrl.envs::LiveEnv
+
     :members:
     :private-members:
     :inherited-members: abc.ABC

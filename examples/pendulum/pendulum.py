@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from datetime import datetime
     from typing import Any
 
-    from eta_ctrl.config import ConfigOptRun
+    from eta_ctrl.config import ConfigRun
     from eta_ctrl.util.type_annotations import ObservationType, StepResult, TimeStep
 
 log = getLogger(__name__)
@@ -65,7 +65,7 @@ class PendulumEnv(BaseEnv, GymPendulum):
     def __init__(  # noqa: PLR0913
         self,
         env_id: int,
-        config_run: ConfigOptRun,
+        config_run: ConfigRun,
         verbose: int = 2,
         callback: Callable | None = None,
         *,

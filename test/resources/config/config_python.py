@@ -1,8 +1,8 @@
 config = {  # noqa: INP001
     "setup": {
-        "environment_import": "eta_ctrl.envs.BaseEnvMPC",
+        "environment_import": "eta_ctrl.envs.PyomoEnv",
         "agent_import": "eta_ctrl.agents.MathSolver",
-        "interaction_env_class": "BaseEnvMPC",
+        "interaction_env_class": "PyomoEnv",
         "interaction_env_package": "eta_ctrl.envs",
         "vectorizer_class": "DummyVecEnv",
         "vectorizer_package": "stable_baselines3.common.vec_env.dummy_vec_env",

@@ -24,7 +24,7 @@ log = getLogger(__name__)
 
 
 class MathSolver(BaseAlgorithm):
-    """Simple, Pyomo based MPC agent.
+    """Simple, Pyomo based optimization agent supporting multiple solvers.
 
     The agent requires an environment that specifies the 'model' attribute, returning a
     :py:class:`pyomo.ConcreteModel` and a sorted list as the order for the action space. This list is used to

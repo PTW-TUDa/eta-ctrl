@@ -8,20 +8,20 @@ import numpy as np
 import pandas as pd
 
 from eta_ctrl.common import episode_results_path
-from eta_ctrl.envs import BaseEnvSim, StateConfig, StateVar
+from eta_ctrl.envs import SimEnv, StateConfig, StateVar
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from datetime import datetime
     from typing import Any
 
-    from eta_ctrl.config import ConfigOptRun
+    from eta_ctrl.config import ConfigRun
     from eta_ctrl.util.type_annotations import ObservationType, StepResult, TimeStep
 
 
-class DampedOscillatorEnv(BaseEnvSim):
+class DampedOscillatorEnv(SimEnv):
     """
-    Damped oscillator environment class from BaseEnvSim.
+    Damped oscillator environment class from SimEnv.
     Model settings come from fmu file.
 
     :param env_id: Identification for the environment, useful when creating multiple environments
@@ -43,7 +43,7 @@ class DampedOscillatorEnv(BaseEnvSim):
     def __init__(
         self,
         env_id: int,
-        config_run: ConfigOptRun,
+        config_run: ConfigRun,
         verbose: int = 2,
         callback: Callable | None = None,
         *,
