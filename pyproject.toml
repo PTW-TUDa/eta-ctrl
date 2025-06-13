@@ -1,10 +1,11 @@
 [project]
 name = "eta-ctrl"
 version = "v0.0.1"
-description = "A framework for researching energy optimization of factory operations"
+description = "A framework for researching energy optimization of factory operations."
 license = "BSD-2-Clause"
 readme = "README.rst"
-requires-python = ">=3.10.16, <3.13.0"
+requires-python = ">=3.10.16,<3.13"
+dynamic = ["classifiers"]
 authors = [
     {name = "Technical University of Darmstadt, Institute for Production Management, Technology and Machine Tools (PTW)", email="info@ptw.tu-darmstadt.de"}
 ]
@@ -13,17 +14,45 @@ maintainers = [
   {name = "Jerome Stock", email = "J.Stock@PTW.TU-Darmstadt.de"},
   {name= "Julius Balzer", email = "julius.balzer@stud.tu-darmstadt.de"}
 ]
-
 keywords = [
-    "rolling horizon optimization", "simulators","industrial energy optimization"
+  "rolling horizon optimization",
+  "simulators",
+  "industrial energy optimization"
 ]
-dynamic = ["classifiers", "dependencies"]
-
+dependencies = [
+    "attrs (>=25.3.0,<26.0.0)",
+    "python-dateutil (>=2.8.2,<3.0.0)",
+    "numpy (>=2.0.0,<3.0.0)",
+    "pandas (>=2.2.2,<2.3.0)",
+    "fmpy (>=0.3.5,<0.4.0)",
+    "pyyaml (>=6.0.2,<7.0.0)",
+    "toml (>=0.10.2,<0.11.0)",
+    "torch (>=2.4.0,<2.5.0)",
+    "python-dotenv (>=1.0.1,<2.0.0)",
+    "gymnasium ==1.0.0", # no SemVer
+    "stable-baselines3 (>=2.4.0,<3.0.0)", # no SemVer
+    "tensorboard (>=2.14.0,<2.15.0)",
+    "pyomo (>=6.9.2,<6.10.0)",
+    "julia (>=0.6.2,<0.7.0)",
+    "eta-nexus (>=0.0.1,<0.1.0)",
+]
+optional-dependencies.examples = [
+    "matplotlib (>=3.9.2,<3.10.0)",
+    "keyboard (>=0.13.5,<0.14.0)",
+    "pygame (>=2.5.2,<2.6.0)",
+    "pyglet <2.0.0",
+    "onnxruntime ==1.21.0"
+]
+optional-dependencies.docs = [
+    "sphinx (>=7.1.2,<8.0.0)",
+    "sphinx-rtd-theme (>=1.3.0,<2.0.0)",
+    "sphinx-copybutton (>=0.5.2,<1.0.0)"
+]
 [project.urls]
-homepage = "https://www.ptw.tu-darmstadt.de"
-repository = "https://github.com/PTW-TUDa/eta_ctrl/"
-documentation = "https://eta-ctrl.readthedocs.io/"
-issues = "https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/-/issues"
+    Homepage = "https://www.ptw.tu-darmstadt.de"
+    Repository = "https://github.com/PTW-TUDa/eta_ctrl/"
+    Documentation = "https://eta-ctrl.readthedocs.io/"
+    Issues = "https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/-/issues"
 
 [project.scripts]
     install-julia = "eta_ctrl:install_julia"
@@ -47,44 +76,26 @@ include = [
     {path="examples/", format=["sdist", "wheel"]}
 ]
 
-
-#  '^' limits to the next major version, '~' limits to the next minor version
-# e.g. ^3.9.0: 3.9.0 <= x < 4.0.0 and ~3.9.0: 3.9.0 <= x < 3.10.0
-[tool.poetry.dependencies]
-# default dependencies of eta_ctrl
-attrs = "^25.3.0"
-python-dateutil = "^2.8.2"
-numpy = "^2.0.0"
-pandas = "~2.2.2"
-fmpy = "^0.3.5"
-pyyaml = "^6.0.2"
-toml = "^0.10.2"
-python-dotenv = "^1.0.1"
-gymnasium =  "==1.0.0" # no SemVer
-torch = "~2.4.0"
-stable-baselines3 = "^2.4.0"  # no SemVer
-tensorboard = "~2.14.0"
-pyomo = "~6.9.2"
-julia = "^0.6.2"
-eta-nexus = "^0.0.1"
-
 [tool.poetry.group.examples.dependencies]
-# Specific requirements for the examples
-matplotlib =  "~3.9.2"
-keyboard = "^0.13.5"
-pygame = "^2.5.2"
-pyglet = "<2"
-onnxruntime = "1.21.0"
+# Versions defined above to ensure pip compatibility
+matplotlib = "*"
+keyboard = "*"
+pygame = "*"
+pyglet = "*"
+onnxruntime = "*"
+
+[tool.poetry.group.docs.dependencies]
+# Versions defined above to ensure pip compatibility
+sphinx = "*"
+sphinx-rtd-theme = "*"
+sphinx-copybutton = "*"
 
 [tool.poetry.group.dev.dependencies]
+# Dev install assumes poetry, so pip compatibility is not needed
 # Specific requirements for tests
 pytest = "^8.0.0"
 pytest-cov = "^6.0.0"
 pytest-timeout = "^2.3.1"
-# Specific requirements for documentation
-sphinx = "^7.1.2"
-sphinx-rtd-theme = "^1.3.0"
-sphinx-copybutton = "^0.5.2"
 # Specific requirements for CI tools
 pre-commit = "^3.4.0"
 ruff = "~0.11.2"
@@ -93,7 +104,6 @@ codespell = "^2.3.0"
 mypy = "~1.9.0"
 types-python-dateutil = "^2.8.19.14"
 types-pytz = "^2024.1.0.20240203"
-
 
 [tool.mypy]
 python_version = "3.10"
