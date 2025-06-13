@@ -1,10 +1,10 @@
 ETA Ctrl Framework
-======================
+######################
 
 The `ETA Ctrl` framework provides a standardized interface for developing digital twins of factories or machines in a factory. It is designed to facilitate rolling horizon optimization, simulation, and interaction with factory systems. The framework is based on the Gymnasium environment and integrates seamlessly with tools like FMUs, Julia, Pyomo models, and live connections to real-world assets.
 
 Documentation
-===============
+*****************
 
 Full Documentation can be found on the
 `Documentation Page <https://eta-ctrl.readthedocs.io/>`_. (TODO: Make this a link as soon as first docs version is released.)
@@ -14,48 +14,63 @@ Full Documentation can be found on the
     are using in your requirements to ensure your software will not be broken by changes in *ETA Ctrl*.
 
 Utilities Overview
-------------------
+********************
 
-### Optimization Utilities
+Optimization Utilities
+==========================
+
 - **`ETA Ctrl`**: Central controller for managing optimization workflows, including learning and execution processes.
 
-### Configuration Utilities
+Configuration Utilities
+==========================
+
 - **`ConfigOpt`**: Represents the configuration for an optimization run.
 - **`ConfigOptSetup`**: Defines setup configurations for optimization runs.
 - **`ConfigOptSettings`**: Represents settings for optimization runs.
 - **`ConfigOptRun`**: Handles paths and metadata for optimization runs.
 
-### Environment Utilities
+Environment Utilities
+==========================
+
 - **Base Classes**:
+
   - **`BaseEnv`**: Abstract base class for creating custom environments.
   - **`BaseEnvLive`**: Extends `BaseEnv` for live environments interacting with real-world systems.
   - **`BaseEnvMPC`**: Extends `BaseEnv` for environments using Model Predictive Control (MPC).
   - **`BaseEnvSim`**: Extends `BaseEnv` for environments using FMU-based simulations.
   - **`JuliaEnv`**: Environment class for interacting with Julia-based simulation models.
+
 - **Vectorization**:
+
   - **`NoVecEnv`**: Custom vectorizer for environments that handle multithreading internally.
 
-### Simulation Utilities
+Simulation Utilities
+==========================
+
 - **`FMUSimulator`**: Provides functionality for simulating FMUs (Functional Mock-up Units).
 
-### Time Series Utilities
+Time Series Utilities
+==========================
+
 - **`scenario_from_csv`**: Imports and processes scenario data from CSV files.
 - **`df_from_csv`**: Reads time series data from a CSV file and returns it as a pandas DataFrame.
 - **`df_resample`**: Resamples the time index of a DataFrame to a specified frequency.
 - **`df_interpolate`**: Interpolates missing values in a DataFrame with a specified frequency.
 
-### State Management Utilities
+State Management Utilities
+==========================
+
 - **`StateVar`**: Represents a single variable in the state of an environment.
 - **`StateConfig`**: Configures the action and observation spaces based on `StateVar` instances.
 
 Contributing
-=============
+*****************
 
 Please read the `development guide <https://eta-utility.readthedocs.io/en/main/guide/development.html>`_ before starting development on *ETA Ctrl*
 
 
 Citing this Project / Authors
-================================
+******************************
 
 See `AUTHORS.rst` for a full list of contributors.
 
