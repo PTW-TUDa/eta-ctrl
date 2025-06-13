@@ -28,7 +28,6 @@ dependencies = [
     "pyyaml (>=6.0.2,<7.0.0)",
     "toml (>=0.10.2,<0.11.0)",
     "torch (>=2.4.0,<2.5.0)",
-    "python-dotenv (>=1.0.1,<2.0.0)",
     "gymnasium ==1.0.0", # no SemVer
     "stable-baselines3 (>=2.4.0,<3.0.0)", # no SemVer
     "tensorboard (>=2.14.0,<2.15.0)",

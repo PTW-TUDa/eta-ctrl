@@ -8680,4 +8680,4 @@ examples = ["keyboard", "matplotlib", "onnxruntime", "pygame", "pyglet"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10.16,<3.13"
-content-hash = "c6637740972ea46dd4c7ac96fa041f1a22027485b6ebfc8d0fd39a068d6ca2f7"
+content-hash = "3ff8ebb8cf329fac75c6b412df50b08b22548bb0be1b3a101c8b9550b5ad6d44"

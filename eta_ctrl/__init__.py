@@ -1,5 +1,3 @@
-from dotenv import load_dotenv
-
 from .core import EtaCtrl as EtaCtrl
 from .util import (
     LOG_DEBUG as LOG_DEBUG,
@@ -16,6 +14,3 @@ from .util import (
     log_add_filehandler as log_add_filehandler,
     update_agent as update_agent,
 )
-
-# Load environment variables from .env file
-load_dotenv()
