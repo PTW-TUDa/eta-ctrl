@@ -2,10 +2,10 @@ import gymnasium
 import numpy as np
 import pyomo.environ as pyo
 
-from eta_ctrl.eta_x.envs import BaseEnvMPC
+from eta_ctrl.envs import PyomoEnv
 
 
-class MPCBasicEnv(BaseEnvMPC):
+class MPCBasicEnv(PyomoEnv):
     """Environment for MPC basic agent, that implements a quadratic optimization problem. The goal is to
     minimize the sum of the squared values of both x and u over the prediction horizon. The environment
     was created for testing purposes.
@@ -83,4 +83,3 @@ class MPCBasicEnv(BaseEnvMPC):
 
     def render(self):
         """The visual representation is not needed for the testing purpose."""
-        pass

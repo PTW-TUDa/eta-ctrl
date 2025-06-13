@@ -5,6 +5,7 @@
 *.csv
 *.json
 !*/resources/**/*.json
+!*/examples/*config*.json
 !*/resources/**/*.csv
 !*/resources/**/*.xls
 *_version.py

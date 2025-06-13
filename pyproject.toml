@@ -1,10 +1,11 @@
 [project]
 name = "eta-ctrl"
-version = "v0.0.1"
-description = "A framework for researching energy optimization of factory operations"
+version = "v0.1.0"
+description = "A framework for researching energy optimization of factory operations."
 license = "BSD-2-Clause"
 readme = "README.rst"
-requires-python = ">=3.10.16, <3.13.0"
+requires-python = ">=3.10.16,<3.13"
+dynamic = ["classifiers"]
 authors = [
     {name = "Technical University of Darmstadt, Institute for Production Management, Technology and Machine Tools (PTW)", email="info@ptw.tu-darmstadt.de"}
 ]
@@ -13,17 +14,44 @@ maintainers = [
   {name = "Jerome Stock", email = "J.Stock@PTW.TU-Darmstadt.de"},
   {name= "Julius Balzer", email = "julius.balzer@stud.tu-darmstadt.de"}
 ]
-
 keywords = [
-    "rolling horizon optimization", "simulators","industrial energy optimization"
+  "rolling horizon optimization",
+  "simulators",
+  "industrial energy optimization"
 ]
-dynamic = ["classifiers", "dependencies"]
-
+dependencies = [
+    "attrs (>=25.3.0,<26.0.0)",
+    "python-dateutil (>=2.8.2,<3.0.0)",
+    "numpy (>=2.0.0,<3.0.0)",
+    "pandas (>=2.2.2,<2.3.0)",
+    "fmpy (>=0.3.5,<0.4.0)",
+    "pyyaml (>=6.0.2,<7.0.0)",
+    "toml (>=0.10.2,<0.11.0)",
+    "torch (>=2.4.0,<2.5.0)",
+    "gymnasium ==1.0.0", # no SemVer
+    "stable-baselines3 (>=2.4.0,<3.0.0)", # no SemVer
+    "tensorboard (>=2.14.0,<2.15.0)",
+    "pyomo (>=6.9.2,<6.10.0)",
+    "julia (>=0.6.2,<0.7.0)",
+    "eta-nexus (>=0.0.1,<0.1.0)",
+]
+optional-dependencies.examples = [
+    "matplotlib (>=3.9.2,<3.10.0)",
+    "keyboard (>=0.13.5,<0.14.0)",
+    "pygame (>=2.5.2,<2.6.0)",
+    "pyglet <2.0.0",
+    "onnxruntime ==1.21.0"
+]
+optional-dependencies.docs = [
+    "sphinx (>=7.1.2,<8.0.0)",
+    "sphinx-rtd-theme (>=1.3.0,<2.0.0)",
+    "sphinx-copybutton (>=0.5.2,<1.0.0)"
+]
 [project.urls]
-homepage = "https://www.ptw.tu-darmstadt.de"
-repository = "https://github.com/PTW-TUDa/eta_ctrl/"
-documentation = "https://eta-ctrl.readthedocs.io/"
-issues = "https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/-/issues"
+    Homepage = "https://www.ptw.tu-darmstadt.de"
+    Repository = "https://github.com/PTW-TUDa/eta_ctrl/"
+    Documentation = "https://eta-ctrl.readthedocs.io/"
+    Issues = "https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/-/issues"
 
 [project.scripts]
     install-julia = "eta_ctrl:install_julia"
@@ -36,84 +64,48 @@ classifiers = [
     "License :: OSI Approved :: BSD License",
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
+    "Intended Audience :: Education",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Manufacturing",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
     "Operating System :: OS Independent",
 ]
 include = [
     {path="examples/", format=["sdist", "wheel"]}
 ]
 
-
-#  '^' limits to the next major version, '~' limits to the next minor version
-# e.g. ^3.9.0: 3.9.0 <= x < 4.0.0 and ~3.9.0: 3.9.0 <= x < 3.10.0
-[tool.poetry.dependencies]
-# default dependencies of eta_ctrl
-attrs = "^25.3.0"
-python-dateutil = "^2.8.2"
-numpy = "^2.0.0"
-pandas = "~2.2.2"
-xlrd = "^2.0.1"
-requests = "^2.31.0"
-fmpy = "^0.3.5"
-pyyaml = "^6.0.2"
-toml = "^0.10.2"
-python-dotenv = "^1.0.1"
-
-# Specific requirements for eta-x
-gymnasium =  "==1.0.0" # no SemVer
-torch = "~2.4.0" # nvidia packages are not included in 2.0.1, see https://github.com/pytorch/pytorch/issues/100974
-stable-baselines3 = "^2.4.0"  # no SemVer
-tensorboard = "~2.14.0"
-pyomo = "~6.9.2"
-julia = "^0.6.2"
-eta-nexus = "^0.0.1"
-
 [tool.poetry.group.examples.dependencies]
-# Specific requirements for the examples
-matplotlib =  "~3.9.2"
-keyboard = "^0.13.5"
-pygame = "^2.5.2"
-pyglet = "<2"
-onnxruntime = "1.19.0"
+# Versions defined above to ensure pip compatibility
+matplotlib = "*"
+keyboard = "*"
+pygame = "*"
+pyglet = "*"
+onnxruntime = "*"
+
+[tool.poetry.group.docs.dependencies]
+# Versions defined above to ensure pip compatibility
+sphinx = "*"
+sphinx-rtd-theme = "*"
+sphinx-copybutton = "*"
 
 [tool.poetry.group.dev.dependencies]
+# Dev install assumes poetry, so pip compatibility is not needed
 # Specific requirements for tests
-# tests
 pytest = "^8.0.0"
 pytest-cov = "^6.0.0"
 pytest-timeout = "^2.3.1"
-openpyxl = "^3.1.2"
-# Specific requirements for development
-sphinx = "^7.1.2"
-sphinx-rtd-theme = "^1.3.0"
-sphinx-copybutton = "^0.5.2"
+# Specific requirements for CI tools
 pre-commit = "^3.4.0"
-black = "~23.7.0"
-blacken_docs = "~1.16.0"
+ruff = "~0.11.2"
+codespell = "^2.3.0"
 # MyPy requirements and typing packages
 mypy = "~1.9.0"
 types-python-dateutil = "^2.8.19.14"
-types-requests = "^2.31.0.4"
 types-pytz = "^2024.1.0.20240203"
-# Ruff
-ruff = "~0.9.6"
-codespell = "^2.3.0"
-
-
-# [tool.poetry.extras]
-# develop = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo", "julia",  # include eta-x
-#             "matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime",    # include examples
-#             "pytest", "pytest-cov", "openpyxl", "sphinx", "sphinx-rtd-theme", "sphinx-copybutton", "pre-commit",
-#             "black", "blacken_docs", "mypy", "types-python-dateutil",
-#             "types-requests", "types-pytz", "ruff", "codespell"]
-# eta-x = ["gymnasium", "torch", "stable_baselines3", "tensorboard", "pyomo", "julia"]
-# examples = ["matplotlib", "keyboard", "pygame", "pyglet", "onnxruntime"]
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 files = ["eta_ctrl", "examples"]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
@@ -132,18 +124,13 @@ module = [
     "fmpy.*",
     "pandas.*",
     "gymnasium.*",
-    "opcua.*",
-    "pyModbusTCP.*",
     "pyomo.*",
-    "lxml.*",
     "julia.*",
     "setuptools",
     "keyboard.*",
     "onnxruntime.*",
     "matplotlib.*",
     "torch.*",
-    "wetterdienst.*",
-    "requests_cache.*",
     "toml.*",
     "yaml.*",
 ]
@@ -189,42 +176,29 @@ exclude_lines = [
 ]
 
 [tool.ruff]
-
 line-length = 120
 indent-width = 4
-
-required-version = ">=0.4.0"
-target-version= "py39"
-
+required-version = ">=0.11.2"
+target-version= "py310"
+output-format = "concise"
 # Only fix with $ruff check --fix
 fix = false
 
-output-format = "concise"
-
 [tool.ruff.lint]
-select = [
-    "F",       # Pyflakes
-    "E", "W",  # Pycodestyle, Error and Warning
-    "I",       # Isort
-    "N",       # Pep8-naming conventions
-    "UP",      # Pyupgrade
-    "PL",      # Pylint
-    "ERA",     # Eradicate
-    "PD",      # Pandas-vet
-    "NPY",     # NumPy-specific
-    "RUF",     # Ruff
-
-    # Flake8:
-    # 2020, asyncio, bugbear, builtins, commas, comprehensions, future-annotations, implicit-str-concat
-    "YTT", "ASYNC", "B", "A", "COM", "C4", "FA", "ISC",
-    # logging, no-pep420, print, pyi, pytest-style, return, simplify, use-pathlib, todo
-    "LOG", "INP", "T20", "PYI", "PT", "RET", "SIM", "PTH", "TD",
-    ]
-
+select = ["ALL"]
 ignore = [
+    "ANN401", "ANN001",  # Don't use `Any` as type annotation
+    "ARG",      # Unused method arguments
+    "C901",     # Complex logic
+    "D",        # Docstrings
+    "DTZ",      # Datetime timezone
+    "FBT00",    # Boolean positional arguments
+    "G004",     # Logging statement uses f-string
+    "PERF203",  # try - except performance overhead in loop
     "PLR2004",  # Pylint: magic values
-    "SIM105",   # Don't forcce contextlib.suppress
-    "TD002",    # Ignore TODO authors
+    "S60",      # Subprocess calls
+    "SIM105",   # Force contextlib suppressor
+    "TD002", "FIX",  # Ignore TODO authors
     # Recommended to ignore as they conflict with the formatter
     "W191", "E111", "E114", "E117", "D206", "D300", "COM812", "COM819", "ISC001",
 ]
@@ -232,20 +206,24 @@ ignore = [
 
 [tool.ruff.lint.extend-per-file-ignores]
 "__init__.py" = ["PLC0414"]
-"test/*" = ["RUF012"]
+"test/*" = ["RUF012", "S", "ANN", "D", "SIM", "FBT00", "PLR2004", "SLF"]
+"examples/*" = ["S10", "D"]
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
 force-wrap-aliases = true
 
 [tool.ruff.lint.pylint]
-max-args = 15
-max-branches = 21
+max-args = 14
+max-branches = 13
 max-statements = 62
 max-returns = 6
 
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
 [tool.codespell]
-skip = "*.js, *.html, *.lock, */Manifest.toml, ./docs/_build"
+skip = "*.lock, */Manifest.toml, ./docs/_build"
 ignore-words-list = ["Temperatur"]
 quiet-level = 3
 

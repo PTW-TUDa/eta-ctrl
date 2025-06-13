@@ -4,7 +4,7 @@ import pathlib
 from typing import TYPE_CHECKING
 
 from eta_ctrl import get_logger
-from eta_ctrl.eta_x import ETAx
+from eta_ctrl.core import EtaCtrl
 
 if TYPE_CHECKING:
     from typing import Any
@@ -18,17 +18,17 @@ def main() -> None:
     experiment_learning(root_path)
 
 
-def experiment_conventional(root_path: pathlib.Path, overwrite: dict[str, Any] | None = None) -> ETAx:
+def experiment_conventional(root_path: pathlib.Path, overwrite: dict[str, Any] | None = None) -> EtaCtrl:
     """Perform a conventionally controlled experiment with the damped oscillator environment.
     This uses the damped_oscillator_conventional.json config file.
 
     :param root_path: Root path of the experiment.
     :param overwrite: Additional config values to overwrite values from JSON.
-    :return: The ETAx object containing the experiment
+    :return: The EtaCtrl object containing the experiment
     """
     # --main--
-    experiment = ETAx(root_path, "damped_oscillator_conventional", overwrite, relpath_config=".")
-    experiment.play("conventional_series", "run1")
+    experiment = EtaCtrl(root_path, "config_conventional", overwrite, relpath_config=".")
+    experiment.play(series_name="conventional_series", run_name="run1")
     # --main--
     return experiment
 
@@ -41,9 +41,9 @@ def experiment_learning(root_path: pathlib.Path, overwrite: dict[str, Any] | Non
     :param overwrite: Additional config values to overwrite values from JSON.
     """
     # --main--
-    experiment = ETAx(root_path, "damped_oscillator_learning", overwrite, relpath_config=".")
-    experiment.learn("learning_series", "run1")
-    experiment.play("learning_series", "run1")
+    experiment = EtaCtrl(root_path, "config_learning", overwrite, relpath_config=".")
+    experiment.learn(series_name="learning_series", run_name="run1")
+    experiment.play(series_name="learning_series", run_name="run1")
     # --main--
 
 

@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
     from fmpy.model_description import ModelDescription
 
-    from eta_ctrl.type_hints import Number, Path, TimeStep
+    from eta_ctrl.util.type_annotations import Number, Path, TimeStep
 
 log = getLogger(__name__)
 
@@ -181,7 +181,7 @@ class FMUSimulator:
                 modelIdentifier=self.model_description.coSimulation.modelIdentifier,
                 instanceName="FMUsimulator_" + str(_id),
             )
-        except Exception:
+        except Exception:  # noqa: BLE001  fmpy raises bare Exceptions
             compile_platform_binary(self.fmu_path)
             self.fmu = FMU2Slave(
                 guid=self.model_description.guid,
@@ -246,7 +246,7 @@ class FMUSimulator:
 
         # Get values from the FMU and convert to specified output format (dict or list)
         output_values = self.fmu.getReal(refs)
-        return dict(zip(vars_, output_values)) if self._return_dict else output_values
+        return dict(zip(vars_, output_values, strict=False)) if self._return_dict else output_values
 
     def set_values(self, values: Sequence[Number | bool] | Mapping[str, Number | bool]) -> None:
         """Set values of simulation variables without advancing a simulation step or the simulation time.
@@ -255,7 +255,6 @@ class FMUSimulator:
                        to variables in the FMU. If passing as a Sequence, make sure the order corresponds to
                        the order of the input_vars property.
         """
-
         vals: dict[str, list[Number | bool]] = {"real": [], "int": [], "bool": []}
         refs: dict[str, list[str]] = {"real": [], "int": [], "bool": []}
         if isinstance(values, Mapping):
@@ -268,10 +267,11 @@ class FMUSimulator:
                     raise KeyError(msg) from e
         else:
             if len(values) != len(self._inputs["refs"]):
-                raise AttributeError(
+                msg = (
                     f"Length of value list ({len(values)}) must be equal to length of input_vars "
                     f"property ({len(self._inputs['refs'])})"
                 )
+                raise AttributeError(msg)
             refs = {
                 "real": self._inputs["real"],
                 "int": self._inputs["int"],
@@ -354,15 +354,19 @@ class FMUSimulator:
         # mypy does not recognize the return type of floor division...
         result = np.rec.array(
             None,
-            shape=((simulator.stop_time - simulator.start_time) // simulator.step_size + 1,),  # type: ignore
+            shape=((simulator.stop_time - simulator.start_time) // simulator.step_size + 1,),  # type: ignore[arg-type]
             dtype=dt,
         )
-        assert result.dtype.names is not None, "There must be some output variables specified for the simulator."
+        if result.dtype.names is None:
+            msg = "There must be some output variables specified for the simulator."
+            raise ValueError(msg)
 
         step = 0
         while simulator.time <= simulator.stop_time:
             step_result = simulator.step()
-            assert isinstance(step_result, dict), "The simulator needs a dictionary return."
+            if not isinstance(step_result, dict):
+                msg = "The simulator needs a dictionary return."
+                raise TypeError(msg)
             for name in result.dtype.names:
                 result[step][name] = step_result[name]
 
@@ -382,7 +386,7 @@ class FMUSimulator:
         # set init values
         # instead of using the fmpy apply_start_values func from fmpy use the own set_values func to set the values
         # of the simulation variables correctly, reasons are also performance and simulation speed
-        self.set_values(init_values)  # type: ignore
+        self.set_values(init_values)  # type: ignore[arg-type]
 
         self.fmu.enterInitializationMode()
         self.fmu.exitInitializationMode()
@@ -418,7 +422,6 @@ class FMU2MESlave(FMU2Model):
 
         :param Any \**kwargs: Accepts any parameters that fmpy.FMU2Model accepts.
         """
-
         super().__init__(**kwargs)
         self._model_description: ModelDescription = read_model_description(kwargs["unzipDirectory"])
         self._solver: CVodeSolver
@@ -444,7 +447,6 @@ class FMU2MESlave(FMU2Model):
         :param kwargs: Other keyword arguments that might be required for FMU2Model.setupExperiment in the future.
         :return: FMI2 return value.
         """
-
         self._tolerance = 1e-5 if tolerance is None else tolerance
         self._stop_time = 0.0 if stopTime is None else stopTime
         self._start_time = startTime
@@ -463,7 +465,6 @@ class FMU2MESlave(FMU2Model):
         :param kwargs: Keyword arguments accepted by FMU2Model.exitInitializationMode.
         :return: FMI2 return value.
         """
-
         ret = super().exitInitializationMode(**kwargs)
 
         # Collect discrete states from FMU

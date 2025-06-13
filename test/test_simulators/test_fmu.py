@@ -7,7 +7,7 @@ from eta_ctrl.simulators import FMUSimulator
 
 class TestFMUSimulator:
     @pytest.fixture
-    def seq_simulator(self, monkeypatch, config_fmu):
+    def seq_simulator(self, config_fmu):
         """Legacy initialization required all values and would expect the simulator to return lists. A simulator
         which does this is initialized here."""
         init_values = {"u": 0}
