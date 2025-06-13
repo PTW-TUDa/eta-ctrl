@@ -1,4 +1,4 @@
-.. _intro_Core:
+.. _intro-eta-ctrl:
 
 Introduction
 =============
@@ -9,7 +9,7 @@ also contains some extensions for *stable_baselines3*, these include additional 
 schedules and agents.
 
 The module contains functions meant to simplify the general process of creating rolling horizon
-optimization models. It contains the *Core* class which in turn combines all of this information
+optimization models. It contains the *EtaCtrl* class which in turn combines all of this information
 such that you can start simple optimizations in just two lines. For example, to start the pendulum
 example (which is taken from the *gymnasium* framework):
 
@@ -22,7 +22,7 @@ The resulting optimization will have full configuration support, logging, suppor
 series of optimization runs and many other things.
 
 .. note::
-    It is not necessary to use the *Core* class to utilize the other tools provided by this module. For example,
+    It is not necessary to use the *EtaCtrl* class to utilize the other tools provided by this module. For example,
     you can utilize the functionality provided by :ref:`eta_experiment_config` and :ref:`eta_ctrl_common` to build
     completely custom optimization scripts while still benefitting from centralized configuration, management of file
     paths, additional logging features and so on.
@@ -36,10 +36,10 @@ The functions available in eta_ctrl.envs make it easy to create new, custom envi
 For example, they provide functionality for integrating FMU simulation models,
 communicating with real machinery in factories, or even integrating environments written in Julia.
 
-The *Core* class is built on top of this functionality and extends the general Markov Decision Process by the option to
+The *EtaCtrl* class is built on top of this functionality and extends the general Markov Decision Process by the option to
 introduce interactions between multiple environments. This enables the creation of digital twins, which could for
 example use a mathematical or a simulation model for some aspects and interact with the actual devices for other
-aspects as shown in the figure. Note, that this is only an option when using *Core*. The class also supports simple
+aspects as shown in the figure. Note, that this is only an option when using *EtaCtrl*. The class also supports simple
 optimization of a single environment as shown in the code example above.
 
 .. figure:: figures/Interaction_between_env.png
@@ -66,7 +66,7 @@ optimizations using specific environments and agents. An example of this concept
     Example of the ETA Ctrl experiment concept.
 
 As shown in the figure, the process starts with the configuration (setup) file, which is written in
-JSON format (see :ref:`eta_ctrl_experiment_config`). Based on this configuration, the environment and
+JSON format (see :ref:`eta_experiment_config`). Based on this configuration, the environment and
 corresponding agent can be initialized and executed.
 
 An experiment with a single configuration can consist of a series of different optimization runs.
@@ -89,17 +89,17 @@ Observations made in the environment are passed to the agent.
 
 How to get started
 --------------------
-Usually you want to use the *Core* class as shown above to initialize your experiment.
-This will automatically load a JSON configuration file (see also :ref: `eta_ctrl_experiment_config`).
+Usually you want to use the *EtaCtrl* class as shown above to initialize your experiment.
+This will automatically load a JSON configuration file (see also :ref: `eta_experiment_config`).
 The file to load the configuration from is specified during class instantiation:
 
-.. autoclass:: eta_ctrl::Core
+.. autoclass:: eta_ctrl::EtaCtrl
 
 After the class is instantiated, you can use the play and learn methods to execute the experiment:
 
-.. autofunction:: eta_ctrl::Core.learn
+.. autofunction:: eta_ctrl::EtaCtrl.learn
 
-.. autofunction:: eta_ctrl::Core.play
+.. autofunction:: eta_ctrl::EtaCtrl.play
 
 .. _eta_experiment_config:
 
@@ -110,11 +110,11 @@ read  from a JSON file and determines the setup of the entire experiment, includ
 environment to load and how to set each one up. The configuration is defined by the *Config*
 dataclass and its subsidiaries *ConfigSetup* and *ConfigSettings*.
 
-When you are using Core (the class) the configuration will be read automatically.
+When you are using EtaCtrl (the class) the configuration will be read automatically.
 
-Use :func:`eta_ctrl::Config.from_json` to read the configuration from a JSON file:
+Use :func:`eta_ctrl.config::from_config_file` to read the configuration from a JSON, TOML or YAML file:
 
-.. autofunction:: eta_ctrl::Config.from_json
+.. autofunction:: eta_ctrl.config::Config.from_config_file
 
 Configuration example
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -128,7 +128,7 @@ Config section 'setup'
 ^^^^^^^^^^^^^^^^^^^^^^^^
 The settings configured in the setup section are the following:
 
-.. autoclass:: eta_ctrl::ConfigSetup
+.. autoclass:: eta_ctrl.config::ConfigSetup
     :members:
     :noindex:
     :exclude-members: from_dict
@@ -137,8 +137,8 @@ Config section 'paths'
 ^^^^^^^^^^^^^^^^^^^^^^^^
 The paths section can contain the following relative paths:
 
-.. autoattribute:: eta_ctrl::Config.relpath_results
-.. autoattribute:: eta_ctrl::Config.relpath_scenarios
+.. autoattribute:: eta_ctrl.config::Config.relpath_results
+.. autoattribute:: eta_ctrl.config::Config.relpath_scenarios
 
 Config section 'settings'
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -151,7 +151,7 @@ The configuration options in the settings section are the following.
     for instantiation of the agent or environment. These arguments must be specified as parameters in
     the corresponding section.
 
-.. autoclass:: eta_ctrl::ConfigSettings
+.. autoclass:: eta_ctrl.config::ConfigSettings
     :members:
     :noindex:
     :exclude-members: from_dict
@@ -165,11 +165,11 @@ Below, you can see the parameters that ConfigRun offers. Full documentation is i
 docs: :py:class:`eta_ctrl.config.ConfigRun`.
 
 .. note::
-    Core instantiates an object of this class automatically from the JSON configuration file. You do not need
+    EtaCtrl instantiates an object of this class automatically from the JSON configuration file. You do not need
     to specify any of the parameters listed here. They are listed here to show what is available for use
     during the optimization run.
 
-.. autoclass:: eta_ctrl::ConfigRun
+.. autoclass:: eta_ctrl.config::ConfigRun
     :members:
     :noindex:
     :exclude-members: from_dict, set_env_info, set_interaction_env_info, create_results_folders

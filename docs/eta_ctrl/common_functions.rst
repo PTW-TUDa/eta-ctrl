@@ -2,8 +2,8 @@
 
 Common Functions
 ==================
-In addition to the *Core* class, which completely automates the rolling horizon optimization process and the learning
-process for reinforcement learning algorithms, the *ETA Ctrl* module also provides functions which simplify the creation
+In addition to the *EtaCtrl* class, which completely automates the rolling horizon optimization process and the learning
+process for reinforcement learning algorithms, the *ETA Ctrl* package also provides functions which simplify the creation
 of optimization runs and the required environments and algorithms. These functions also provide the interfaces for
 reading *ETA Ctrl* configuration files and for the logging capabilities of *ETA Ctrl*.
 
@@ -20,7 +20,7 @@ The *vectorize_environment* function will automatically add a callback function 
 environment instantiation. The callback should be called by the environment after each episode and
 after each step. It will create logging output depending on the configuration.
 
-The callback generally used by *Core* is *CallbackEnvironment*, which allows for logging in specified
+The callback generally used by *EtaCtrl* is *CallbackEnvironment*, which allows for logging in specified
 intervals. A *callback* can be anything that is callable and takes an environment instance as its only argument.
 
 .. autoclass:: eta_ctrl.common::CallbackEnvironment
