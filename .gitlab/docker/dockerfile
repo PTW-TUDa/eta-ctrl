@@ -3,11 +3,11 @@
 # Run build_and_push_docker to build and push all images
 
 # Pass the python version as a build argument
-ARG PYTHON_VERSION=3.9
+ARG PYTHON_VERSION=3.10
 ARG POETRY_VERSION=2.1.1
 
 # Stage 1: Julia base image
-FROM julia:1.9-bullseye AS julia-image
+FROM julia:1.11-bookworm AS julia-image
 
 # Stage 2: Final image
 FROM python:${PYTHON_VERSION}-slim-bullseye AS final-image
@@ -22,7 +22,7 @@ ENV APP_PATH="/usr/src/app" \
     PIP_NO_CACHE_DIR=off \
     PIP_DISABLE_PIP_VERSION_CHECK=on \
     PIP_DEFAULT_TIMEOUT=100 \
-    JULIA_VERSION=1.9.3 \
+    JULIA_VERSION=1.11.3 \
     JULIA_PATH="/usr/local/julia"
 
 ENV PATH="${POETRY_HOME}/bin:${JULIA_PATH}/bin:/root/.local/bin:${PATH}"
@@ -44,10 +44,10 @@ COPY eta_ctrl ${APP_PATH}/eta_ctrl
 # Install poetry and dependencies
 RUN curl -sSL https://install.python-poetry.org | POETRY_VERSION=${POETRY_VERSION} python3 - && \
     # Remove torch and add torch+cpu because nvidia packages (cuda) are not needed
-    poetry remove torch && \
+    poetry remove torch --lock && \
     poetry source add --priority explicit pytorch_cpu https://download.pytorch.org/whl/cpu && \
-    poetry add --source pytorch_cpu torch==2.0.0 && \
-    poetry sync -E develop && \
+    poetry add --source pytorch_cpu torch==2.4.0 && \
+    poetry sync && \
     # Install julia packages
     install-julia && \
     julia -e 'ENV["PYTHON"] = Sys.which("python"); using Pkg; Pkg.add("PyCall"); Pkg.build("PyCall"); Pkg.add("JuliaFormatter")' && \

@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from eta_ctrl.eta_x.agents import RuleBased
+from eta_ctrl.agents import RuleBased
 
 if TYPE_CHECKING:
     from typing import Any
@@ -28,7 +28,7 @@ class DampedOscillatorControl(RuleBased):
 
     def __init__(
         self, policy: type[BasePolicy], env: VecEnv, verbose: int = 1, *, p: float, i: float, d: float, **kwargs: Any
-    ):
+    ) -> None:
         super().__init__(policy=policy, env=env, verbose=verbose, **kwargs)
 
         #: Proportional factor for the PID controller.

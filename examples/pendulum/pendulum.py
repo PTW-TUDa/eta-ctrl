@@ -8,9 +8,12 @@ import numpy as np
 try:
     import pygame  # noqa: F401
 except ModuleNotFoundError:
-    raise ModuleNotFoundError(
+    msg = (
         "For the PendulumEnv example, the pygame module is required. Install eta_ctrl with the "
-        "[examples] option to get all packages required for running examples.",
+        "[examples] option to get all packages required for running examples."
+    )
+    raise ModuleNotFoundError(
+        msg,
         name="pygame",
     ) from None
 else:
@@ -19,15 +22,15 @@ else:
         angle_normalize,
     )
 
-from eta_ctrl.eta_x.envs import BaseEnv, StateConfig, StateVar
+from eta_ctrl.envs import BaseEnv, StateConfig, StateVar
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from datetime import datetime
     from typing import Any
 
-    from eta_ctrl.eta_x import ConfigOptRun
-    from eta_ctrl.type_hints import ObservationType, StepResult, TimeStep
+    from eta_ctrl.config import ConfigRun
+    from eta_ctrl.util.type_annotations import ObservationType, StepResult, TimeStep
 
 log = getLogger(__name__)
 
@@ -62,7 +65,7 @@ class PendulumEnv(BaseEnv, GymPendulum):
     def __init__(  # noqa: PLR0913
         self,
         env_id: int,
-        config_run: ConfigOptRun,
+        config_run: ConfigRun,
         verbose: int = 2,
         callback: Callable | None = None,
         *,
@@ -78,7 +81,7 @@ class PendulumEnv(BaseEnv, GymPendulum):
         do_render: bool = True,
         screen_dim: int = 500,
         render_mode: str = "human",
-    ):
+    ) -> None:
         super().__init__(
             env_id,
             config_run,
@@ -222,7 +225,7 @@ class PendulumEnv(BaseEnv, GymPendulum):
         if self.do_render:
             state = self.state.copy()
             self.state = (
-                [self.state["th"], self.state["th_dot"]] if not isinstance(state, np.ndarray) else state  # type: ignore
+                [self.state["th"], self.state["th_dot"]] if not isinstance(state, np.ndarray) else state  # type: ignore[unreachable, assignment]
             )
             GymPendulum.last_u = self.last_u
             GymPendulum.render(self)

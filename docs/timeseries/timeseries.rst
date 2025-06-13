@@ -2,8 +2,8 @@
 
 Timeseries
 ===============
-Many *eta_ctrl* functions and classes operate on timeseries data and :py:class:`pandas.DataFrame` objects
-containing timeseries data. The *timeseries* module in *eta_ctrl* provides some additional functionality for both.
+Many *ETA Ctrl* functions and classes operate on timeseries data and :py:class:`pandas.DataFrame` objects
+containing timeseries data. The *timeseries* module in *ETA Ctrl* provides some additional functionality for both.
 It can for example find random time slices in Dataframes or import timeseries data from multiple CSV files and map
 a (random if required) section of it into a Dataframe.
 

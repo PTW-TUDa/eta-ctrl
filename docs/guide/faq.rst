@@ -49,7 +49,7 @@ You can force resetting the git credentials in Windows:
 
 - open "Credential Manager" in system control
 - Delete information about the git server you are trying to login to
-  (in  case of eta_ctrl: "git.ptw.maschinenbau.tu-darmstadt.de <git.ptw.maschinenbau.tu-darmstadt.de>"_).
+  (in  case of ETA Ctrl: "git.ptw.maschinenbau.tu-darmstadt.de <git.ptw.maschinenbau.tu-darmstadt.de>"_).
 
 .. _dymola_license_not_found:
 
@@ -122,14 +122,14 @@ If you receive the following error message, when you want to install the Julia e
 
     $ Exception: Julia executable cannot be found. If you have installed Julia, make sure Julia executable is in the system path. If you have not installed Julia, download from https://julialang.org/downloads/ and install it.
 
-Add the path from Julia to Windows as described in :ref:`install_julia` and restart eta-ctrl.
+Add the path from Julia to Windows as described in :ref:`install_julia` and restart ETA Ctrl.
 
 .. _packages_error:
 
-I want to start *eta_ctrl*, but in some external packages there were changes
+I want to start *ETA Ctrl*, but in some external packages there were changes
 ----------------------------------------------------------------------------------
-If you want to use *eta_ctrl*, but you get errors in some Python packages, because there were changes in the source \
-code, update *eta_ctrl* with the following command (add extra requirements like `eta_x` as needed):
+If you want to use *ETA Ctrl*, but you get errors in some Python packages, because there were changes in the source \
+code, update *ETA Ctrl* with the following command:
 
 .. code-block:: console
 
@@ -141,7 +141,7 @@ If you receive the following (or a similar) error message, when you want to star
 
 .. code-block:: console
 
-    $ Exception: AttributeError: module 'eta_ctrl.eta_x.agents' has no attribute 'Nsga2'.
+    $ Exception: AttributeError: module 'eta_ctrl.agents' has no attribute 'Nsga2'.
 
 Make sure PyJulia is installed in the correct virtual environment as described in :ref:`install_julia`.
 
@@ -226,7 +226,7 @@ After following these steps, you should have a new FMU file that contains the co
 
 This resolution has been tested on macOS Ventura 13.4.1 (xarm64: M1).
 See also:
-https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/-/issues/200
+https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/-/issues/200
 
 
 I want to start a julia experiment, but there is a PyJulia import error with PyCall

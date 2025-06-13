@@ -1,9 +1,9 @@
-.. _eta_ctrl:
+.. _ETA_Ctrl:
 
 
 .. include:: ../README.rst
 
-Please read the development guide before starting development on *eta_ctrl*: :ref:`development`.
+Please read the development guide before starting development on *ETA Ctrl*: :ref:`development`.
 
  .. note::
     Information for students at ETA-Factory: Student work stations do not have direct access
@@ -25,13 +25,13 @@ Please read the development guide before starting development on *eta_ctrl*: :re
 .. toctree::
     :maxdepth: 1
     :hidden:
-    :caption: ETA-X Optimization
+    :caption: ETA Ctrl Optimization
 
-    /eta_x/introduction
-    /eta_x/control_algorithms
-    /eta_x/envs
-    /eta_x/common_functions
-    /eta_x/sb3_extensions
+    /eta_ctrl/introduction
+    /eta_ctrl/control_algorithms
+    /eta_ctrl/envs
+    /eta_ctrl/common_functions
+    /eta_ctrl/sb3_extensions
 
 
 .. toctree::

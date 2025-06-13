@@ -39,7 +39,7 @@ class TestResample:
         diffs = [(uneven_index[i] - uneven_index[i - 1]).total_seconds() for i in range(1, len(uneven_index))]
         diffs[3] += 30  # hardcoded fix for 0
         ref_values = []
-        for diff, value in zip(diffs, uneven_data):
+        for diff, value in zip(diffs, uneven_data, strict=False):
             ref_values.extend([float(value)] * round(diff / 60))
         assert values[1:] == ref_values
 
@@ -68,10 +68,6 @@ class TestResample:
 
         msg = f"Index has non-unique values. Dropping duplicates: {[duplicate_df.index[0]]}"
         assert msg in caplog.text
-
-    def test_deprecation_warning(self, even_dataframe):
-        with pytest.warns(DeprecationWarning):
-            df_resample(even_dataframe, 60, missing_data="fillna")
 
     def test_isna_warning(self, even_dataframe, caplog):
         even_dataframe.iloc[0] = np.nan
