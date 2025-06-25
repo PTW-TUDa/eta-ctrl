@@ -6,7 +6,7 @@ import torch as th
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.utils import get_device
 
-from .common import deserialize_net_arch
+from eta_ctrl.common import deserialize_net_arch
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence

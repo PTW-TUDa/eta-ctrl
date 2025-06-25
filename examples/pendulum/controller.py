@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from eta_ctrl.agents import RuleBased
-from eta_ctrl.common import is_vectorized_env
+from eta_ctrl.common import is_vectorized
 
 if TYPE_CHECKING:
     from typing import Any
@@ -40,7 +40,7 @@ class PendulumControl(RuleBased):
         """
         # Handle vectorized environments
         # correct type ensured by is_vectorized_env
-        if is_vectorized_env(self.env) and self.get_env().num_envs > 1:
+        if is_vectorized(self.env) and self.get_env().num_envs > 1:
             msg = "The PendulumController can only work on a single environment at once"
             raise ValueError(msg)
 

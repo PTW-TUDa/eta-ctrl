@@ -12,16 +12,19 @@ from stable_baselines3.common.vec_env import VecNormalize
 
 from eta_ctrl.common import (
     CallbackEnvironment,
-    initialize_model,
-    is_env_closed,
-    load_model,
+    is_closed,
     log_net_arch,
     log_run_info,
     log_to_file,
     merge_callbacks,
-    vectorize_environment,
 )
 from eta_ctrl.config import Config, ConfigRun
+
+from .core_utils import (
+    initialize_model,
+    load_model,
+    vectorize_environment,
+)
 
 if TYPE_CHECKING:
     import os
@@ -103,7 +106,7 @@ class EtaCtrl:
         reset: bool = False,
         training: bool = False,
     ) -> Generator:
-        if is_env_closed(self._environments) or self._model is None:
+        if is_closed(self._environments) or self._model is None:
             _series_name = series_name if series_name is not None else ""
             _run_name = run_name if run_name is not None else ""
             self.prepare_run(_series_name, _run_name, run_description)
