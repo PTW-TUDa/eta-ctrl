@@ -112,7 +112,7 @@ dataclass and its subsidiaries *ConfigSetup* and *ConfigSettings*.
 
 When you are using EtaCtrl (the class) the configuration will be read automatically.
 
-Use :func:`eta_ctrl.config::from_config_file` to read the configuration from a JSON, TOML or YAML file:
+Use :func:`eta_ctrl.config::from_file` to read the configuration from a JSON, TOML or YAML file:
 
 .. autofunction:: eta_ctrl.config::Config.from_config_file
 

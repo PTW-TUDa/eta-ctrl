@@ -4,7 +4,7 @@ import csv
 import json
 import pathlib
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from logging import getLogger
 from typing import TYPE_CHECKING
 
@@ -78,6 +78,37 @@ def yaml_import(path: Path) -> dict[str, Any]:
         raise
 
     return result
+
+
+def load_config(file: Path) -> dict[str, Any]:
+    """Load configuration from JSON, TOML, or YAML file.
+    The read file is expected to contain a dictionary of configuration options.
+
+    :param file: Path to the configuration file.
+    :return: Dictionary of configuration options.
+    """
+    possible_extensions: dict[str, Callable] = {
+        ".json": json_import,
+        ".toml": toml_import,
+        ".yml": yaml_import,
+        ".yaml": yaml_import,
+    }
+    file_path = pathlib.Path(file)
+
+    for extension, import_method in possible_extensions.items():
+        _file_path: pathlib.Path = file_path.with_suffix(extension)
+        if _file_path.exists():
+            config = import_method(_file_path)
+            break
+    else:
+        msg = f"Config file not found: {file}"
+        raise FileNotFoundError(msg)
+
+    if not isinstance(config, dict):
+        msg = f"Config file {file} must define a dictionary of options."
+        raise TypeError(msg)
+
+    return config
 
 
 def _replace_decimal_str(value: str | float, decimal: str = ".") -> str:

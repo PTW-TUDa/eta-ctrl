@@ -61,7 +61,7 @@ class EtaCtrl:
         #: Path to the configuration file.
         self.path_config = _root_path / _relpath_config / f"{config_name}"
         #: Config object for the optimization run.
-        self.config: Config = Config.from_config_file(self.path_config, root_path, config_overwrite)
+        self.config: Config = Config.from_file(self.path_config, root_path, config_overwrite)
         log.setLevel(int(self.config.settings.verbose * 10))
 
         #: Configuration for an optimization run.
