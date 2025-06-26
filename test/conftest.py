@@ -45,17 +45,27 @@ async def stop_execution(sleep_time):
 
 
 @pytest.fixture(scope="session")
-def config_live_connect():
+def resources_path():
+    return pathlib.Path(__file__).parent / "resources"
+
+
+@pytest.fixture(scope="session")
+def config_live_connect(resources_path):
     """Test configuration for live connect."""
-    return {"file": pathlib.Path(__file__).parent / "resources/config_live_connect.json"}
+    return {"file": resources_path / "config_live_connect.json"}
 
 
 @pytest.fixture(scope="session")
-def config_fmu():
+def config_fmu(resources_path):
     """Test configuration for FMU simulator."""
-    return {"file": pathlib.Path(__file__).parent / "resources/damped_oscillator/damped_oscillator.fmu"}
+    return {"file": resources_path / "damped_oscillator/damped_oscillator.fmu"}
 
 
 @pytest.fixture(scope="session")
-def config_resources_path():
-    return pathlib.Path(__file__).parent / "resources" / "agents"
+def agent_resources_path(resources_path):
+    return resources_path / "agents"
+
+
+@pytest.fixture(scope="session")
+def config_resources_path(resources_path):
+    return resources_path / "config"

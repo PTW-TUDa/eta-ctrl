@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING
 
 from attrs import converters, define, field, validators
 
-from eta_ctrl.util import deep_mapping_update, json_import, toml_import, yaml_import
+from eta_ctrl.util import deep_mapping_update
+from eta_ctrl.util.io_utils import load_config
 
 from .config_settings import ConfigSettings
 from .config_setup import ConfigSetup
@@ -45,13 +46,16 @@ class Config:
     settings: ConfigSettings = field()
 
     def __attrs_post_init__(self) -> None:
+        if not self.path_root.exists():
+            msg = f"Root path {self.path_root} in config {self.config_name} does not exist"
+            raise ValueError(msg)
         object.__setattr__(self, "path_results", self.path_root / self.relpath_results)
 
         if self.relpath_scenarios is not None:
             object.__setattr__(self, "path_scenarios", self.path_root / self.relpath_scenarios)
 
     @classmethod
-    def from_config_file(cls, file: Path, path_root: Path, overwrite: Mapping[str, Any] | None = None) -> Config:
+    def from_file(cls, file: Path, path_root: Path, overwrite: Mapping[str, Any] | None = None) -> Config:
         """Load configuration from JSON/TOML/YAML file, which consists of the following sections:
 
         - **paths**: In this section, the (relative) file paths for results and scenarios are specified. The paths
@@ -71,49 +75,15 @@ class Config:
         :param overwrite: Config parameters to overwrite.
         :return: Config object.
         """
-        _path_root: pathlib.Path = pathlib.Path(path_root)
+        config = load_config(file)
+        config_name = pathlib.Path(file).stem
 
-        config = cls._load_config_file(file)
-
-        if overwrite is not None:
-            config = dict(deep_mapping_update(config, overwrite))
-
-        # Ensure all required sections are present in configuration
-        for section in ("setup", "settings", "paths"):
-            if section not in config:
-                msg = f"The section '{section}' is not present in configuration file {file}."
-                raise ValueError(msg)
-
-        return Config.from_dict(config, file, _path_root)
-
-    @staticmethod
-    def _load_config_file(file: Path) -> dict[str, Any]:
-        """Load configuration file from JSON, TOML, or YAML file.
-        The read file is expected to contain a dictionary of configuration options.
-
-        :param file: Path to the configuration file.
-        :return: Dictionary of configuration options.
-        """
-        possible_extensions = {".json": json_import, ".toml": toml_import, ".yml": yaml_import, ".yaml": yaml_import}
-        file_path = pathlib.Path(file)
-
-        for extension, import_func in possible_extensions.items():
-            _file_path: pathlib.Path = file_path.with_suffix(extension)
-            if _file_path.exists():
-                result = import_func(_file_path)
-                break
-        else:
-            msg = f"Config file not found: {file}"
-            raise FileNotFoundError(msg)
-
-        if not isinstance(result, dict):
-            msg = f"Config file {file} must define a dictionary of options."
-            raise TypeError(msg)
-
-        return result
+        return Config.from_dict(config, config_name, path_root, overwrite)
 
     @classmethod
-    def from_dict(cls, config: dict[str, Any], file: Path, path_root: pathlib.Path) -> Config:
+    def from_dict(
+        cls, config: dict[str, Any], config_name: str, path_root: Path, overwrite: Mapping[str, Any] | None = None
+    ) -> Config:
         """Build a Config object from a dictionary of configuration options.
 
         :param config: Dictionary of configuration options.
@@ -121,6 +91,14 @@ class Config:
         :param path_root: Root path for the optimization configuration run.
         :return: Config object.
         """
+        if overwrite is not None:
+            config = dict(deep_mapping_update(config, overwrite))
+
+        # Ensure all required sections are present in configuration
+        for section in ("setup", "settings", "paths"):
+            if section not in config:
+                msg = f"The section '{section}' is not present in configuration file {config_name}."
+                raise ValueError(msg)
 
         def _pop_dict(dikt: dict[str, Any], key: str) -> dict[str, Any]:
             val = dikt.pop(key)
@@ -184,7 +162,7 @@ class Config:
             raise ValueError(msg)
 
         return cls(
-            config_name=str(file),
+            config_name=config_name,
             path_root=path_root,
             relpath_results=relpath_results,
             relpath_scenarios=relpath_scenarios,

@@ -71,7 +71,7 @@ class TestNSGA2:
         agent.save(directory.absolute() / "test_nsga2_agent.zip")
 
     @pytest.fixture(scope="class")
-    def julia_env(self, config_resources_path, temp_dir):
+    def julia_env(self, agent_resources_path, temp_dir):
         env = JuliaEnv(
             env_id=1,
             config_run=self.config_run(temp_dir),
@@ -79,7 +79,7 @@ class TestNSGA2:
             scenario_time_end=self.scenario_time_end,
             episode_duration=self.episode_duration,
             sampling_time=self.sampling_time,
-            julia_env_file=config_resources_path / "Nsga2Env.jl",
+            julia_env_file=agent_resources_path / "Nsga2Env.jl",
             is_multithreaded=True,
         )
         no_vec_env = NoVecEnv([lambda: env])
@@ -87,8 +87,8 @@ class TestNSGA2:
         no_vec_env.close()
 
     @pytest.fixture(scope="class")
-    def loaded_agent(self, config_resources_path, julia_env):
-        path = config_resources_path / "test_nsga2_agent.zip"
+    def loaded_agent(self, agent_resources_path, julia_env):
+        path = agent_resources_path / "test_nsga2_agent.zip"
         return Nsga2.load(path=path, env=julia_env)
 
     @pytest.fixture(scope="class")
