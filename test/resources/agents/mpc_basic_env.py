@@ -3,6 +3,7 @@ import numpy as np
 import pyomo.environ as pyo
 
 from eta_ctrl.envs import PyomoEnv
+from eta_ctrl.envs.state import StateConfig, StateVar
 
 
 class MPCBasicEnv(PyomoEnv):
@@ -48,6 +49,7 @@ class MPCBasicEnv(PyomoEnv):
         super().__init__(
             env_id=env_id,
             config_run=config_run,
+            state_config=StateConfig(StateVar(name="foo")),
             scenario_time_begin=scenario_time_begin,
             scenario_time_end=scenario_time_end,
             episode_duration=episode_duration,

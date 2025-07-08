@@ -19,6 +19,7 @@ class TestStateVar:
         assert state_var_default.is_agent_action is False
         assert state_var_default.is_agent_observation is False
         assert state_var_default.is_ext_input is False
+        assert state_var_default.is_ext_output is False
         assert state_var_default.low_value == -np.inf
         assert state_var_default.high_value == np.inf
         assert state_var_default.ext_id is None
@@ -153,8 +154,8 @@ class TestStateConfig:
 
     def test_from_dict(self):
         state_vars = [
-            {"name": "action1", "is_agent_action": True, "foo": "bar"},
-            {"name": "action2", "is_agent_observation": True, "foo": "bar"},
+            {"name": "action1", "is_agent_action": True, "ext_id": "foo"},
+            {"name": "action2", "is_agent_observation": True, "ext_id": "foo"},
         ]
         StateConfig.from_dict(state_vars)
 
@@ -179,3 +180,23 @@ class TestStateConfig:
     def test_get_items(self, state_config: StateConfig):
         for name in state_config["actions"] + state_config["observations"]:
             assert state_config.loc[name] == state_config.vars[name]
+
+    def test_from_file(self, config_resources_path):
+        path = config_resources_path / "test_env_structure.toml"
+        StateConfig.from_file(path)
+
+    def test_state_params(self):
+        state_params = {"extra_param": True}
+        statevars = [
+            {"name": "action1", "is_agent_action": "extra_param"},
+        ]
+        state_config = StateConfig.from_dict(statevars, state_params=state_params)
+        assert state_config.loc["action1"]["is_agent_action"] is True
+
+    def test_state_params_fail(self):
+        statevars = [
+            {"name": "action1", "is_agent_action": "extra_param"},
+        ]
+        error_msg = "Parameter extra_param needs to be specified in state_params"
+        with pytest.raises(KeyError, match=error_msg):
+            StateConfig.from_dict(statevars)

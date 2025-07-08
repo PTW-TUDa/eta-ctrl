@@ -82,6 +82,7 @@ class BaseEnv(Env, abc.ABC):
         self,
         env_id: int,
         config_run: ConfigRun,
+        state_config: StateConfig,
         verbose: int = 2,
         callback: Callable | None = None,
         state_modification_callback: Callable | None = None,
@@ -190,19 +191,8 @@ class BaseEnv(Env, abc.ABC):
         #: Number of simulation steps to be taken for each sample. This must be a divisor of 'sampling_time'.
         self.sim_steps_per_sample: int = int(sim_steps_per_sample)
 
-        self._state_config: StateConfig | None = None
-
-    @property
-    def state_config(self) -> StateConfig:
-        """Configuration to describe what the environment state looks like."""
-        if self._state_config is None:
-            msg = "StateConfig must be specified in the environment."
-            raise TypeError(msg)
-        return self._state_config
-
-    @state_config.setter
-    def state_config(self, state_config: StateConfig) -> None:
-        self._state_config = state_config
+        self.state_config: StateConfig = state_config
+        self.action_space, self.observation_space = self.state_config.continuous_spaces()
 
     def import_scenario(self, *scenario_paths: Mapping[str, Any], prefix_renamed: bool = True) -> pd.DataFrame:
         """Load data from csv into self.timeseries_data by using scenario_from_csv.

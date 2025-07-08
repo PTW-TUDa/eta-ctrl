@@ -12,7 +12,6 @@ from pyomo import environ as pyo
 from pyomo.core import base as pyo_base
 
 from eta_ctrl.envs import BaseEnv
-from eta_ctrl.envs.state import StateConfig, StateVar
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -137,15 +136,6 @@ class PyomoEnv(BaseEnv, abc.ABC):
         """
         if self._concrete_model is None:
             self._concrete_model = self._model()
-
-        if self._state_config is None:
-            _vars = [
-                StateVar(com.name, is_agent_action=True)
-                for com in self._concrete_model.component_objects(pyo.Var)
-                if not isinstance(com, pyo.ScalarVar)
-            ]
-
-            self.state_config = StateConfig(*_vars)
 
         return self._concrete_model, self.state_config.actions
 

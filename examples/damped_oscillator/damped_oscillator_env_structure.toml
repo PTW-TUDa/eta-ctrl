@@ -1,0 +1,35 @@
+### Additional State Parameters
+[state_parameters]
+max_torque=5
+abc=3
+
+### StateVar Definitions
+[[actions]]
+name = "u"
+is_ext_input = true
+low_value = -15
+high_value = 15
+
+[[observations]]
+name = "f"
+is_ext_input = true
+low_value = 0
+high_value = 100
+
+[[observations]]
+name = "s"
+is_ext_output = true
+low_value = -15
+high_value = 15
+
+[[observations]]
+name = "v"
+is_ext_output = true
+low_value = -20
+high_value = 20
+
+[[observations]]
+name = "a"
+is_ext_output = true
+low_value = -20.0
+high_value = 20.0

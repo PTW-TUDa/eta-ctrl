@@ -7,6 +7,7 @@
     },
     "paths": {
         "relpath_results": "results/"
+
     },
     "settings": {
         "sampling_time": 0.5,

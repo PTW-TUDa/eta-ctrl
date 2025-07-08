@@ -7,6 +7,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from eta_ctrl.common import NoPolicy
 from eta_ctrl.config import ConfigRun
 from eta_ctrl.envs import NoVecEnv
+from eta_ctrl.envs.state import StateConfig, StateVar
 from eta_ctrl.util.julia_utils import julia_extensions_available
 
 if julia_extensions_available():
@@ -47,9 +48,10 @@ class TestNSGA2:
         """
         directory = pathlib.Path(path) if not isinstance(path, pathlib.Path) else path
 
-        env = JuliaEnv(
+        julia_env = JuliaEnv(
             env_id=1,
             config_run=self.config_run(temp_dir),
+            state_config=StateConfig(StateVar(name="foo")),
             scenario_time_begin=self.scenario_time_begin,
             scenario_time_end=self.scenario_time_end,
             episode_duration=self.episode_duration,
@@ -59,7 +61,7 @@ class TestNSGA2:
         )
         agent = Nsga2(
             policy=NoPolicy,
-            env=NoVecEnv([lambda: env]),
+            env=NoVecEnv([lambda: julia_env]),
             population=1000,
             crossovers=0.3,
             n_generations=2,
@@ -75,6 +77,7 @@ class TestNSGA2:
         env = JuliaEnv(
             env_id=1,
             config_run=self.config_run(temp_dir),
+            state_config=StateConfig(StateVar(name="foo")),
             scenario_time_begin=self.scenario_time_begin,
             scenario_time_end=self.scenario_time_end,
             episode_duration=self.episode_duration,

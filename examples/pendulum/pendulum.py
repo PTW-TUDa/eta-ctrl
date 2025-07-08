@@ -22,7 +22,7 @@ else:
         angle_normalize,
     )
 
-from eta_ctrl.envs import BaseEnv, StateConfig, StateVar
+from eta_ctrl.envs import BaseEnv, StateConfig
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -69,6 +69,7 @@ class PendulumEnv(BaseEnv, GymPendulum):
         verbose: int = 2,
         callback: Callable | None = None,
         *,
+        state_config: StateConfig,
         scenario_time_begin: datetime | str,
         scenario_time_end: datetime | str,
         episode_duration: TimeStep | str,
@@ -83,10 +84,11 @@ class PendulumEnv(BaseEnv, GymPendulum):
         render_mode: str = "human",
     ) -> None:
         super().__init__(
-            env_id,
-            config_run,
-            verbose,
-            callback,
+            env_id=env_id,
+            config_run=config_run,
+            state_config=state_config,
+            verbose=verbose,
+            callback=callback,
             scenario_time_begin=scenario_time_begin,
             scenario_time_end=scenario_time_end,
             episode_duration=episode_duration,
@@ -109,16 +111,6 @@ class PendulumEnv(BaseEnv, GymPendulum):
         self.n_episodes = 0
         self.n_steps = 0
         self.last_u: float | None = None
-
-        # Setup environment state and action / observation spaces
-        self.state_config = StateConfig(
-            StateVar(name="torque", is_agent_action=True, low_value=-self.max_torque, high_value=self.max_torque),
-            StateVar(name="th", low_value=-np.pi, high_value=np.pi),
-            StateVar(name="cos_th", is_agent_observation=True, low_value=-1.0, high_value=1.0),
-            StateVar(name="sin_th", is_agent_observation=True, low_value=-1.0, high_value=1.0),
-            StateVar(name="th_dot", is_agent_observation=True, low_value=-1.0, high_value=1.0),
-        )
-        self.action_space, self.observation_space = self.state_config.continuous_spaces()
 
     def step(self, action: np.ndarray) -> StepResult:
         """See base_env documentation"""
@@ -198,8 +190,6 @@ class PendulumEnv(BaseEnv, GymPendulum):
                 self.state[name] = 0
             elif name in {"th", "th_dot"}:
                 var = self.state_config.vars[name]
-                assert var.low_value is not None, f"low_value for {name} must be set."
-                assert var.high_value is not None, f"high_value for {name} must be set."
                 self.state[name] = self.np_random.uniform(low=var.low_value, high=var.high_value)
         # Calculate sin and cos
         self.state["cos_th"] = np.cos(self.state["th"])

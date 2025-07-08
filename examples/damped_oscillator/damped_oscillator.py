@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from eta_ctrl.common import episode_results_path
-from eta_ctrl.envs import SimEnv, StateConfig, StateVar
+from eta_ctrl.envs import SimEnv
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -68,26 +68,6 @@ class DampedOscillatorEnv(SimEnv):
             **kwargs,
         )
         self.scale_actions = scale_actions
-        action_values = 1 if self.scale_actions else 15
-
-        # Set action space and observation space
-        self.state_config = StateConfig(
-            StateVar(
-                name="u",
-                ext_id="u",
-                is_agent_action=True,
-                low_value=-action_values,
-                high_value=action_values,
-                is_ext_input=True,
-            ),
-            StateVar(name="s", ext_id="s", is_agent_observation=True, low_value=-15, high_value=15, is_ext_output=True),
-            StateVar(name="v", ext_id="v", is_agent_observation=True, low_value=-20, high_value=20, is_ext_output=True),
-            StateVar(
-                name="a", ext_id="a", is_agent_observation=True, low_value=-20.0, high_value=20.0, is_ext_output=True
-            ),
-            StateVar(name="f", ext_id="f", low_value=0, high_value=100, is_ext_input=True),
-        )
-        self.action_space, self.observation_space = self.state_config.continuous_spaces()
 
         # Initialize the simulator
         self._init_simulator()
@@ -101,7 +81,6 @@ class DampedOscillatorEnv(SimEnv):
         :param action: Actions to perform in the environment.
         :return: The return value represents the state of the environment after the step was performed.
         """
-        assert self.state_config is not None, "Set state_config before calling step function."
 
         force_var = self.state_config.vars["f"]
         assert force_var.low_value is not None, "Set low value for the applied force"
@@ -129,7 +108,6 @@ class DampedOscillatorEnv(SimEnv):
                 depending on the specific environment) (default: None)
         :return: Tuple of observation and info. Analogous to the ``info`` returned by :meth:`step`.
         """
-        assert self.state_config is not None, "Set state_config before calling reset function."
 
         force_var = self.state_config.vars["f"]
         assert force_var.low_value is not None, "Set low value for the applied force"

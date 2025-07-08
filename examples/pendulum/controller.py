@@ -45,9 +45,9 @@ class PendulumControl(RuleBased):
             raise ValueError(msg)
 
         # Calculate actions according to the observations (manually extracting observation values
-        cos_th = observation[0]
-        # observation[1] (sin_th) not needed here
-        th_dot = observation[2]
+        cos_th = observation[1]
+        # observation[2] (sin_th) not needed here
+        th_dot = observation[3]
 
         # Control rules, can you find a better one? :)
         torque = abs(cos_th) * th_dot

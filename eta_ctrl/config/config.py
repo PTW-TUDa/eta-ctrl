@@ -6,8 +6,10 @@ from typing import TYPE_CHECKING
 
 from attrs import converters, define, field, validators
 
+from eta_ctrl.envs.state import StateConfig
 from eta_ctrl.util import deep_mapping_update
 from eta_ctrl.util.io_utils import load_config
+from eta_ctrl.util.utils import camel_to_snake_case
 
 from .config_settings import ConfigSettings
 from .config_setup import ConfigSetup
@@ -31,10 +33,12 @@ class Config:
 
     #: Root path for the optimization run (scenarios and results are relative to this).
     path_root: pathlib.Path = field(converter=pathlib.Path)
+    #: Relative path to the state config.
+    relpath_state: pathlib.Path = field(converter=pathlib.Path)
     #: Relative path to the results folder.
-    relpath_results: str = field(validator=validators.instance_of(str))
+    relpath_results: pathlib.Path = field(converter=pathlib.Path)
     #: relative path to the scenarios folder (default: None).
-    relpath_scenarios: str | None = field(validator=validators.optional(validators.instance_of(str)), default=None)
+    relpath_scenarios: pathlib.Path | None = field(converter=converters.optional(pathlib.Path), default=None)
     #: Path to the results folder.
     path_results: pathlib.Path = field(init=False, converter=pathlib.Path)
     #: Path to the scenarios folder (default: None).
@@ -138,6 +142,17 @@ class Config:
         settings_raw["settings"] = _pop_dict(config, "settings")
         settings_raw["environment_specific"] = _pop_dict(config, "environment_specific")
 
+        relpath_state = paths.pop("relpath_state", None)
+        if relpath_state is None:
+            # Retrieve environment name and look for associated StateConfig file
+            snake_case_name = camel_to_snake_case(setup.environment_class.__name__)
+            relpath_state = f"{snake_case_name}_structure"
+            log.info(f"Loading StateConfig from default path at {relpath_state}.")
+        path_state = path_root / relpath_state
+
+        state_config = StateConfig.from_file(path_state)
+        settings_raw["environment_specific"]["state_config"] = state_config
+
         if "interaction_env_specific" in config:
             settings_raw["interaction_env_specific"] = _pop_dict(config, "interaction_env_specific")
         elif "interaction_environment_specific" in config:
@@ -166,6 +181,7 @@ class Config:
             path_root=path_root,
             relpath_results=relpath_results,
             relpath_scenarios=relpath_scenarios,
+            relpath_state=relpath_state,
             setup=setup,
             settings=settings,
         )

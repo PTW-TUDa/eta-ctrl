@@ -1,0 +1,30 @@
+### Additional Parameters
+[state_parameters]
+max_torque=15
+
+
+### StateVar Definitions
+[[actions]]
+name = "torque"
+low_value = "-max_torque"
+high_value = "max_torque"
+
+[[observations]]
+name = "th"
+low_value = -3.141
+high_value = 3.141
+
+[[observations]]
+name = "cos_th"
+low_value = -1.0
+high_value = 1.0
+
+[[observations]]
+name = "sin_th"
+low_value = -1.0
+high_value = 1.0
+
+[[observations]]
+name = "th_dot"
+low_value = -1.0
+high_value = 1.0
