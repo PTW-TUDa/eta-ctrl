@@ -99,6 +99,7 @@ class JuliaEnv(BaseEnv):
             episode_duration=episode_duration,
             sampling_time=sampling_time,
             render_mode=render_mode,
+            **kwargs,
         )
         # Set arguments as instance parameters.
         for key, value in kwargs.items():

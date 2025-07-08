@@ -97,3 +97,8 @@ def deep_mapping_update(
         else:
             output[key] = value
     return output
+
+
+def camel_to_snake_case(camel_name: str) -> str:
+    """Convert a string from camel to snake case convention"""
+    return "".join("_" + c.lower() if c.isupper() else c for c in camel_name).strip("_")

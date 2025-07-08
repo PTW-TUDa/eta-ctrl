@@ -2,16 +2,20 @@ from __future__ import annotations
 
 import pathlib
 from csv import DictWriter
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 from attrs import asdict, converters, define, field, fields_dict, validators
 from gymnasium import spaces
 
+from eta_ctrl.util.io_utils import load_config
+
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
-    from typing import Any
+    from typing import Any, Literal
+
+    from typing_extensions import Self
 
     from eta_ctrl.util.type_annotations import Path
 from logging import getLogger
@@ -183,14 +187,67 @@ class StateConfig:
         self.abort_conditions_max: list[str] = self.df_vars["abort_condition_max"].index.tolist()
 
     @classmethod
-    def from_dict(cls, mapping: Sequence[Mapping[str, Any]] | pd.DataFrame) -> StateConfig:
+    def from_file(cls, path: Path) -> Self:
+        """Load a StateConfig from a config file.
+
+        :param path: Path of the config file.
+        :return: StateConfig object.
+        """
+        raw_dict = load_config(path)
+
+        actions: list[dict[str, Any]] = raw_dict.get("actions") or []
+        observations: list[dict[str, Any]] = raw_dict.get("observations") or []
+
+        actions = [{**act, "is_agent_action": True} for act in actions]
+        observations = [{**obs, "is_agent_observation": True} for obs in observations]
+
+        all_states = actions + observations
+
+        if len(all_states) == 0:
+            msg = f"Invalid StateConfig at {path} with no StateVar's"
+            raise ValueError(msg)
+
+        # Defined by user in *structure.toml
+        state_params = raw_dict.get("state_parameters")
+        if isinstance(state_params, dict):
+            log.debug(f"Using State parameters {state_params} from {path} for StateConfig.")
+        else:
+            log.warning(f"State parameters in {path} need to be a dict!")
+            return cls.from_dict(mapping=all_states)
+
+        return cls.from_dict(mapping=all_states, state_params=state_params)
+
+    @classmethod
+    def from_dict(
+        cls, mapping: Sequence[dict[str, Any]] | pd.DataFrame, *, state_params: dict[str, float] | None = None
+    ) -> Self:
         """Convert a potentially incomplete StateConfig DataFrame or a list of dictionaries to the
         standardized StateConfig format. This will ignore any additional columns.
 
         :param mapping: Mapping to be converted to the StateConfig format.
+        :param state_params: State parameter values for parameters supplied in mapping (e.g. {min_temp: 20})
         :return: StateConfig object.
         """
         _mapping = mapping.to_dict("records") if isinstance(mapping, pd.DataFrame) else mapping
+        if not state_params:
+            state_params = {}
+
+        for statevar in _mapping:
+            for field_name, value in statevar.items():
+                if field_name in ("name", "ext_id"):  # Supposed to be strings
+                    continue
+                if isinstance(value, str):
+                    parameter_name = value
+                    if is_negative := value.startswith("-"):
+                        parameter_name = parameter_name[1:]  # strip minus sign
+
+                    new_value = state_params.get(parameter_name)
+                    if new_value is None:
+                        msg = f"Parameter {parameter_name} needs to be specified in state_params."
+                        raise KeyError(msg)
+                    if is_negative:
+                        new_value = -new_value
+                    statevar[field_name] = new_value
 
         return cls(*[StateVar.from_dict(col) for col in _mapping])
 

@@ -47,7 +47,9 @@ class DampedOscillatorControl(RuleBased):
         :param observation: Observation from the environment.
         :returns: Resulting action from the PID controller.
         """
-        s, v, a = observation
+        s = observation[1]
+        v = observation[2]
+        a = observation[3]  # noqa: F841
         self.integral += s
 
         return np.array([-(self.p * s + self.i * self.integral + self.d * v)])
