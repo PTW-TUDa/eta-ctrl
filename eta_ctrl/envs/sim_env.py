@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import abc
+import pathlib
 import time
 from logging import getLogger
 from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from datetime import datetime
+
 from eta_ctrl.envs import BaseEnv
 from eta_ctrl.simulators import FMUSimulator
+from eta_ctrl.util import toml_export
 
 if TYPE_CHECKING:
-    import pathlib
     from collections.abc import Callable, Mapping
     from datetime import datetime
     from typing import Any
@@ -302,3 +306,119 @@ class SimEnv(BaseEnv, abc.ABC):
         Default behavior for the Simulation environment is to close the FMU object.
         """
         self.simulator.close()  # close the FMU
+
+    @classmethod
+    def _get_unique_output_path(cls, base_path: pathlib.Path) -> pathlib.Path:
+        """Get a unique output path with overwrite protection.
+
+        :param base_path: The desired output path.
+        :return: A unique path that doesn't exist.
+        """
+        output_path = base_path
+        counter = 1
+        while output_path.exists():
+            stem = base_path.stem
+            suffix = base_path.suffix
+            parent = base_path.parent
+            output_path = parent / f"{stem}_{counter}{suffix}"
+            counter += 1
+        return output_path
+
+    @classmethod
+    def export_fmu_structure(cls, fmu_path: pathlib.Path | str, output_path: pathlib.Path | str | None = None) -> None:
+        """Export FMU input and output variables to a TOML file.
+
+        This method extracts the input and output variables from the FMU model description
+        and exports them to a TOML file for later use in other tasks.
+
+        :param fmu_path: Full path to the FMU file (including filename and .fmu extension).
+        :param output_path: Full path where the TOML file should be saved (including filename).
+                           If None, saves to the same directory as the FMU file with name '{fmu_name}_structure.toml'.
+        """
+
+        def _merge_bounds(
+            variables: list[dict[str, str | float | bool]],
+            variable_bounds: dict[str, dict[str, float]],
+        ) -> list[dict[str, str | float | bool]]:
+            """In-place merges variable bounds into variables dict for TOML export.
+
+            :param variables: List of variable dicts.
+            :param variable_bounds: Nested dictionary containing variable bounds.
+            :return: variables dictionaries with bounds added.
+            """
+            for var in variables:
+                name = var.get("name")
+                if isinstance(name, str) and name in variable_bounds:
+                    var.update(variable_bounds[name])
+            return variables
+
+        fmu_path = pathlib.Path(fmu_path)
+
+        if not fmu_path.exists():
+            log.warning(f"FMU file not found at {fmu_path}")
+            return
+
+        # Extract FMU name from path
+        fmu_name = fmu_path.stem
+
+        # Create a temporary simulator to extract variable information
+        try:
+            temp_simulator = FMUSimulator(
+                _id=0,
+                fmu_path=fmu_path,
+                start_time=0.0,
+                stop_time=1.0,
+                step_size=0.1,
+            )
+
+            # Get input and output variables from the simulator
+            sim_actions: list[dict[str, str | float | bool]] = [
+                {"name": var, "is_ext_input": True} for var in temp_simulator.input_vars
+            ]
+            sim_observations: list[dict[str, str | float | bool]] = [
+                {"name": var, "is_ext_output": True} for var in temp_simulator.output_vars
+            ]
+
+            # Extract variable bounds from model description
+            model_description = temp_simulator.model_description
+            variable_bounds = {}
+
+            for var in model_description.modelVariables:
+                bounds = {}
+                if getattr(var, "min", None) is not None:
+                    bounds["low_value"] = var.min
+                if getattr(var, "max", None) is not None:
+                    bounds["high_value"] = var.max
+
+                if bounds:  # Only store if there are bounds
+                    variable_bounds[var.name] = bounds
+
+            # Close the temporary simulator
+            temp_simulator.close()
+
+        except Exception:
+            log.exception("Failed to initialize FMU simulator")
+            return
+
+        # Create the data structure for TOML export
+        model_actions = _merge_bounds(sim_actions, variable_bounds)
+        model_observations = _merge_bounds(sim_observations, variable_bounds)
+
+        fmu_data = {
+            "fmu_info": {
+                "name": fmu_name,
+                "path": str(fmu_path),
+                "description": f"FMU variables for {fmu_name}",
+            },
+            "actions": model_actions,
+            "observations": model_observations,
+        }
+
+        # Determine output path with overwrite protection
+        base_path = fmu_path.parent / f"{fmu_name}_structure.toml" if output_path is None else pathlib.Path(output_path)
+
+        final_output_path = cls._get_unique_output_path(base_path)
+
+        # Export to TOML
+        toml_export(final_output_path, fmu_data)
+        log.info(f"FMU variables exported to {final_output_path}")

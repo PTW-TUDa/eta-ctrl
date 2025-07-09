@@ -223,6 +223,21 @@ class FMUSimulator:
         """Ordered list of all available output variable names in the FMU."""
         return self._outputs["names"].copy()
 
+    @property
+    def parameter_vars(self) -> list[str]:
+        """Get names of all available parameters in the FMU.
+
+        :return: List of parameter variable names.
+        """
+        if not hasattr(self, "_parameter_vars"):
+            # Extract parameter variables from model description
+            self._parameter_vars = []
+            for var in self.model_description.modelVariables:
+                # Check if the variable is a parameter (or has causality="parameter")
+                if hasattr(var, "causality") and var.causality == "parameter":
+                    self._parameter_vars.append(var.name)
+        return self._parameter_vars
+
     def read_values(self, names: Sequence[str] | None = None) -> dict[str | int, Any] | list:
         """Return current values of the simulation without advancing a simulation step or the simulation time.
 

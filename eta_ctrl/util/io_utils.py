@@ -61,6 +61,23 @@ def toml_import(path: Path) -> dict[str, Any]:
     return result
 
 
+def toml_export(path: Path, data: dict[str, Any]) -> None:
+    """Export data to TOML file.
+
+    :param path: Path to TOML file.
+    :param data: Data to be saved as TOML.
+    """
+    path = pathlib.Path(path)
+
+    try:
+        with path.open("w") as f:
+            toml.dump(data, f)
+        log.info(f"TOML file {path} exported successfully.")
+    except OSError as e:
+        log.exception(f"TOML file couldn't be exported: {e.strerror}. Filename: {e.filename}")
+        raise
+
+
 def yaml_import(path: Path) -> dict[str, Any]:
     """Import a YAML file and return the parsed dictionary.
 
