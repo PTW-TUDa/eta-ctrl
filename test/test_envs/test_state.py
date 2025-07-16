@@ -182,7 +182,7 @@ class TestStateConfig:
             assert state_config.loc[name] == state_config.vars[name]
 
     def test_from_file(self, config_resources_path):
-        path = config_resources_path / "test_env_structure.toml"
+        path = config_resources_path / "test_env_state_config.toml"
         StateConfig.from_file(path)
 
     def test_state_params(self):

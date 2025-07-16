@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import itertools as it
+import pathlib
 import shutil
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from datetime import timedelta
 from logging import getLogger
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 import numpy as np
 from fmpy import extract, read_model_description
@@ -411,6 +413,105 @@ class FMUSimulator:
         self.fmu.terminate()
         self.fmu.freeInstance()
         shutil.rmtree(self._unzipdir)  # clean up unzipped files
+
+    @classmethod
+    @contextmanager
+    def inspect(cls, fmu_path: pathlib.Path | str) -> Iterator[FMUContext]:
+        """
+        Context manager for inspecting an FMU to extract metadata.
+
+        Initializes a temporary FMU simulation environment to extract information such as
+        input/output variable names, parameter start values, and variable bounds. Returns
+        this data as a dictionary for use in TOML export or further analysis.
+
+        This method handles FMU loading, parsing, and cleanup internally, and is safe to use
+        with `with` blocks. If initialization fails, it yields `None`.
+
+        :param fmu_path: Path to the FMU file (.fmu) as a string or Path.
+        :param output_path: Optional output path for the resulting file or reference.
+        :yield: A dictionary with FMU metadata, or None on failure.
+        """
+
+        def parse_numeric(value: str | None) -> float | None:
+            if value is None:
+                return None
+            try:
+                number = float(value)
+                return int(number) if number.is_integer() else number
+            except (ValueError, TypeError):
+                return None
+
+        fmu_path = pathlib.Path(fmu_path)
+        simulator = cls(
+            _id=0,
+            fmu_path=fmu_path,
+            start_time=0.0,
+            stop_time=1.0,
+            step_size=0.1,
+        )
+        model_description = simulator.model_description
+
+        try:
+            actions: list[VariableDict] = []
+            observations: list[VariableDict] = []
+            parameters: dict[str, str | None] = {}
+            var_dict: VariableDict
+            for var in model_description.modelVariables:
+                if "." in var.name or "[" in var.name or "]" in var.name:
+                    continue
+
+                if var.causality == "input":
+                    var_dict = {"name": var.name, "is_ext_input": True}
+                    min_val = parse_numeric(getattr(var, "min", None))
+                    max_val = parse_numeric(getattr(var, "max", None))
+                    if min_val is not None:
+                        var_dict["low_value"] = min_val
+                    if max_val is not None:
+                        var_dict["high_value"] = max_val
+                    actions.append(var_dict)
+
+                elif var.causality == "output":
+                    var_dict = {"name": var.name, "is_ext_output": True}
+                    min_val = parse_numeric(getattr(var, "min", None))
+                    max_val = parse_numeric(getattr(var, "max", None))
+                    if min_val is not None:
+                        var_dict["low_value"] = min_val
+                    if max_val is not None:
+                        var_dict["high_value"] = max_val
+                    observations.append(var_dict)
+
+                elif var.causality == "parameter":
+                    parameters[var.name] = str(getattr(var, "start", None)) if hasattr(var, "start") else None
+            yield {
+                "fmu_name": fmu_path.stem,
+                "fmu_path": fmu_path,
+                "actions": actions,
+                "observations": observations,
+                "parameters": parameters,
+            }
+
+        except Exception:
+            log.exception("Failed to inspect FMU simulator")
+
+        finally:
+            if simulator:
+                simulator.close()
+
+
+class VariableDict(TypedDict, total=False):
+    name: str
+    is_ext_input: bool
+    is_ext_output: bool
+    low_value: Number
+    high_value: Number
+
+
+class FMUContext(TypedDict):
+    fmu_name: str
+    fmu_path: pathlib.Path
+    actions: list[VariableDict]
+    observations: list[VariableDict]
+    parameters: dict[str, str | None]
 
 
 class FMU2MESlave(FMU2Model):
