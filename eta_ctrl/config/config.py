@@ -146,7 +146,7 @@ class Config:
         if relpath_state is None:
             # Retrieve environment name and look for associated StateConfig file
             snake_case_name = camel_to_snake_case(setup.environment_class.__name__)
-            relpath_state = f"{snake_case_name}_structure"
+            relpath_state = f"{snake_case_name}_state_config"
             log.info(f"Loading StateConfig from default path at {relpath_state}.")
         path_state = path_root / relpath_state
 

@@ -22,7 +22,7 @@ Assuming you have already created an experiment repository, let's call it ``heat
 
 This will:
 - Create ``heating_tank.py``, containing ``HeatingTankEnv``, a subclass of ``SimEnv``.
-- Create ``heating_tank_structure.toml``, containing the top-level inputs and outputs, as well as parameters of the fmu.
+- Create ``heating_tank_state_config.toml``, containing the top-level inputs and outputs, as well as parameters of the fmu.
 
 You still need to:
 - Adjust the bounds of state variables (low_value/high_value)
@@ -34,20 +34,21 @@ You still need to:
    For any state variable that interacts with a FMU the ``name`` property of a StateVar is the same as the FMU variable name.
    If you want to modify the StateVar ``name``, simply define the ``ext_id`` property and set it to the FMU variable name.
 
-Exporting just the FMU Structure
+Exporting just the FMU Variables and Parameters
 ----------------------
 
-If you already have an Environment, you can also just export the structure of an FMU file to a TOML file using ``SimEnv.export_fmu_structure()``.
-This method extracts the inputs, outputs, and parameters from the FMU to a TOML file.
+If you already have an Environment, you can also just export the structure of an FMU file to a TOML file using ``SimEnv.export_fmu_state_config()`` and ``SimEnv.export_fmu_parameters()``.
+These methods extract the inputs, outputs, and parameters from the FMU to TOML files.
 
 .. code-block:: bash
-    poetry run export_fmu_structure heater_control/heating_tank.fmu
+    poetry run export_fmu_state_config heater_control/heating_tank.fmu
+    poetry run export_fmu_parameters heater_control/heating_tank.fmu
 
 
-This will create ``heating_tank_structure.toml``, containing the top-level inputs and outputs, as well as parameters of the fmu.
+This will create ``heating_tank_state_config.toml``, containing the top-level inputs and outputs, as well as  ``heating_tank_parameters.toml`` containing the parameters of the fmu.
 This will not overwrite an existing toml file, but create a new one with another name.
 
-The generated TOML file includes:
+The generated TOML files include:
 - Basic FMU information (name, path, description)
 - Actions (FMU input variables) with bounds, if set in the FMU
 - Observations (FMU output variables) with bounds, if set in the FMU

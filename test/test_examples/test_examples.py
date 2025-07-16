@@ -69,15 +69,21 @@ class TestFMUExport:
         # Clean up any test files created - including numbered variants due to overwrite protection
 
         # Clean up files in the experiment path
-        for toml_file in path.glob("damped_oscillator_structure*.toml"):
+        for toml_file in path.glob("damped_oscillator_state_config*.toml"):
+            toml_file.unlink(missing_ok=True)
+        for toml_file in path.glob("damped_oscillator_parameters*.toml"):
             toml_file.unlink(missing_ok=True)
 
         # Clean up files in current directory
-        for toml_file in pathlib.Path().glob("damped_oscillator_structure*.toml"):
+        for toml_file in pathlib.Path().glob("damped_oscillator_state_config*.toml"):
+            toml_file.unlink(missing_ok=True)
+        for toml_file in pathlib.Path().glob("damped_oscillator_parameters*.toml"):
             toml_file.unlink(missing_ok=True)
 
         # Clean up any other test files
-        for toml_file in pathlib.Path().glob("test_structure*.toml"):
+        for toml_file in pathlib.Path().glob("test_state_config*.toml"):
+            toml_file.unlink(missing_ok=True)
+        for toml_file in pathlib.Path().glob("test_parameters*.toml"):
             toml_file.unlink(missing_ok=True)
 
     @pytest.fixture(scope="class")
@@ -91,10 +97,10 @@ class TestFMUExport:
 
     def test_export_to_default_location(self, fmu_path):
         """Test export to default location (same directory as FMU)."""
-        SimEnv.export_fmu_structure(fmu_path)
+        SimEnv.export_fmu_state_config(fmu_path)
 
         # Check if default file was created
-        default_path = fmu_path.parent / f"{fmu_path.stem}_structure.toml"
+        default_path = fmu_path.parent / f"{fmu_path.stem}_state_config.toml"
         assert default_path.exists(), f"Default export file not created at {default_path}"
 
         # Clean up the file after test
@@ -103,8 +109,8 @@ class TestFMUExport:
 
     def test_export_to_custom_location(self, fmu_path):
         """Test export to custom location with full file path."""
-        custom_path = pathlib.Path("./damped_oscillator_structure_custom.toml")
-        SimEnv.export_fmu_structure(fmu_path, custom_path)
+        custom_path = pathlib.Path("./damped_oscillator_state_config_custom.toml")
+        SimEnv.export_fmu_state_config(fmu_path, custom_path)
 
         # Check if custom file was created
         assert custom_path.exists(), f"Custom export file not created at {custom_path}"
@@ -115,9 +121,9 @@ class TestFMUExport:
 
     def test_toml_file_structure(self, fmu_path):
         """Test that the exported TOML file has the expected structure."""
-        SimEnv.export_fmu_structure(fmu_path)
+        SimEnv.export_fmu_state_config(fmu_path)
 
-        default_path = fmu_path.parent / f"{fmu_path.stem}_structure.toml"
+        default_path = fmu_path.parent / f"{fmu_path.stem}_state_config.toml"
 
         import toml
 
@@ -137,9 +143,9 @@ class TestFMUExport:
 
     def test_fmu_info_section(self, fmu_path):
         """Test that the fmu_info section contains expected fields."""
-        SimEnv.export_fmu_structure(fmu_path)
+        SimEnv.export_fmu_state_config(fmu_path)
 
-        default_path = fmu_path.parent / f"{fmu_path.stem}_structure.toml"
+        default_path = fmu_path.parent / f"{fmu_path.stem}_state_config.toml"
 
         import toml
 
@@ -151,7 +157,6 @@ class TestFMUExport:
         fmu_info = toml_data["fmu_info"]
         assert "name" in fmu_info
         assert "path" in fmu_info
-        assert "description" in fmu_info
         assert fmu_info["name"] == fmu_path.stem
 
         # Clean up the file after test
@@ -160,9 +165,9 @@ class TestFMUExport:
 
     def test_has_model_actions(self, fmu_path):
         """Test that at least one model action exists."""
-        SimEnv.export_fmu_structure(fmu_path)
+        SimEnv.export_fmu_state_config(fmu_path)
 
-        default_path = fmu_path.parent / f"{fmu_path.stem}_structure.toml"
+        default_path = fmu_path.parent / f"{fmu_path.stem}_state_config.toml"
 
         import toml
 
@@ -177,9 +182,9 @@ class TestFMUExport:
 
     def test_has_model_observations(self, fmu_path):
         """Test that at least one model observation exists."""
-        SimEnv.export_fmu_structure(fmu_path)
+        SimEnv.export_fmu_state_config(fmu_path)
 
-        default_path = fmu_path.parent / f"{fmu_path.stem}_structure.toml"
+        default_path = fmu_path.parent / f"{fmu_path.stem}_state_config.toml"
 
         import toml
 
@@ -194,9 +199,9 @@ class TestFMUExport:
 
     def test_model_actions_structure(self, fmu_path):
         """Test that model actions have the expected structure."""
-        SimEnv.export_fmu_structure(fmu_path)
+        SimEnv.export_fmu_state_config(fmu_path)
 
-        default_path = fmu_path.parent / f"{fmu_path.stem}_structure.toml"
+        default_path = fmu_path.parent / f"{fmu_path.stem}_state_config.toml"
 
         import toml
 
@@ -241,9 +246,9 @@ class TestFMUExport:
 
     def test_model_observations_structure(self, fmu_path):
         """Test that model observations have the expected structure."""
-        SimEnv.export_fmu_structure(fmu_path)
+        SimEnv.export_fmu_state_config(fmu_path)
 
-        default_path = fmu_path.parent / f"{fmu_path.stem}_structure.toml"
+        default_path = fmu_path.parent / f"{fmu_path.stem}_state_config.toml"
 
         import toml
 
@@ -289,13 +294,13 @@ class TestFMUExport:
     def test_overwrite_protection(self, fmu_path):
         """Test that overwrite protection creates unique filenames."""
         # Create first file
-        SimEnv.export_fmu_structure(fmu_path)
-        default_path = fmu_path.parent / f"{fmu_path.stem}_structure.toml"
+        SimEnv.export_fmu_state_config(fmu_path)
+        default_path = fmu_path.parent / f"{fmu_path.stem}_state_config.toml"
         assert default_path.exists()
 
         # Create second file - should have _1 suffix due to overwrite protection
-        SimEnv.export_fmu_structure(fmu_path)
-        protected_path = fmu_path.parent / f"{fmu_path.stem}_structure_1.toml"
+        SimEnv.export_fmu_state_config(fmu_path)
+        protected_path = fmu_path.parent / f"{fmu_path.stem}_state_config_1.toml"
         assert protected_path.exists()
 
         # Clean up both files
@@ -303,3 +308,212 @@ class TestFMUExport:
             default_path.unlink()
         if protected_path.exists():
             protected_path.unlink()
+
+    # ==================== Parameter Export Tests ====================
+
+    def test_parameter_export_to_default_location(self, fmu_path):
+        """Test parameter export to default location (same directory as FMU)."""
+        SimEnv.export_fmu_parameters(fmu_path)
+
+        # Check if default file was created
+        default_path = fmu_path.parent / f"{fmu_path.stem}_parameters.toml"
+        assert default_path.exists(), f"Default parameter export file not created at {default_path}"
+
+        # Clean up the file after test
+        if default_path.exists():
+            default_path.unlink()
+
+    def test_parameter_export_to_custom_location(self, fmu_path):
+        """Test parameter export to custom location with full file path."""
+        custom_path = pathlib.Path("./damped_oscillator_parameters_custom.toml")
+        SimEnv.export_fmu_parameters(fmu_path, custom_path)
+
+        # Check if custom file was created
+        assert custom_path.exists(), f"Custom parameter export file not created at {custom_path}"
+
+        # Clean up the file after test
+        if custom_path.exists():
+            custom_path.unlink()
+
+    def test_parameter_toml_file_structure(self, fmu_path):
+        """Test that the exported parameter TOML file has the expected structure."""
+        SimEnv.export_fmu_parameters(fmu_path)
+
+        default_path = fmu_path.parent / f"{fmu_path.stem}_parameters.toml"
+
+        import toml
+
+        with pathlib.Path.open(default_path) as f:
+            toml_data = toml.load(f)
+
+        # Check expected structure for parameter export
+        assert "fmu_info" in toml_data
+        assert "parameters" in toml_data
+        assert isinstance(toml_data["parameters"], dict)
+
+        # Clean up the file after test
+        if default_path.exists():
+            default_path.unlink()
+
+    def test_parameter_fmu_info_section(self, fmu_path):
+        """Test that the parameter fmu_info section contains expected fields."""
+        SimEnv.export_fmu_parameters(fmu_path)
+
+        default_path = fmu_path.parent / f"{fmu_path.stem}_parameters.toml"
+
+        import toml
+
+        with pathlib.Path.open(default_path) as f:
+            toml_data = toml.load(f)
+
+        # Check that fmu_info section exists and has expected fields
+        assert "fmu_info" in toml_data
+        fmu_info = toml_data["fmu_info"]
+        assert "name" in fmu_info
+        assert "path" in fmu_info
+        assert fmu_info["name"] == fmu_path.stem
+        # Path should just be filename, not full path
+        assert fmu_info["path"] == fmu_path.name
+
+        # Clean up the file after test
+        if default_path.exists():
+            default_path.unlink()
+
+    def test_parameters_are_strings(self, fmu_path):
+        """Test that parameters are exported as string values."""
+        SimEnv.export_fmu_parameters(fmu_path)
+
+        default_path = fmu_path.parent / f"{fmu_path.stem}_parameters.toml"
+
+        import toml
+
+        with pathlib.Path.open(default_path) as f:
+            toml_data = toml.load(f)
+
+        # Check that parameters section exists
+        assert "parameters" in toml_data
+        parameters = toml_data["parameters"]
+
+        # Each parameter should be a key-value pair where value is a string
+        for param_name, param_value in parameters.items():
+            assert isinstance(param_name, str)
+            assert len(param_name) > 0, "Parameter name should not be empty"
+            # Parameter values should be strings (as per requirements)
+            assert isinstance(param_value, str), (
+                f"Parameter '{param_name}' value should be string, got {type(param_value)}"
+            )
+            # String values should be convertible to numbers
+            try:
+                float(param_value)
+            except ValueError:
+                pytest.fail(f"Parameter '{param_name}' value '{param_value}' should be a numeric string")
+
+        # Clean up the file after test
+        if default_path.exists():
+            default_path.unlink()
+
+    def test_parameter_overwrite_protection(self, fmu_path):
+        """Test that parameter export overwrite protection creates unique filenames."""
+        # Create first file
+        SimEnv.export_fmu_parameters(fmu_path)
+        default_path = fmu_path.parent / f"{fmu_path.stem}_parameters.toml"
+        assert default_path.exists()
+
+        # Create second file - should have _1 suffix due to overwrite protection
+        SimEnv.export_fmu_parameters(fmu_path)
+        protected_path = fmu_path.parent / f"{fmu_path.stem}_parameters_1.toml"
+        assert protected_path.exists()
+
+        # Clean up both files
+        if default_path.exists():
+            default_path.unlink()
+        if protected_path.exists():
+            protected_path.unlink()
+
+    def test_parameter_export_with_nonexistent_fmu(self):
+        """Test parameter export with non-existent FMU file."""
+        nonexistent_path = pathlib.Path("./nonexistent_fmu.fmu")
+        with pytest.raises(FileNotFoundError):
+            SimEnv.export_fmu_parameters(nonexistent_path)
+
+        # No file should be created
+        output_path = nonexistent_path.parent / f"{nonexistent_path.stem}_parameters.toml"
+        assert not output_path.exists(), "No file should be created for non-existent FMU"
+
+    def test_parameter_export_vs_state_config_export_compatibility(self, fmu_path):
+        """Test that parameter export is compatible with structure export."""
+        # Export both structure and parameters
+        SimEnv.export_fmu_state_config(fmu_path)
+        SimEnv.export_fmu_parameters(fmu_path)
+
+        variables_path = fmu_path.parent / f"{fmu_path.stem}_state_config.toml"
+        parameters_path = fmu_path.parent / f"{fmu_path.stem}_parameters.toml"
+
+        assert variables_path.exists()
+        assert parameters_path.exists()
+
+        import toml
+
+        # Load both files
+        with pathlib.Path.open(variables_path) as f:
+            structure_data = toml.load(f)
+        with pathlib.Path.open(parameters_path) as f:
+            parameters_data = toml.load(f)
+
+        # Both should have fmu_info sections with same name
+        assert structure_data["fmu_info"]["name"] == parameters_data["fmu_info"]["name"]
+
+        # Structure should have actions/observations, parameters should have parameters
+        assert "actions" in structure_data
+        assert "observations" in structure_data
+        assert "parameters" in parameters_data
+
+        # Clean up both files
+        if variables_path.exists():
+            variables_path.unlink()
+        if parameters_path.exists():
+            parameters_path.unlink()
+
+        # Clean up both files
+        if parameters_path.exists():
+            parameters_path.unlink()
+        if variables_path.exists():
+            variables_path.unlink()
+
+    def test_parameters_only_causality_parameter(self, fmu_path):
+        """Test that only variables with causality='parameter' are exported."""
+        # This test verifies the filtering logic by ensuring the exported parameters
+        # are actually parameters and not inputs/outputs
+        SimEnv.export_fmu_parameters(fmu_path)
+        SimEnv.export_fmu_state_config(fmu_path)
+
+        parameters_path = fmu_path.parent / f"{fmu_path.stem}_parameters.toml"
+        structure_path = fmu_path.parent / f"{fmu_path.stem}_state_config.toml"
+
+        import toml
+
+        with pathlib.Path.open(parameters_path) as f:
+            parameters_data = toml.load(f)
+        with pathlib.Path.open(structure_path) as f:
+            structure_data = toml.load(f)
+
+        # Get parameter names
+        parameter_names = set(parameters_data["parameters"].keys())
+
+        # Get action and observation names from structure export
+        action_names = {action["name"] for action in structure_data["actions"]}
+        observation_names = {obs["name"] for obs in structure_data["observations"]}
+
+        # Parameters should not overlap with actions or observations
+        assert parameter_names.isdisjoint(action_names), (
+            f"Parameters overlap with actions: {parameter_names & action_names}"
+        )
+        assert parameter_names.isdisjoint(observation_names), (
+            f"Parameters overlap with observations: {parameter_names & observation_names}"
+        )
+
+        # Clean up both files
+        if parameters_path.exists():
+            parameters_path.unlink()
+        if structure_path.exists():
+            structure_path.unlink()
