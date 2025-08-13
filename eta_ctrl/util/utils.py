@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import re
 from collections.abc import Mapping
 from logging import getLogger
 from typing import TYPE_CHECKING
@@ -102,3 +103,10 @@ def deep_mapping_update(
 def camel_to_snake_case(camel_name: str) -> str:
     """Convert a string from camel to snake case convention"""
     return "".join("_" + c.lower() if c.isupper() else c for c in camel_name).strip("_")
+
+
+def snake_to_camel_case(snake_name: str) -> str:
+    """Convert a string from snake_case to PascalCase convention."""
+    clean_name = re.sub(r"[^a-zA-Z0-9]", "_", snake_name)
+    parts = [part.capitalize() for part in clean_name.split("_") if part]
+    return "".join(parts)
