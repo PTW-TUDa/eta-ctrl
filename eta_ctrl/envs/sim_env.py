@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 from eta_ctrl.envs import BaseEnv
 from eta_ctrl.simulators import FMUSimulator
 from eta_ctrl.util import toml_export
+from eta_ctrl.util.utils import snake_to_camel_case
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -388,3 +389,69 @@ class SimEnv(BaseEnv, abc.ABC):
         final_output_path = cls._get_unique_output_path(base_path)
         toml_export(final_output_path, fmu_data)
         log.info(f"FMU parameters exported to {final_output_path}")
+
+    @classmethod
+    def from_fmu(cls, fmu_path: pathlib.Path | str, output_dir: pathlib.Path | str | None = None) -> None:
+        """Create a complete SimEnv environment from an FMU file.
+
+        This method creates both a Python environment class file and a TOML state config file
+        from an FMU, providing a complete setup for FMU-based simulations.
+
+        :param fmu_path: Full path to the FMU file (including filename and .fmu extension).
+        :param output_dir: Directory where files should be created. If None, uses the same directory as the FMU file.
+        """
+        fmu_path = pathlib.Path(fmu_path)
+
+        if not fmu_path.exists():
+            msg = f"FMU file not found at {fmu_path}"
+            log.error(msg)
+            raise FileNotFoundError(msg)
+
+        # Extract FMU name and determine output directory
+        fmu_name = fmu_path.stem
+        output_directory = fmu_path.parent if output_dir is None else pathlib.Path(output_dir)
+        output_directory.mkdir(parents=True, exist_ok=True)
+
+        # Generate class name (convert to PascalCase)
+        class_name = snake_to_camel_case(fmu_name) + "Env"
+
+        # Create Python environment file
+        python_file_path = output_directory / f"{fmu_name}.py"
+        cls._create_environment_file(python_file_path, class_name, fmu_name)
+
+        # Create state config TOML file using existing method
+        if output_dir is None:
+            # Use default behavior - saves to FMU directory
+            cls.export_fmu_state_config(fmu_path)
+        else:
+            # Use custom output directory
+            state_config_file_path = output_directory / f"{fmu_name}_state_config.toml"
+            cls.export_fmu_state_config(fmu_path, state_config_file_path)
+
+    @classmethod
+    def _create_environment_file(cls, file_path: pathlib.Path, class_name: str, fmu_name: str) -> None:
+        """Create a Python environment file with the SimEnv subclass.
+
+        :param file_path: Path where the Python file should be created.
+        :param class_name: Name of the environment class.
+        :param fmu_name: Name of the FMU file (without extension).
+        """
+        # Check for overwrite protection
+        if file_path.exists():
+            log.warning(f"Python file already exists at {file_path}. Skipping creation.")
+            return
+
+        # Get template file path
+        templates_dir = pathlib.Path(__file__).parent / "templates"
+        template_path = templates_dir / "simenv_template.py"
+
+        # Read template content
+        template_content = template_path.read_text(encoding="utf-8")
+
+        # Replace template placeholders
+        file_content = template_content.replace("TemplateSimEnv", class_name)
+        file_content = file_content.replace("TEMPLATE_FMU_NAME", fmu_name)
+
+        # Write the file
+        file_path.write_text(file_content, encoding="utf-8")
+        log.info(f"Created environment file: {file_path}")

@@ -72,7 +72,6 @@ def toml_export(path: Path, data: dict[str, Any]) -> None:
     try:
         with path.open("w") as f:
             toml.dump(data, f)
-        log.info(f"TOML file {path} exported successfully.")
     except OSError as e:
         log.exception(f"TOML file couldn't be exported: {e.strerror}. Filename: {e.filename}")
         raise
