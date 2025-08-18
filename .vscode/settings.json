@@ -1,0 +1,5 @@
+{
+  "evenBetterToml.schema.associations": {
+    ".*_structure.toml": "file://.vscode/schemas/structure.json",
+  }
+}

@@ -1,0 +1,224 @@
+{
+    "$defs": {
+        "StateVar": {
+            "additionalProperties": false,
+            "description": "A variable in the state of an environment.",
+            "properties": {
+                "name": {
+                    "title": "Name",
+                    "type": "string"
+                },
+                "is_agent_action": {
+                    "default": "False",
+                    "title": "Is Agent Action",
+                    "type": "boolean"
+                },
+                "is_agent_observation": {
+                    "default": "False",
+                    "title": "Is Agent Observation",
+                    "type": "boolean"
+                },
+                "add_to_state_log": {
+                    "default": "True",
+                    "title": "Add To State Log",
+                    "type": "boolean"
+                },
+                "ext_id": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": "None",
+                    "title": "Ext Id"
+                },
+                "is_ext_input": {
+                    "default": "False",
+                    "title": "Is Ext Input",
+                    "type": "boolean"
+                },
+                "is_ext_output": {
+                    "default": "False",
+                    "title": "Is Ext Output",
+                    "type": "boolean"
+                },
+                "ext_scale_add": {
+                    "default": "0.0",
+                    "title": "Ext Scale Add",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "ext_scale_mult": {
+                    "default": "1.0",
+                    "title": "Ext Scale Mult",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "interact_id": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": "None",
+                    "title": "Interact Id"
+                },
+                "from_interact": {
+                    "default": "False",
+                    "title": "From Interact",
+                    "type": "boolean"
+                },
+                "interact_scale_add": {
+                    "default": "0.0",
+                    "title": "Interact Scale Add",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "interact_scale_mult": {
+                    "default": "1.0",
+                    "title": "Interact Scale Mult",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "scenario_id": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": "None",
+                    "title": "Scenario Id"
+                },
+                "from_scenario": {
+                    "default": "False",
+                    "title": "From Scenario",
+                    "type": "boolean"
+                },
+                "scenario_scale_add": {
+                    "default": "0.0",
+                    "title": "Scenario Scale Add",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "scenario_scale_mult": {
+                    "default": "1.0",
+                    "title": "Scenario Scale Mult",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "low_value": {
+                    "default": "-inf",
+                    "title": "Low Value",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "high_value": {
+                    "default": "inf",
+                    "title": "High Value",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "abort_condition_min": {
+                    "default": "-inf",
+                    "title": "Abort Condition Min",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "abort_condition_max": {
+                    "default": "inf",
+                    "title": "Abort Condition Max",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
+                },
+                "index": {
+                    "default": "0",
+                    "title": "Index",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "name"
+            ],
+            "title": "StateVar",
+            "type": "object"
+        }
+    },
+    "additionalProperties": false,
+    "description": "Used for parsing the state structure from a config file.",
+    "properties": {
+        "state_parameters": {
+            "anyOf": [
+                {
+                    "additionalProperties": {
+                        "anyOf": [
+                            {
+                                "type": [
+                                    "number",
+                                    "string"
+                                ]
+                            },
+                            {
+                                "type": "boolean"
+                            }
+                        ]
+                    },
+                    "type": "object"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": "None",
+            "title": "State Parameters"
+        },
+        "actions": {
+            "items": {
+                "$ref": "#/$defs/StateVar"
+            },
+            "title": "Actions",
+            "type": "array"
+        },
+        "observations": {
+            "items": {
+                "$ref": "#/$defs/StateVar"
+            },
+            "title": "Observations",
+            "type": "array"
+        }
+    },
+    "required": [
+        "actions",
+        "observations"
+    ],
+    "title": "StateStructure",
+    "type": "object"
+}

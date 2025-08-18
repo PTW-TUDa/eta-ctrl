@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
-from attrs import asdict, converters, define, field, fields_dict, validators
 from gymnasium import spaces
+from pydantic import BaseModel, ConfigDict
 
 from eta_ctrl.util.io_utils import load_config
 
@@ -23,77 +23,65 @@ from logging import getLogger
 log = getLogger(__name__)
 
 
-def _default_field(default: Any) -> Any:
-    """Generate a field that sets the default if the value is None."""
-    converter = converters.pipe(converters.default_if_none(default), type(default))
-    return field(kw_only=True, default=default, converter=converter)
-
-
-def _id_field(dtype: type) -> Any:
-    validator = validators.optional(validators.instance_of(dtype))
-    converter = converters.optional(dtype)
-    return field(kw_only=True, default=None, converter=converter, validator=validator)
-
-
-@define(frozen=True)
-class StateVar:
+class StateVar(BaseModel):
     """A variable in the state of an environment."""
 
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
     #: Name of the state variable (This must always be specified).
-    name: str = field(validator=validators.instance_of(str))
+    name: str
+
     #: Should the agent specify actions for this variable? (default: False).
-    is_agent_action: bool = _default_field(default=False)
+    is_agent_action: bool = False
     #: Should the agent be allowed to observe the value of this variable? (default: False).
-    is_agent_observation: bool = _default_field(default=False)
-
+    is_agent_observation: bool = False
     #: Should the state log of this episode be added to state_log_longtime? (default: True).
-    add_to_state_log: bool = _default_field(default=True)
+    add_to_state_log: bool = True
 
-    #: Name or identifier (order) of the variable in the external interaction model
+    #: Name of the variable in the external interaction model
     #: (e.g.: environment or FMU) (default: StateVar.name if (is_ext_input or is_ext_output) else None).
-    ext_id: str | None = _id_field(dtype=str)
-
+    ext_id: str | None = None
     #: Should this variable be passed to the external model as an input? (default: False).
-    is_ext_input: bool = _default_field(default=False)
+    is_ext_input: bool = False
     #: Should this variable be parsed from the external model output? (default: False).
-    is_ext_output: bool = _default_field(default=False)
+    is_ext_output: bool = False
     #: Value to add to the output from an external model (default: 0.0).
-    ext_scale_add: float = _default_field(default=0.0)
+    ext_scale_add: float = 0.0
     #: Value to multiply to the output from an external model (default: 1.0).
-    ext_scale_mult: float = _default_field(default=1.0)
+    ext_scale_mult: float = 1.0
 
     #: Name or identifier (order) of the variable in an interaction environment (default: None).
-    interact_id: int | None = _id_field(dtype=int)
+    interact_id: int | None = None
     #: Should this variable be read from the interaction environment? (default: False).
-    from_interact: bool = _default_field(default=False)
+    from_interact: bool = False
     #: Value to add to the value read from an interaction (default: 0.0).
-    interact_scale_add: float = _default_field(default=0.0)
+    interact_scale_add: float = 0.0
     #: Value to multiply to the value read from  an interaction (default: 1.0).
-    interact_scale_mult: float = _default_field(default=1.0)
+    interact_scale_mult: float = 1.0
 
     #: Name of the scenario variable, this value should be read from (default: None).
-    scenario_id: str | None = _id_field(dtype=str)
+    scenario_id: str | None = None
     #: Should this variable be read from imported timeseries date? (default: False).
-    from_scenario: bool = _default_field(default=False)
+    from_scenario: bool = False
     #: Value to add to the value read from a scenario file (default: 0.0).
-    scenario_scale_add: float = _default_field(default=0.0)
+    scenario_scale_add: float = 0.0
     #: Value to multiply to the value read from a scenario file (default: 1.0).
-    scenario_scale_mult: float = _default_field(default=1.0)
+    scenario_scale_mult: float = 1.0
 
     #: Lowest possible value of the state variable (default: -np.inf).
-    low_value: float = _default_field(default=-np.inf)
+    low_value: float = -np.inf
     #: Highest possible value of the state variable (default: np.inf).
-    high_value: float = _default_field(default=np.inf)
+    high_value: float = np.inf
     #: If the value of the variable dips below this, the episode should be aborted (default: -np.inf).
-    abort_condition_min: float = _default_field(default=-np.inf)
+    abort_condition_min: float = -np.inf
     #: If the value of the variable rises above this, the episode should be aborted (default: np.inf).
-    abort_condition_max: float = _default_field(default=np.inf)
+    abort_condition_max: float = np.inf
 
     #: Determine the index, where to look (useful for mathematical optimization, where multiple time steps could be
     #: returned). In this case, the index values might be different for actions and observations.
-    index: int = _default_field(default=0)
+    index: int = 0
 
-    def __attrs_post_init__(self) -> None:
+    def model_post_init(self, context: Any) -> None:
         if (self.is_ext_input or self.is_ext_output) and self.ext_id is None:
             object.__setattr__(self, "ext_id", self.name)
             log.info(f"Using name as ext_id for variable {self.name}")
@@ -112,19 +100,20 @@ class StateVar:
         :param mapping: dictionary or pandas Series to initialize from.
         :return: Initialized StateVar object
         """
-        mapping = dict(mapping)
-        unrecognized_keys = set(mapping) - set(cls.__annotations__)
-
-        for key in unrecognized_keys:
-            log.warning(
-                f"Unrecognized key '{key}' with value {mapping.pop(key)} in the"
-                "environment state config was not recognized and is ignored."
-            )
-
-        return cls(**mapping)
+        return cls(**dict(mapping))
 
     def __getitem__(self, name: str) -> Any:
         return getattr(self, name)
+
+
+class StateStructure(BaseModel):
+    """Used for parsing the state structure from a config file."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    state_parameters: dict[str, float | bool] | None = None
+    actions: list[StateVar]
+    observations: list[StateVar]
 
 
 class StateConfig:
@@ -137,7 +126,7 @@ class StateConfig:
     def __init__(self, *state_vars: StateVar) -> None:
         #: Mapping of the variables names to their StateVar instance with all associated information.
         self.vars = {var.name: var for var in state_vars}
-        self.df_vars: pd.DataFrame = pd.DataFrame([asdict(var) for var in state_vars]).set_index("name")
+        self.df_vars: pd.DataFrame = pd.DataFrame([var.model_dump() for var in state_vars]).set_index("name")
         if not self.df_vars.index.is_unique:
             log.warning("Duplicate variable names in StateConfig. This may lead to unexpected behavior.")
 
@@ -257,13 +246,13 @@ class StateConfig:
         :param file: Path to the file.
         """
         _file = file if isinstance(file, pathlib.Path) else pathlib.Path(file)
-        _header = fields_dict(StateVar).keys()
+        _header = StateVar.model_fields.keys()
 
         with _file.open("w") as f:
             writer = DictWriter(f, _header, restval="None", delimiter=";")
             writer.writeheader()
             for var in self.vars.values():
-                writer.writerow(asdict(var))
+                writer.writerow(var.model_dump())
 
     def within_abort_conditions(self, state: Mapping[str, float]) -> bool:
         """Check whether the given state is within the abort conditions specified by the StateConfig instance.
