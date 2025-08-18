@@ -8,7 +8,7 @@ from eta_ctrl.envs.state import StateConfig, StateVar
 class TestStateVar:
     @pytest.fixture(scope="class")
     def state_var_default(self):
-        return StateVar("foo")
+        return StateVar(name="foo")
 
     @pytest.fixture(scope="class")
     def state_var_ext(self):
@@ -36,12 +36,12 @@ class TestStateVar:
     def test_missing_params(self, name):
         msg = f"Variable {name} is either missing `{name}_id` or `from_{name}`"
         with pytest.raises(KeyError, match=msg):
-            StateVar(name, **{f"from_{name}": True})
+            StateVar(name=name, **{f"from_{name}": True})
 
     @pytest.fixture(scope="class")
     def state_var_scenario(self):
         return StateVar(
-            "foo",
+            name="foo",
             is_agent_action=True,
             low_value=0,
             high_value=1,
@@ -69,7 +69,7 @@ class TestStateVar:
     @pytest.fixture(scope="class")
     def state_var_interact(self):
         return StateVar(
-            "foo",
+            name="foo",
             is_agent_action=True,
             low_value=0,
             high_value=1,
@@ -90,7 +90,7 @@ class TestStateVar:
         assert state_var_interact.interact_scale_mult == 2.0
 
     def test_from_dict(self):
-        dikt = {"name": "foo", "is_agent_action": True, "foo": "bar"}
+        dikt = {"name": "foo", "is_agent_action": True}
         state_var = StateVar.from_dict(dikt)
         assert state_var.name == "foo"
         assert state_var.is_agent_action is True
@@ -101,30 +101,30 @@ class TestStateConfig:
     def state_config(self):
         return StateConfig(
             StateVar(
-                "action1",
+                name="action1",
                 is_agent_action=True,
                 low_value=0,
                 high_value=1,
                 abort_condition_min=0,
                 abort_condition_max=0.5,
             ),
-            StateVar("observation1", is_agent_observation=True, low_value=2, high_value=3),
+            StateVar(name="observation1", is_agent_observation=True, low_value=2, high_value=3),
             StateVar(
-                "action2",
+                name="action2",
                 is_agent_action=True,
                 low_value=4,
                 high_value=5,
                 abort_condition_min=4,
                 abort_condition_max=4.5,
             ),
-            StateVar("observation2", is_agent_observation=True, low_value=6, high_value=7),
+            StateVar(name="observation2", is_agent_observation=True, low_value=6, high_value=7),
         )
 
     @pytest.fixture(scope="class")
     def state_config_nan(self):
         return StateConfig(
-            StateVar("action1", is_agent_action=True),
-            StateVar("observation1", is_agent_observation=True),
+            StateVar(name="action1", is_agent_action=True),
+            StateVar(name="observation1", is_agent_observation=True),
         )
 
     def test_continuous_action_space_should_include_all_and_only_agent_actions(self, state_config):
@@ -171,8 +171,8 @@ class TestStateConfig:
 
     def test_map_ids(self):
         config = StateConfig(
-            StateVar("foo1", is_ext_input=True, ext_id="bar1"),
-            StateVar("foo2", is_ext_output=True, ext_id="bar2"),
+            StateVar(name="foo1", is_ext_input=True, ext_id="bar1"),
+            StateVar(name="foo2", is_ext_output=True, ext_id="bar2"),
         )
         for name, ext_id in config.map_ext_ids.items():
             assert name == config.rev_ext_ids[ext_id]
