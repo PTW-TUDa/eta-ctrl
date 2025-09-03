@@ -283,8 +283,7 @@ class BaseEnv(Env, abc.ABC):
         :param action: Actions taken by the agent.
         :return: The return value represents the state of the environment after the step was performed.
 
-            * **observations**: A numpy array with new observation values as defined by the observation space.
-              Observations is a np.array() (numpy array) with floating point or integer values.
+            * **observations**: A dictionary with new observation values as defined by the observation space.
             * **reward**: The value of the reward function. This is just one floating point value.
             * **terminated**: Boolean value specifying whether an episode has been completed. If this is set to true,
               the reset function will automatically be called by the agent or by eta_i.
@@ -327,13 +326,18 @@ class BaseEnv(Env, abc.ABC):
         for idx, act in enumerate(self.state_config.actions):
             self.state[act] = actions[idx]
 
-    def _observations(self) -> np.ndarray:
+    def _observations(self) -> dict[str, np.ndarray]:
         """Determine the observations list from environment state. This uses state_config to determine all
         observations.
 
         :return: Observations for the agent as determined by state_config.
         """
-        return np.array([self.state[name] for name in self.state_config.observations], dtype=np.float64)
+        if not self.state_config.observations.issubset(self.state.keys()):
+            missing = self.state_config.observations - self.state.keys()
+            msg = f"Missing required observation keys in state: {missing}"
+            raise KeyError(msg)
+
+        return {name: np.array([self.state[name]], dtype=np.float32) for name in self.state_config.observations}
 
     def _done(self) -> bool:
         """Check if the episode is over or not using the number of steps (n_steps) and the total number of

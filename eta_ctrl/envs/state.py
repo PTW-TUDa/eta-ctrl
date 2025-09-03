@@ -120,20 +120,23 @@ class StateConfig:
     """The configuration for the action and observation spaces. The values are used to control which variables are
     part of the action space and observation space. Additionally, the parameters can specify abort conditions
     and the handling of values from interaction environments or from simulation. Therefore, the *StateConfig*
-    is very important for the functionality of ETA X.
+    is very important for the functionality of EtaCtrl.
     """
 
     def __init__(self, *state_vars: StateVar) -> None:
         #: Mapping of the variables names to their StateVar instance with all associated information.
         self.vars = {var.name: var for var in state_vars}
+        # Additional Dataframe for easier access
         self.df_vars: pd.DataFrame = pd.DataFrame([var.model_dump() for var in state_vars]).set_index("name")
         if not self.df_vars.index.is_unique:
-            log.warning("Duplicate variable names in StateConfig. This may lead to unexpected behavior.")
+            duplicates = self.df_vars.index[self.df_vars.index.duplicated()].unique().tolist()
+            msg = f"Duplicate variable names in StateConfig: {duplicates}"
+            raise ValueError(msg)
 
-        #: List of variables that are agent actions.
+        #: List of variables that are agent actions. Needs to be ordered.
         self.actions: list[str] = self.df_vars.query("is_agent_action == True").index.tolist()
-        #: List of variables that are agent observations.
-        self.observations: list[str] = self.df_vars.query("is_agent_observation == True").index.tolist()
+        #: Set of variables that are agent observations.
+        self.observations: set[str] = set(self.df_vars.query("is_agent_observation == True").index.tolist())
         #: Set of variables that should be logged.
         self.add_to_state_log: set[str] = set(self.df_vars.query("add_to_state_log == True").index.tolist())
 
@@ -270,41 +273,35 @@ class StateConfig:
 
         return valid_min and valid_max
 
-    def _generate_continuous_space(self, trait: Literal["is_agent_action", "is_agent_observation"]) -> spaces.Box:
-        """Generate a continuous space according to the format required by the OpenAI specification.
-
-        :return: Continuous space.
-        """
-        low_values = self.df_vars.query(f"{trait} == True").low_value.to_numpy()
-        high_values = self.df_vars.query(f"{trait} == True").high_value.to_numpy()
-
-        return spaces.Box(low_values, high_values, dtype=np.float32)
-
     def continuous_action_space(self) -> spaces.Box:
-        """Generate an action space according to the format required by the OpenAI
-        specification.
+        """Generate a numpy ndarray action space.
 
         :return: Action space.
         """
-        return self._generate_continuous_space("is_agent_action")
+        actions = self.df_vars.query("is_agent_action == True")
+        low_values = actions["low_value"].to_numpy(dtype=np.float32)
+        high_values = actions["high_value"].to_numpy(dtype=np.float32)
 
-    def continuous_obs_space(self) -> spaces.Box:
-        """Generate a continuous observation space according to the format required by the OpenAI
-        specification.
+        return spaces.Box(low_values, high_values)
+
+    def continuous_observation_space(self) -> spaces.Dict:
+        """Generate a dictionary observation space.
 
         :return: Observation Space.
         """
-        return self._generate_continuous_space("is_agent_observation")
+        observations: dict[str, spaces.Box] = {
+            name: spaces.Box(low=row["low_value"], high=row["high_value"], dtype=np.float32)
+            for name, row in self.df_vars.iterrows()
+            if row["is_agent_observation"] is True
+        }
+        return spaces.Dict(observations)  # type: ignore[arg-type]
 
-    # Alias for continuous_obs_space
-    continuous_observation_space = continuous_obs_space
-
-    def continuous_spaces(self) -> tuple[spaces.Box, spaces.Box]:
+    def continuous_spaces(self) -> tuple[spaces.Box, spaces.Dict]:
         """Generate continuous action and observation spaces according to the OpenAI specification.
 
         :return: Tuple of action space and observation space.
         """
-        return self.continuous_action_space(), self.continuous_obs_space()
+        return self.continuous_action_space(), self.continuous_observation_space()
 
     def __getitem__(self, name: str) -> Any:
         return getattr(self, name)

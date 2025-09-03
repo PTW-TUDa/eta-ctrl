@@ -40,16 +40,18 @@ class DampedOscillatorControl(RuleBased):
         #: Integral error value.
         self.integral = 0
 
-    def control_rules(self, observation: np.ndarray) -> np.ndarray:
+    def control_rules(self, observation: dict[str, np.ndarray]) -> np.ndarray:
         """
         Controller of the model. This implements a simple PID controller
 
         :param observation: Observation from the environment.
         :returns: Resulting action from the PID controller.
         """
-        s = observation[1]
-        v = observation[2]
-        a = observation[3]  # noqa: F841
+        s = observation["s"][0]
+        v = observation["v"][0]
+        a = observation["a"][0]  # noqa: F841
         self.integral += s
 
-        return np.array([-(self.p * s + self.i * self.integral + self.d * v)])
+        u = -(self.p * s + self.i * self.integral + self.d * v)
+
+        return np.array([u])

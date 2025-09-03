@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from typing import Any
 
     from eta_ctrl.config import ConfigRun
-    from eta_ctrl.util.type_annotations import ObservationType, StepResult, TimeStep
+    from eta_ctrl.util.type_annotations import StepResult, TimeStep
 
 
 class DampedOscillatorEnv(SimEnv):
@@ -100,7 +100,7 @@ class DampedOscillatorEnv(SimEnv):
         *,
         seed: int | None = None,
         options: dict[str, Any] | None = None,
-    ) -> tuple[ObservationType, dict[str, Any]]:
+    ) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
         """Reset the model and return initial observations.
 
         :param seed: The seed that is used to initialize the environment's PRNG (`np_random`) (default: None).

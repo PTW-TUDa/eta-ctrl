@@ -7,7 +7,7 @@
         "vectorizer_package": "stable_baselines3.common.vec_env",
         "vectorizer_class": "SubprocVecEnv",
         "policy_package": "stable_baselines3.ppo",
-        "policy_class": "MlpPolicy",
+        "policy_class": "MultiInputPolicy",
         "tensorboard_log": true,
         "monitor_wrapper": true,
         "norm_wrapper_obs": true,

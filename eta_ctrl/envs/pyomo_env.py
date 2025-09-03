@@ -191,14 +191,12 @@ class PyomoEnv(BaseEnv, abc.ABC):
         """
         self._actions_valid(action)
 
-        observations = self.update()
-
-        # Update and log current state
         self._create_new_state(self.additional_state)
         self._actions_to_state(action)
 
-        for idx, obs in enumerate(self.state_config.observations):
-            self.state[obs] = observations[idx]
+        # Update and log current state
+        self.update()
+
         self.state_log.append(self.state)
 
         reward = pyo.value(next(self.model[0].component_objects(pyo.Objective)))
@@ -207,13 +205,13 @@ class PyomoEnv(BaseEnv, abc.ABC):
         if self.render_mode is not None:
             self.render()
 
-        return observations, reward, self._done(), False, {}
+        return self._observations(), reward, self._done(), False, {}
 
-    def update(self, observations: Sequence[Sequence[float | int]] | None = None) -> np.ndarray:
+    def update(self, observations: Sequence[Sequence[float | int]] | None = None) -> None:
         """Update the optimization model with observations from another environment.
+        New observations are stored in self.state.
 
         :param observations: Observations from another environment.
-        :return: Full array of current observations.
         """
         # Update shift counter for rolling MPC approach
         self.n_steps += 1
@@ -262,7 +260,6 @@ class PyomoEnv(BaseEnv, abc.ABC):
 
         self._create_new_state(self.additional_state)
         updated_params = ts_current
-        return_obs = []  # Array for all current observations
         for var_name in self.state_config.observations:
             settings = self.state_config.vars[var_name]
             if not isinstance(settings.interact_id, int):
@@ -277,14 +274,14 @@ class PyomoEnv(BaseEnv, abc.ABC):
                     * settings.interact_scale_mult,
                     5,
                 )
-                return_obs.append(value)
+                self.state[var_name] = value
             else:
                 # Read additional values from the mathematical model
                 for component in self.model[0].component_objects():
                     if component.name == var_name:
                         # Get value for the component from specified index
                         value = round(pyo.value(component[list(component.keys())[int(settings.index)]]), 5)
-                        return_obs.append(value if value is not None else np.nan)
+                        self.state[var_name] = value if value is not None else np.nan
                         break
                 else:
                     log.error(f"Specified observation value {var_name} could not be found")
@@ -295,7 +292,6 @@ class PyomoEnv(BaseEnv, abc.ABC):
 
         self.state_log.append(self.state)
         self.pyo_update_params(updated_params, self.nonindex_update_append_string)
-        return np.array(return_obs)
 
     def solve_failed(self, model: pyo.ConcreteModel, result: SolverResults) -> None:
         """This method will try to render the result in case the model could not be solved. It should automatically
@@ -316,7 +312,7 @@ class PyomoEnv(BaseEnv, abc.ABC):
         *,
         seed: int | None = None,
         options: dict[str, Any] | None = None,
-    ) -> tuple[np.ndarray, dict[str, Any]]:
+    ) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
         """Reset the environment to an initial internal state, returning an initial observation and info.
 
         This method generates a new starting state often with some randomness to ensure that the agent explores the
@@ -369,7 +365,7 @@ class PyomoEnv(BaseEnv, abc.ABC):
         if self.render_mode is not None:
             self.render()
 
-        return np.array(observations), {}
+        return self._observations(), {}
 
     def close(self) -> None:
         """Close the environment. This should always be called when an entire run is finished. It should be used to
