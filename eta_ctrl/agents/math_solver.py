@@ -224,7 +224,7 @@ class MathSolver(BaseAlgorithm):
 
     def action_probability(
         self,
-        observation: np.ndarray,
+        observation: dict[str, np.ndarray],
         state: np.ndarray | None = None,
         mask: np.ndarray | None = None,
         actions: np.ndarray | None = None,

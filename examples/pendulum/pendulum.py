@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from typing import Any
 
     from eta_ctrl.config import ConfigRun
-    from eta_ctrl.util.type_annotations import ObservationType, StepResult, TimeStep
+    from eta_ctrl.util.type_annotations import StepResult, TimeStep
 
 log = getLogger(__name__)
 
@@ -147,11 +147,6 @@ class PendulumEnv(BaseEnv, GymPendulum):
         # reward function
         costs = angle_normalize(th) ** 2 + 0.1 * thdot**2 + 0.001 * (u**2)
 
-        # Prepare observations
-        observations = np.empty(len(self.state_config.observations))
-        for idx, name in enumerate(self.state_config.observations):
-            observations[idx] = self.state[name]
-
         # Check if the episode is completed
         terminated = self.n_steps >= self.n_episode_steps
         truncated = False
@@ -160,14 +155,14 @@ class PendulumEnv(BaseEnv, GymPendulum):
         if self.render_mode == "human":
             self.render()
 
-        return observations, -costs, terminated, truncated, {}
+        return self._observations(), -costs, terminated, truncated, {}
 
     def reset(
         self,
         *,
         seed: int | None = None,
         options: dict[str, Any] | None = None,
-    ) -> tuple[ObservationType, dict[str, Any]]:
+    ) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
         """Reset the environment. This is called after each episode is completed and should be used to reset the
         state of the environment such that simulation of a new episode can begin.
 
@@ -198,16 +193,11 @@ class PendulumEnv(BaseEnv, GymPendulum):
         # Log the state
         self.state_log.append(self.state)
 
-        # Get the observations from environment state
-        observations = np.empty(len(self.state_config.observations))
-        for idx, name in enumerate(self.state_config.observations):
-            observations[idx] = self.state[name]
-
         # Render the environment when calling the reset function
         if self.render_mode == "human":
             self.render()
 
-        return observations, {}
+        return self._observations(), {}
 
     def render(self) -> None:
         """Use the render function from the Farama gymnasium PendulumEnv environment.

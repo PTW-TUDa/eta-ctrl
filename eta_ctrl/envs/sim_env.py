@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     import numpy as np
 
     from eta_ctrl.config import ConfigRun
-    from eta_ctrl.util.type_annotations import ObservationType, StepResult, TimeStep
+    from eta_ctrl.util.type_annotations import StepResult, TimeStep
 
 log = getLogger(__name__)
 
@@ -246,7 +246,7 @@ class SimEnv(BaseEnv, abc.ABC):
         *,
         seed: int | None = None,
         options: dict[str, Any] | None = None,
-    ) -> tuple[ObservationType, dict[str, Any]]:
+    ) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
         """Reset the environment to an initial internal state, returning an initial observation and info.
 
         This method generates a new starting state often with some randomness to ensure that the agent explores the

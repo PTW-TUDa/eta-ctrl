@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
     import numpy as np
 
-    from eta_ctrl.util.type_annotations import ObservationType, StepResult
+    from eta_ctrl.util.type_annotations import StepResult
 
 
 class TemplateSimEnv(SimEnv):
@@ -53,7 +53,7 @@ class TemplateSimEnv(SimEnv):
         *,
         seed: int | None = None,
         options: dict[str, Any] | None = None,
-    ) -> tuple[ObservationType, dict[str, Any]]:
+    ) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
         """Reset the environment to an initial internal state.
 
         This method should be customized for your specific FMU environment.
