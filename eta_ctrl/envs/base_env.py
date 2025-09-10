@@ -445,6 +445,24 @@ class BaseEnv(Env, abc.ABC):
         """
         return cls.version, cls.description  # type: ignore[return-value]
 
+    def __str__(self) -> str:
+        """Human-readable string representation of BaseEnv."""
+        env_class = self.__class__.__name__
+        n_actions = len(self.state_config.actions)
+        n_observations = len(self.state_config.observations)
+        status = f"Episode {self.n_episodes}, Step {self.n_steps}/{self.n_episode_steps}"
+
+        return f"{env_class}(id={self.env_id}, {n_actions} actions, {n_observations} observations, {status})"
+
+    def __repr__(self) -> str:
+        """Developer-friendly string representation of BaseEnv."""
+        env_class = self.__class__.__name__
+        return (
+            f"{env_class}(env_id={self.env_id}, run_name='{self.run_name}', "
+            f"n_episodes={self.n_episodes}, n_steps={self.n_steps}, "
+            f"episode_duration={self.episode_duration}, sampling_time={self.sampling_time})"
+        )
+
     def export_state_log(
         self,
         path: Path,

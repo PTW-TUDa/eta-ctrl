@@ -105,6 +105,37 @@ class StateVar(BaseModel):
     def __getitem__(self, name: str) -> Any:
         return getattr(self, name)
 
+    def __str__(self) -> str:
+        """Human-readable string representation of StateVar."""
+        var_type = []
+        if self.is_agent_action:
+            var_type.append("action")
+        if self.is_agent_observation:
+            var_type.append("observation")
+        if not var_type:
+            var_type.append("variable")
+
+        type_str = "/".join(var_type)
+        has_range = self.low_value != -np.inf or self.high_value != np.inf
+        range_str = f"[{self.low_value}, {self.high_value}]" if has_range else ""
+
+        return f"StateVar '{self.name}' ({type_str}){' ' + range_str if range_str else ''}"
+
+    def __repr__(self) -> str:
+        """Developer-friendly string representation of StateVar."""
+        key_attrs = []
+        if self.is_agent_action:
+            key_attrs.append("is_agent_action=True")
+        if self.is_agent_observation:
+            key_attrs.append("is_agent_observation=True")
+        if self.low_value != -np.inf:
+            key_attrs.append(f"low_value={self.low_value}")
+        if self.high_value != np.inf:
+            key_attrs.append(f"high_value={self.high_value}")
+
+        attrs_str = ", ".join(key_attrs)
+        return f"StateVar(name='{self.name}'{', ' + attrs_str if attrs_str else ''})"
+
 
 class StateStructure(BaseModel):
     """Used for parsing the state structure from a config file."""
@@ -127,11 +158,15 @@ class StateConfig:
         #: Mapping of the variables names to their StateVar instance with all associated information.
         self.vars = {var.name: var for var in state_vars}
         # Additional Dataframe for easier access
-        self.df_vars: pd.DataFrame = pd.DataFrame([var.model_dump() for var in state_vars]).set_index("name")
-        if not self.df_vars.index.is_unique:
-            duplicates = self.df_vars.index[self.df_vars.index.duplicated()].unique().tolist()
-            msg = f"Duplicate variable names in StateConfig: {duplicates}"
-            raise ValueError(msg)
+        if state_vars:
+            self.df_vars: pd.DataFrame = pd.DataFrame([var.model_dump() for var in state_vars]).set_index("name")
+            if not self.df_vars.index.is_unique:
+                duplicates = self.df_vars.index[self.df_vars.index.duplicated()].unique().tolist()
+                msg = f"Duplicate variable names in StateConfig: {duplicates}"
+                raise ValueError(msg)
+        else:
+            # Handle empty case - create empty DataFrame with expected columns
+            self.df_vars = pd.DataFrame(columns=list(StateVar.model_fields.keys())).set_index("name")
 
         #: List of variables that are agent actions. Needs to be ordered.
         self.actions: list[str] = self.df_vars.query("is_agent_action == True").index.tolist()
@@ -302,6 +337,28 @@ class StateConfig:
         :return: Tuple of action space and observation space.
         """
         return self.continuous_action_space(), self.continuous_observation_space()
+
+    def __str__(self) -> str:
+        """Human-readable string representation of StateConfig."""
+        n_actions = len(self.actions)
+        n_observations = len(self.observations)
+        n_total = len(self.vars)
+
+        return f"StateConfig with {n_actions} actions, {n_observations} observations ({n_total} total variables)"
+
+    def __repr__(self) -> str:
+        """Developer-friendly string representation of StateConfig."""
+        n_actions = len(self.actions)
+        n_observations = len(self.observations)
+
+        # Show first few variables for context
+        actions_preview = self.actions[:3]
+        observations_preview = list(self.observations)[:3]
+
+        actions_str = f"{actions_preview}{'...' if n_actions > 3 else ''}"
+        observations_str = f"{observations_preview}{'...' if n_observations > 3 else ''}"
+
+        return f"StateConfig(actions={actions_str}, observations={observations_str})"
 
     def __getitem__(self, name: str) -> Any:
         return getattr(self, name)
