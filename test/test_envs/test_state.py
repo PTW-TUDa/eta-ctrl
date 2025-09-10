@@ -96,6 +96,73 @@ class TestStateVar:
         assert state_var.name == "foo"
         assert state_var.is_agent_action is True
 
+    def test_str_representation_action_only(self):
+        """Test __str__ method for action-only StateVar."""
+        state_var = StateVar(name="power_output", is_agent_action=True, low_value=0, high_value=1000)
+        expected = "StateVar 'power_output' (action) [0.0, 1000.0]"
+        assert str(state_var) == expected
+
+    def test_str_representation_observation_only(self):
+        """Test __str__ method for observation-only StateVar."""
+        state_var = StateVar(name="temperature", is_agent_observation=True, low_value=-10, high_value=50)
+        expected = "StateVar 'temperature' (observation) [-10.0, 50.0]"
+        assert str(state_var) == expected
+
+    def test_str_representation_both_action_and_observation(self):
+        """Test __str__ method for StateVar that is both action and observation."""
+        state_var = StateVar(
+            name="valve_position", is_agent_action=True, is_agent_observation=True, low_value=0, high_value=100
+        )
+        expected = "StateVar 'valve_position' (action/observation) [0.0, 100.0]"
+        assert str(state_var) == expected
+
+    def test_str_representation_neither_action_nor_observation(self):
+        """Test __str__ method for StateVar that is neither action nor observation."""
+        state_var = StateVar(name="internal_state")
+        expected = "StateVar 'internal_state' (variable)"
+        assert str(state_var) == expected
+
+    def test_str_representation_infinite_range(self):
+        """Test __str__ method for StateVar with infinite range."""
+        state_var = StateVar(name="unlimited_var", is_agent_action=True)
+        expected = "StateVar 'unlimited_var' (action)"
+        assert str(state_var) == expected
+
+    def test_str_representation_partial_infinite_range(self):
+        """Test __str__ method for StateVar with partially infinite range."""
+        state_var = StateVar(name="min_limited", is_agent_action=True, low_value=0)
+        expected = "StateVar 'min_limited' (action) [0.0, inf]"
+        assert str(state_var) == expected
+
+    def test_repr_representation_minimal(self):
+        """Test __repr__ method for minimal StateVar."""
+        state_var = StateVar(name="simple_var")
+        expected = "StateVar(name='simple_var')"
+        assert repr(state_var) == expected
+
+    def test_repr_representation_full_action(self):
+        """Test __repr__ method for full action StateVar."""
+        state_var = StateVar(name="heating_power", is_agent_action=True, low_value=0, high_value=5000)
+        expected = "StateVar(name='heating_power', is_agent_action=True, low_value=0.0, high_value=5000.0)"
+        assert repr(state_var) == expected
+
+    def test_repr_representation_observation_with_infinite_high(self):
+        """Test __repr__ method for observation with infinite high value."""
+        state_var = StateVar(name="error_signal", is_agent_observation=True, low_value=-100)
+        expected = "StateVar(name='error_signal', is_agent_observation=True, low_value=-100.0)"
+        assert repr(state_var) == expected
+
+    def test_repr_representation_both_action_observation(self):
+        """Test __repr__ method for StateVar that is both action and observation."""
+        state_var = StateVar(
+            name="feedback_var", is_agent_action=True, is_agent_observation=True, low_value=10, high_value=90
+        )
+        expected = (
+            "StateVar(name='feedback_var', is_agent_action=True, "
+            "is_agent_observation=True, low_value=10.0, high_value=90.0)"
+        )
+        assert repr(state_var) == expected
+
 
 class TestStateConfig:
     @pytest.fixture(scope="class")
@@ -203,3 +270,103 @@ class TestStateConfig:
         error_msg = "Parameter extra_param needs to be specified in state_params"
         with pytest.raises(KeyError, match=error_msg):
             StateConfig.from_dict(statevars)
+
+    def test_str_representation_standard_config(self, state_config: StateConfig):
+        """Test __str__ method for standard StateConfig with actions and observations."""
+        expected = "StateConfig with 2 actions, 2 observations (4 total variables)"
+        assert str(state_config) == expected
+
+    def test_str_representation_empty_config(self):
+        """Test __str__ method for empty StateConfig."""
+        empty_config = StateConfig()
+        expected = "StateConfig with 0 actions, 0 observations (0 total variables)"
+        assert str(empty_config) == expected
+
+    def test_str_representation_actions_only(self):
+        """Test __str__ method for StateConfig with only actions."""
+        config = StateConfig(
+            StateVar(name="action1", is_agent_action=True),
+            StateVar(name="action2", is_agent_action=True),
+        )
+        expected = "StateConfig with 2 actions, 0 observations (2 total variables)"
+        assert str(config) == expected
+
+    def test_str_representation_observations_only(self):
+        """Test __str__ method for StateConfig with only observations."""
+        config = StateConfig(
+            StateVar(name="obs1", is_agent_observation=True),
+            StateVar(name="obs2", is_agent_observation=True),
+            StateVar(name="obs3", is_agent_observation=True),
+        )
+        expected = "StateConfig with 0 actions, 3 observations (3 total variables)"
+        assert str(config) == expected
+
+    def test_str_representation_mixed_with_other_vars(self):
+        """Test __str__ method for StateConfig with actions, observations, and other variables."""
+        config = StateConfig(
+            StateVar(name="action1", is_agent_action=True),
+            StateVar(name="obs1", is_agent_observation=True),
+            StateVar(name="internal_var1"),  # Neither action nor observation
+            StateVar(name="internal_var2"),  # Neither action nor observation
+        )
+        expected = "StateConfig with 1 actions, 1 observations (4 total variables)"
+        assert str(config) == expected
+
+    def test_repr_representation_standard_config(self, state_config: StateConfig):
+        """Test __repr__ method for standard StateConfig."""
+        repr_result = repr(state_config)
+        assert repr_result.startswith("StateConfig(")
+        assert repr_result.endswith(")")
+        assert "actions=['action1', 'action2']" in repr_result
+        # Check that observations are present (order may vary)
+        assert "observations=" in repr_result
+        assert "'observation1'" in repr_result
+        assert "'observation2'" in repr_result
+
+    def test_repr_representation_empty_config(self):
+        """Test __repr__ method for empty StateConfig."""
+        empty_config = StateConfig()
+        expected = "StateConfig(actions=[], observations=[])"
+        assert repr(empty_config) == expected
+
+    def test_repr_representation_large_config_with_truncation(self):
+        """Test __repr__ method for large StateConfig with truncation."""
+        actions = [StateVar(name=f"action_{i}", is_agent_action=True) for i in range(5)]
+        observations = [StateVar(name=f"obs_{i}", is_agent_observation=True) for i in range(6)]
+        config = StateConfig(*actions, *observations)
+
+        # Should show first 3 of each with ... indicating truncation
+        repr_str = repr(config)
+        assert "actions=['action_0', 'action_1', 'action_2']..." in repr_str
+        assert "observations=" in repr_str
+        assert "..." in repr_str  # Should have truncation indicator
+
+    def test_repr_representation_exactly_three_items(self):
+        """Test __repr__ method for StateConfig with exactly 3 actions and observations (no truncation)."""
+        actions = [StateVar(name=f"action_{i}", is_agent_action=True) for i in range(3)]
+        observations = [StateVar(name=f"obs_{i}", is_agent_observation=True) for i in range(3)]
+        config = StateConfig(*actions, *observations)
+
+        repr_str = repr(config)
+        # Should not have ... since we have exactly 3 items
+        assert "actions=['action_0', 'action_1', 'action_2']" in repr_str
+        assert "..." not in repr_str
+
+    def test_from_file_config_str_repr(self, config_resources_path):
+        """Test __str__ and __repr__ methods using config loaded from file."""
+        path = config_resources_path / "test_env_state_config.toml"
+        config = StateConfig.from_file(path)
+
+        # Based on the TOML file: 1 action (torque), 4 observations (th, cos_th, sin_th, th_dot)
+        str_result = str(config)
+        assert "1 actions" in str_result
+        assert "4 observations" in str_result
+        assert "5 total variables" in str_result
+
+        repr_result = repr(config)
+        assert "actions=['torque']" in repr_result
+        assert "observations=" in repr_result
+        # With 4 observations, it should be truncated (showing first 3 with ...)
+        assert "..." in repr_result
+        # Check that at least some observation names are present (first 3)
+        assert "observations=[" in repr_result
