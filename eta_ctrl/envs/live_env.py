@@ -4,6 +4,7 @@ import abc
 from logging import getLogger
 from typing import TYPE_CHECKING
 
+import numpy as np
 from eta_nexus.connections import LiveConnect
 
 from eta_ctrl.envs import BaseEnv
@@ -13,10 +14,8 @@ if TYPE_CHECKING:
     from datetime import datetime
     from typing import Any
 
-    import numpy as np
-
     from eta_ctrl.config import ConfigRun
-    from eta_ctrl.util.type_annotations import Path, StepResult, TimeStep
+    from eta_ctrl.util.type_annotations import Path, TimeStep
 
 log = getLogger(__name__)
 
@@ -106,11 +105,12 @@ class LiveEnv(BaseEnv, abc.ABC):
                 files=_files, step_size=self.sampling_time, max_error_count=self.max_error_count
             )
 
-    def step(self, action: np.ndarray) -> StepResult:
-        """Perform one time step and return its results. This is called for every event or for every time step during
-        the simulation/optimization run. It should utilize the actions as supplied by the agent to determine the new
-        state of the environment. The method must return a five-tuple of observations, rewards, terminated, truncated,
-        info.
+    def _step(self) -> tuple[float, bool, bool, dict]:
+        """Perform one internal time step and return core step results.
+
+        This is called for every event or for every time step during the simulation/optimization run.
+        It should utilize the actions as supplied by the agent to determine the new
+        state of the environment, which are available in the state dictionary.
 
         This also updates self.state and self.state_log to store current state information.
 
@@ -120,60 +120,54 @@ class LiveEnv(BaseEnv, abc.ABC):
             calling this function. If you need to manipulate observations and rewards, do this after calling this
             function.
 
-        :param action: Actions to perform in the environment.
-        :return: The return value represents the state of the environment after the step was performed.
+        :return: A tuple containing:
 
-            * **observations**: A numpy array with new observation values as defined by the observation space.
-              Observations is a np.array() (numpy array) with floating point or integer values.
             * **reward**: The value of the reward function. This is just one floating point value.
             * **terminated**: Boolean value specifying whether an episode has been completed. If this is set to true,
-              the reset function will automatically be called by the agent or by eta_i.
+                the reset function will automatically be called by the agent or by EtaCtrl.
             * **truncated**: Boolean, whether the truncation condition outside the scope is satisfied.
-              Typically, this is a timelimit, but could also be used to indicate an agent physically going out of
-              bounds. Can be used to end the episode prematurely before a terminal state is reached.
-              If true, the user needs to call the `reset` function.
+                Typically, this is a timelimit, but could also be used to indicate an agent physically going out of
+                bounds. Can be used to end the episode prematurely before a terminal state is reached.
             * **info**: Provide some additional info about the state of the environment. The contents of this may
-              be used for logging purposes in the future but typically do not currently serve a purpose.
+                be used for logging purposes in the future but typically do not currently serve a purpose.
+
+        .. note::
+            Stable Baselines3 combines terminated and truncated with a logical OR to trigger
+            the automatic environment reset. Implement both flags for compatibility.
         """
-        self._actions_valid(action)
+        # Set the external inputs in the live connector
+        external_inputs = {}
+        for ext_key in self.state_config.ext_inputs:
+            key = self.state_config.rev_ext_ids[ext_key]
+            if self.state[key].size > 1:
+                msg = "External Inputs can't have multiple values"
+                raise ValueError(msg)
+            external_inputs[ext_key] = self.state[key][0]
 
-        self.n_steps += 1
-        self._create_new_state(self.additional_state)
-
-        # Preparation for the setting of the actions, store actions
-        node_in = {}
-        # Set actions in the opc ua server and read out the observations
-        for idx, name in enumerate(self.state_config.actions):
-            self.state[name] = action[idx]
-            node_in.update({str(self.state_config.map_ext_ids[name]): action[idx]})
+        results = self.live_connector.step(external_inputs)
+        # Convert to state data type
+        results = {name: np.array([value]) for name, value in results.items()}
 
         # Update scenario data, do one time step in the live connector and store the results.
-        self.state.update(self.get_scenario_state())
+        self.state.update(
+            self.get_scenario_state()
+        )  # TODO: change in MR https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/-/merge_requests/22
 
-        results = self.live_connector.step(node_in)
+        # Read out the external outputs
+        external_outputs = {
+            name: results[self.state_config.map_ext_ids[name]] for name in self.state_config.ext_outputs
+        }
+        external_outputs = {name: np.array([value]) for name, value in external_outputs.values()}
+        self.state.update(external_outputs)
 
-        self.state = {name: results[str(self.state_config.map_ext_ids[name])] for name in self.state_config.ext_outputs}
-        self.state.update(self.get_scenario_state())
+        return 0, self._done(), False, {}
 
-        # Execute optional state modification callback function
-        if self.state_modification_callback:
-            self.state_modification_callback()
-
-        # Log the state
-        self.state_log.append(self.state)
-
-        # Render the environment at each step
-        if self.render_mode is not None:
-            self.render()
-
-        return self._observations(), 0, self._done(), False, {}
-
-    def reset(
+    def _reset(
         self,
         *,
         seed: int | None = None,
         options: dict[str, Any] | None = None,
-    ) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
+    ) -> dict[str, Any]:
         """Reset the environment to an initial internal state, returning an initial observation and info.
 
         This method generates a new starting state often with some randomness to ensure that the agent explores the
@@ -185,48 +179,32 @@ class LiveEnv(BaseEnv, abc.ABC):
         For Custom environments, the first line of :meth:`reset` should be ``super().reset(seed=seed)`` which implements
         the seeding correctly.
 
-        .. note ::
-            Don't forget to store and reset the episode_timer.
-
-        :param seed: The seed that is used to initialize the environment's PRNG (`np_random`).
-                If the environment does not already have a PRNG and ``seed=None`` (the default option) is passed,
-                a seed will be chosen from some source of entropy (e.g. timestamp or /dev/urandom).
-                However, if the environment already has a PRNG and ``seed=None`` is passed, the PRNG will *not* be
-                reset. If you pass an integer, the PRNG will be reset even if it already exists. (default: None)
+        :param seed: The seed for initializing any randomized components of the state.
+                     Subclasses should use this for reproducible randomness in their state init
         :param options: Additional information to specify how the environment is reset (optional,
-                depending on the specific environment) (default: None)
+                        depending on the specific environment) (default: None)
 
-        :return: Tuple of observation and info. The observation of the initial state will be an element of
-                :attr:`observation_space` (typically a numpy array) and is analogous to the observation returned by
-                :meth:`step`. Info is a dictionary containing auxiliary information complementing ``observation``. It
-                should be analogous to the ``info`` returned by :meth:`step`.
+        :return: Info dictionary containing information about the initial state.
+                 The initial observations are automatically filtered from the internal state
+                 by the public reset method and must not be returned here.
+
+        .. note::
+            The base implementation initializes external outputs from the live connector
+            without using the seed. Subclasses should use the seed parameter
+            for any additional randomized state observations they implement.
         """
-        super().reset(seed=seed, options=options)
         self._init_live_connector()
 
-        # Initialize state
-        self.state = {} if self.additional_state is None else self.additional_state
-
-        # Update scenario data, read out the start conditions from opc ua server and store the results
-        start_obs = [str(self.state_config.map_ext_ids[name] for name in self.state_config.ext_outputs)]
+        # Update scenario data, read out the start conditions from LiveConnect and store the results
+        start_obs_names = [self.state_config.map_ext_ids[name] for name in self.state_config.ext_outputs]
 
         # Read out and store start conditions
-        results = self.live_connector.read(*start_obs)
-        self.state.update({self.state_config.rev_ext_ids[name]: results[name] for name in start_obs})
+        results = self.live_connector.read(*start_obs_names)
+        results = {name: np.array([value]) for name, value in results.items()}
+        self.state.update({self.state_config.rev_ext_ids[name]: results[name] for name in start_obs_names})
         self.state.update(self.get_scenario_state())
 
-        # Execute optional state modification callback function
-        if self.state_modification_callback:
-            self.state_modification_callback()
-
-        # Log the initial state
-        self.state_log.append(self.state)
-
-        # Render the environment when calling the reset function
-        if self.render_mode is not None:
-            self.render()
-
-        return self._observations(), {}
+        return {}
 
     def close(self) -> None:
         """Close the environment. This should always be called when an entire run is finished. It should be used to

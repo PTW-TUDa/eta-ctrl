@@ -284,7 +284,7 @@ Generation = AbstractVector{Solution{T}} where {T}
 
 function py_actions(generation::Generation)
     solution = generation[1]
-    var_dtype = typeof(solution.variables[1]) <: AbstractFloat ? np.float64 : np.int64
+    var_dtype = typeof(solution.variables[1]) <: AbstractFloat ? np.float32 : np.int32
 
     dtype = pycall(
         np.dtype,

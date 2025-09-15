@@ -37,7 +37,7 @@ class PendulumControl(RuleBased):
             msg = "The PendulumController can only work on a single environment at once"
             raise ValueError(msg)
 
-    def control_rules(self, observation: dict[str, np.ndarray]) -> np.ndarray:
+    def control_rules(self, observation: np.ndarray | dict[str, np.ndarray]) -> np.ndarray:
         """This function is abstract and should be used to implement control rules which determine actions from
         the received observations.
 

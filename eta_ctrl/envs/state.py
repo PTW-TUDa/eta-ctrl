@@ -336,7 +336,9 @@ class StateConfig:
 
         :return: Tuple of action space and observation space.
         """
-        return self.continuous_action_space(), self.continuous_observation_space()
+        action_space = self.continuous_action_space()
+        observation_space = self.continuous_observation_space()
+        return action_space, observation_space
 
     def __str__(self) -> str:
         """Human-readable string representation of StateConfig."""
