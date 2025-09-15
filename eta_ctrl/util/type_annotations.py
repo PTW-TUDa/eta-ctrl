@@ -20,7 +20,6 @@ TimeStep = int | float | datetime.timedelta
 
 FillMethod = Literal["ffill", "bfill", "interpolate", "asfreq"]
 
-
 ActionType = np.ndarray
 EnvSettings = dict[str, Any]
 AlgoSettings = dict[str, Any]

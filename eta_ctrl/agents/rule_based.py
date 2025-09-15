@@ -58,7 +58,7 @@ class RuleBased(BaseAlgorithm, abc.ABC):
         return self.env
 
     @abc.abstractmethod
-    def control_rules(self, observation: dict[str, np.ndarray]) -> np.ndarray:
+    def control_rules(self, observation: np.ndarray | dict[str, np.ndarray]) -> np.ndarray:
         """This function is abstract and should be used to implement control rules which determine actions from
         the received observations.
 
@@ -83,10 +83,6 @@ class RuleBased(BaseAlgorithm, abc.ABC):
                               deterministic actions.
         :return: Tuple of the model's action and the next state (state is typically None in this agent).
         """
-        if not isinstance(observation, dict):
-            msg = "Observation space must be a dictionary"
-            raise TypeError(msg)
-
         actions = []
         for idx, env_obs in enumerate(iterate(self.observation_space, observation)):
             actions.append(self.control_rules(env_obs))

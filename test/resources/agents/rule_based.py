@@ -31,7 +31,7 @@ class RuleBasedController(RuleBased):
         if _init_setup_model:
             self._setup_model()
 
-    def control_rules(self, observation: dict[str, np.ndarray]) -> int:
+    def control_rules(self, observation: np.ndarray) -> int:
         angle = observation[2]
         if angle > 0:
             return 1  # push cart to the right

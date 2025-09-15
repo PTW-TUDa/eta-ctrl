@@ -141,7 +141,6 @@ class Nsga2(BaseAlgorithm):
         **kwargs: Any,
     ) -> None:
         # Some types are incorrectly defined in the super class; this fixes it for this class and suppresses warnings
-        self.start_time: float | None  # type: ignore[assignment]
         self.lr_schedule: Callable
         self.policy_class: type[BasePolicy]
         self.policy: BasePolicy
@@ -216,7 +215,7 @@ class Nsga2(BaseAlgorithm):
         #: Total number of retries needed during evolution to generate unique solutions.
         self.total_retries: int = 0
         #: List of current minimal values for all parts of the reward
-        self.current_minima: np.ndarray = np.full(1, self._max_value, dtype=np.float64, order="F")
+        self.current_minima: np.ndarray = np.full(1, self._max_value, dtype=np.float32, order="F")
 
         #: Buffer for actions
         self.ep_actions_buffer: deque = deque(maxlen=100)
@@ -534,7 +533,7 @@ class Nsga2(BaseAlgorithm):
         if self.ep_info_buffer is None:
             msg = "Make sure that ep_info_buffer is exists before starting to learn."
             raise TypeError(msg)
-        if self.start_time is None:
+        if not hasattr(self, "start_time"):
             msg = "Make sure that start_time is set before starting to learn."
             raise TypeError(msg)
         self.logger.record("time/iterations", self.training_infos_buffer["iteration"], exclude="tensorboard")
@@ -599,7 +598,7 @@ class Nsga2(BaseAlgorithm):
             solution_invalid = []
             for idx, _ in enumerate(rewards):
                 if "valid" in infos[idx] and infos[idx]["valid"] is False:
-                    rewards[idx] = np.full((len(rewards[idx]),), self._max_value, dtype=np.float64)
+                    rewards[idx] = np.full((len(rewards[idx]),), self._max_value, dtype=np.float32)
                     solution_invalid.append(idx + 1)
 
             if len(solution_invalid) < self.population / 2:

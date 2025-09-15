@@ -164,6 +164,10 @@ class TestStateVar:
         assert repr(state_var) == expected
 
 
+def create_box(low: list[float], high: list[float]):
+    return Box(low=np.array(low, dtype=np.float32), high=np.array(high, dtype=np.float32))
+
+
 class TestStateConfig:
     @pytest.fixture(scope="class")
     def state_config(self):
@@ -198,19 +202,19 @@ class TestStateConfig:
     def test_continuous_action_space_should_include_all_and_only_agent_actions(self, state_config):
         # also tests: continuous_action_space_should_span_from_low_to_high_value_for_every_statevar
         action_space = state_config.continuous_action_space()
-        assert action_space == Box(low=np.array([0, 4], dtype=np.float32), high=np.array([1, 5], dtype=np.float32))
+        assert action_space == create_box(low=[0, 4], high=[1, 5])
 
     def test_continuous_action_space_should_use_infinity_if_no_low_and_high_values_are_provided(self, state_config_nan):
         action_space = state_config_nan.continuous_action_space()
-        assert action_space == Box(low=np.array([-np.inf], dtype=np.float32), high=np.array([np.inf], dtype=np.float32))
+        assert action_space == create_box(low=[-np.inf], high=[np.inf])
 
     def test_continuous_observation_space_should_include_all_and_only_agent_observations(self, state_config):
         # also tests: continuous_observation_space_should_span_from_low_to_high_value_for_every_statevar
         obs_space = state_config.continuous_observation_space()
         assert obs_space == Dict(
             {
-                "observation1": Box(low=np.array([2], dtype=np.float32), high=np.array([3], dtype=np.float32)),
-                "observation2": Box(low=np.array([6], dtype=np.float32), high=np.array([7], dtype=np.float32)),
+                "observation1": create_box(low=[2], high=[3]),
+                "observation2": create_box(low=[6], high=[7]),
             }
         )
 
@@ -218,9 +222,7 @@ class TestStateConfig:
         self, state_config_nan
     ):
         obs_space = state_config_nan.continuous_observation_space()
-        assert obs_space == Dict(
-            {"observation1": Box(low=np.array([-np.inf], dtype=np.float32), high=np.array([np.inf], dtype=np.float32))}
-        )
+        assert obs_space == Dict({"observation1": create_box(low=[-np.inf], high=[np.inf])})
 
     def test_from_dict(self):
         state_vars = [

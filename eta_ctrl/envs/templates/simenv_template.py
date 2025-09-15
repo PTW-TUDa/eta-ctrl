@@ -13,10 +13,6 @@ from eta_ctrl.envs.sim_env import SimEnv
 if TYPE_CHECKING:
     from typing import Any
 
-    import numpy as np
-
-    from eta_ctrl.util.type_annotations import StepResult
-
 
 class TemplateSimEnv(SimEnv):
     """Environment for TEMPLATE_FMU_NAME FMU simulation."""
@@ -30,7 +26,7 @@ class TemplateSimEnv(SimEnv):
         """Initialize the TemplateSimEnv environment."""
         super().__init__(*args, **kwargs)
 
-    def step(self, action: np.ndarray) -> StepResult:
+    def _step(self) -> tuple[float, bool, bool, dict]:
         """Perform one time step and return its results.
 
         This method should be customized for your specific FMU environment.
@@ -40,20 +36,22 @@ class TemplateSimEnv(SimEnv):
         :return: Tuple of (observations, reward, terminated, truncated, info).
         """
         # Insert your custom step logic here
-        # For example:
-        # - Custom action preprocessing
-        # - Custom reward calculation
-        # - Custom termination conditions
+        # For example: custom action preprocessing
 
-        # Default implementation uses parent class
-        return super().step(action)
+        # SimEnv populates the state with observations from the simulator
+        _, terminated, truncated, info = super()._step()
 
-    def reset(
+        # Implement reward calculation
+        reward = 0
+
+        return reward, terminated, truncated, info
+
+    def _reset(
         self,
         *,
         seed: int | None = None,
         options: dict[str, Any] | None = None,
-    ) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
+    ) -> dict[str, Any]:
         """Reset the environment to an initial internal state.
 
         This method should be customized for your specific FMU environment.
@@ -68,9 +66,13 @@ class TemplateSimEnv(SimEnv):
         # - Custom initial state setup
         # - Custom parameter initialization
         # - Custom observation preprocessing
+        infos: dict[str, str] = {}
 
-        # Default implementation uses parent class
-        return super().reset(seed=seed, options=options)
+        # Call reset logic from SimEnv
+        # This loads initial simulator observations into the state
+        super()._reset()
+
+        return infos
 
     # Add additional custom methods here:
     # - Custom reward functions

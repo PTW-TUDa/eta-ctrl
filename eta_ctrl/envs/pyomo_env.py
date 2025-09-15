@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from pyomo.opt import SolverResults
 
     from eta_ctrl.config import ConfigRun
-    from eta_ctrl.util.type_annotations import PyoParams, StepResult, TimeStep
+    from eta_ctrl.util.type_annotations import PyoParams, TimeStep
 
 
 log = getLogger(__name__)
@@ -159,40 +159,38 @@ class PyomoEnv(BaseEnv, abc.ABC):
         msg = "The abstract MPC environment does not implement a model."
         raise NotImplementedError(msg)
 
-    def step(self, action: np.ndarray) -> StepResult:
-        """Perform one time step and return its results. This is called for every event or for every time step during
-        the simulation/optimization run. It should utilize the actions as supplied by the agent to determine the new
-        state of the environment. The method must return a five-tuple of observations, rewards, terminated, truncated,
-        info.
+    def _step(self) -> tuple[float, bool, bool, dict]:
+        """Perform one internal time step and return core step results.
 
-        This also updates self.state and self.state_log to store current state information.
+        This private method implements the actual environment transition logic. It works
+        with the internal self.state dictionary that already includes actions
+        and returns the core step results without observations (which are handled by the
+        public step method).
 
         .. note::
-            This function always returns 0 reward. Therefore, it must be extended if it is to be used with reinforcement
-            learning agents. If you need to manipulate actions (discretization, policy shaping, ...)
-            do this before calling this function.
-            If you need to manipulate observations and rewards, do this after calling this function.
+            This function always returns 0 reward. Therefore, it must be extended if it is
+            to be used with reinforcement learning agents.
+            If you need to work with modified actions (e.g., discretized or shaped actions),
+            ensure they are processed before reaching this method or handle them within this method
+            using the values in self.state.
+            If you need to manipulate observations afterwarads, you can do this using the state modification callback.
 
-        :param np.ndarray action: Actions to perform in the environment.
-        :return: The return value represents the state of the environment after the step was performed.
+        :return: A tuple containing:
 
-            * **observations**: A numpy array with new observation values as defined by the observation space.
-              Observations is a np.array() (numpy array) with floating point or integer values.
             * **reward**: The value of the reward function. This is just one floating point value.
             * **terminated**: Boolean value specifying whether an episode has been completed. If this is set to true,
-              the reset function will automatically be called by the agent or by eta_i.
-            * **truncated**: Boolean, whether the truncation condition outside the scope is satisfied.
+              the reset function will automatically be called by the agent or by EtaCtrl
             * **truncated**: Boolean, whether the truncation condition outside the scope is satisfied.
               Typically, this is a timelimit, but could also be used to indicate an agent physically going out of
-              bounds. Can be used to end the episode prematurely before a terminal state is reached. If true, the
-              user needs to call the `reset` function.
+              bounds. Can be used to end the episode prematurely before a terminal state is reached.
             * **info**: Provide some additional info about the state of the environment. The contents of this may
               be used for logging purposes in the future but typically do not currently serve a purpose.
-        """
-        self._actions_valid(action)
 
-        self._create_new_state(self.additional_state)
-        self._actions_to_state(action)
+        .. note::
+            Stable Baselines3 combines terminated and truncated with a logical OR to trigger
+            the automatic environment reset. Implement both flags for compatibility.
+        """
+        self._reset_state()
 
         # Update and log current state
         self.update()
@@ -201,11 +199,7 @@ class PyomoEnv(BaseEnv, abc.ABC):
 
         reward = pyo.value(next(self.model[0].component_objects(pyo.Objective)))
 
-        # Render the environment at each step
-        if self.render_mode is not None:
-            self.render()
-
-        return self._observations(), reward, self._done(), False, {}
+        return reward, self._done(), False, {}
 
     def update(self, observations: Sequence[Sequence[float | int]] | None = None) -> None:
         """Update the optimization model with observations from another environment.
@@ -213,8 +207,6 @@ class PyomoEnv(BaseEnv, abc.ABC):
 
         :param observations: Observations from another environment.
         """
-        # Update shift counter for rolling MPC approach
-        self.n_steps += 1
 
         # The timeseries data must be updated for the next time step. The index depends on whether time itself is being
         # shifted. If time is being shifted, the respective variable should be set as "time_var".
@@ -258,7 +250,7 @@ class PyomoEnv(BaseEnv, abc.ABC):
                 " Last optimization step reached."
             )
 
-        self._create_new_state(self.additional_state)
+        self._reset_state()
         updated_params = ts_current
         for var_name in self.state_config.observations:
             settings = self.state_config.vars[var_name]
@@ -274,19 +266,21 @@ class PyomoEnv(BaseEnv, abc.ABC):
                     * settings.interact_scale_mult,
                     5,
                 )
-                self.state[var_name] = value
+                self.state[var_name] = np.array([value])
             else:
                 # Read additional values from the mathematical model
                 for component in self.model[0].component_objects():
                     if component.name == var_name:
                         # Get value for the component from specified index
                         value = round(pyo.value(component[list(component.keys())[int(settings.index)]]), 5)
-                        self.state[var_name] = value if value is not None else np.nan
+                        new_value = value if value is not None else np.nan
+                        self.state[var_name] = np.array([new_value])
                         break
                 else:
                     log.error(f"Specified observation value {var_name} could not be found")
             updated_params[var_name] = value
-            self.state[var_name] = value if value is not None else float("nan")
+            new_value = value if value is not None else float("nan")
+            self.state[var_name] = np.array([new_value])
 
             log.debug(f"Observed value {var_name}: {value}")
 
@@ -307,65 +301,50 @@ class PyomoEnv(BaseEnv, abc.ABC):
             log.exception("Rendering partial results failed")
         self.reset()
 
-    def reset(
+    def _reset(
         self,
         *,
         seed: int | None = None,
         options: dict[str, Any] | None = None,
-    ) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
-        """Reset the environment to an initial internal state, returning an initial observation and info.
+    ) -> dict[str, Any]:
+        """Reset the internal state of the environment and return info dictionary.
 
-        This method generates a new starting state often with some randomness to ensure that the agent explores the
-        state space and learns a generalised policy about the environment. This randomness can be controlled
-        with the ``seed`` parameter otherwise if the environment already has a random number generator and
-        :meth:`reset` is called with ``seed=None``, the RNG is not reset. When using the environment in conjunction with
-        *stable_baselines3*, the vectorized environment will take care of seeding your custom environment automatically.
+        This private method initializes the internal self.state dictionary by reading initial
+        values directly from the FMU/simulator. It does not use the seed parameter since the
+        initial state is determined by the simulator configuration.
 
         For Custom environments, the first line of :meth:`reset` should be ``super().reset(seed=seed)`` which implements
         the seeding correctly.
 
-        .. note ::
-            Don't forget to store and reset the episode_timer.
+        The public reset method handles the Gymnasium interface including observation filtering
+        and proper seeding mechanism.
 
-        :param seed: The seed that is used to initialize the environment's PRNG (`np_random`).
-                If the environment does not already have a PRNG and ``seed=None`` (the default option) is passed,
-                a seed will be chosen from some source of entropy (e.g. timestamp or /dev/urandom).
-                However, if the environment already has a PRNG and ``seed=None`` is passed, the PRNG will *not* be
-                reset. If you pass an integer, the PRNG will be reset even if it already exists. (default: None)
-        :param options: Additional information to specify how the environment is reset (optional,
-                depending on the specific environment) (default: None)
+        :param seed: The seed for initializing any randomized components of the state.
+                     Subclasses should use this for reproducible randomness in their state init
+        :param options: Additional information to specify how the environment is reset
+                (optional, depending on the specific environment) (default: None)
 
-        :return: Tuple of observation and info. The observation of the initial state will be an element of
-                :attr:`observation_space` (typically a numpy array) and is analogous to the observation returned by
-                :meth:`step`. Info is a dictionary containing auxiliary information complementing ``observation``. It
-                should be analogous to the ``info`` returned by :meth:`step`.
+        :return: Info dictionary containing information about the initial state.
+                The initial observations are automatically filtered from the internal state
+                by the public reset method and must not be returned here.
+
+        .. note::
+            The base implementation initializes observations from the pyomo model without using the seed.
+            Subclasses should use the seed parameter for any additional
+            randomized state observations they implement.
         """
         if self.n_steps > 0:
             self.model = self._model()
 
-        super().reset(seed=seed, options=options)
-
         # Initialize state with the initial observation
-        self.state = {} if self.additional_state is None else self.additional_state
-        observations = []
         for var_name in self.state_config.observations:
             # Try getting the first value from initialized variables. Use the configured low_value from state_config
             # for all others.
             obs_val = self.pyo_get_component_value(self.model[0].component(var_name), allow_stale=True)
             obs_val = obs_val if obs_val is not None else 0
-            observations.append(obs_val)
-            self.state[var_name] = obs_val
+            self.state[var_name] = np.array([obs_val])
 
-        # Initialize state with zero actions
-        for act in self.state_config.actions:
-            self.state[act] = 0
-        self.state_log.append(self.state)
-
-        # Render the environment when calling the reset function
-        if self.render_mode is not None:
-            self.render()
-
-        return self._observations(), {}
+        return {}
 
     def close(self) -> None:
         """Close the environment. This should always be called when an entire run is finished. It should be used to

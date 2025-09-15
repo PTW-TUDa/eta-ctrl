@@ -5,6 +5,8 @@ from functools import partial
 from logging import getLogger
 from typing import TYPE_CHECKING
 
+from gymnasium import Env
+
 from eta_ctrl.envs import BaseEnv
 from eta_ctrl.util.julia_utils import check_julia_package
 
@@ -166,11 +168,16 @@ class JuliaEnv(BaseEnv):
               be used for logging purposes in the future but typically do not currently serve a purpose.
 
         """
-        self._actions_valid(action)
+        self._reset_state()
+        observations, reward, terminated, truncated, info = self.__jl.step_b(self._jlenv, action)
+
         self.n_steps += 1
 
-        observations, reward, terminated, truncated, info = self.__jl.step_b(self._jlenv, action)
-        self.state_log.append(observations)
+        # Execute optional state modification callback function
+        if self.state_modification_callback:
+            self.state_modification_callback()
+
+        self.state_log.append(self.state)
 
         # Render the environment at each step
         if self.render_mode is not None:
@@ -178,13 +185,9 @@ class JuliaEnv(BaseEnv):
 
         return observations, reward, terminated, truncated, info
 
-    def _reduce_state_log(self) -> list[dict[str, float]]:
-        """Remove unwanted parameters from state_log before storing in state_log_longtime.
+    def _step(self) -> None: ...  # type: ignore[override]
 
-        :return: The return value is a list of dictionaries, where the parameters that
-                 should not be stored were removed
-        """
-        return self.state_log
+    def _reset(self, options: dict[str, Any]) -> None: ...  # type: ignore[override]
 
     def reset(
         self,
@@ -219,13 +222,26 @@ class JuliaEnv(BaseEnv):
                 :meth:`step`. Info is a dictionary containing auxiliary information complementing ``observation``. It
                 should be analogous to the ``info`` returned by :meth:`step`.
         """
-        super().reset(seed=seed, options=options)
+        # Reset state_log and counters
+        if self.n_steps > 0:
+            self._reset_episode()
+        # Reset state
+        self._reset_state()
+        # Set rng seed
+        Env.reset(self, seed=seed)
+        observations, info = self.__jl.reset_b(self._jlenv, seed, options)
+
+        # Execute optional state modification callback function
+        if self.state_modification_callback:
+            self.state_modification_callback()
+
+        self.state_log.append(self.state)
 
         # Render the environment when calling the reset function
         if self.render_mode is not None:
             self.render()
 
-        return self.__jl.reset_b(self._jlenv, seed, options)
+        return observations, info
 
     def close(self) -> None:
         """Close the environment. This should always be called when an entire run is finished. It should be used to
