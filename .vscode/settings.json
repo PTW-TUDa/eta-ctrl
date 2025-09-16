@@ -1,5 +1,10 @@
 {
   "evenBetterToml.schema.associations": {
     ".*_structure.toml": "file://.vscode/schemas/structure.json",
-  }
+  },
+  "python.testing.pytestArgs": [
+    "test"
+  ],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true
 }

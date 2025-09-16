@@ -67,11 +67,12 @@ class TestBaseEnvStringRepresentations:
             def description(self):
                 return "Test environment for string representation testing"
 
-            def step(self, action):
+            def _step(self):
                 # Minimal implementation for testing
-                self.n_steps += 1
-                self.n_steps_longtime += 1
-                return {}, 0.0, False, False, {}
+                return 0.0, False, False, {}
+
+            def _reset(self):
+                return {}
 
             def close(self):
                 pass
@@ -153,7 +154,10 @@ class TestBaseEnvStringRepresentations:
                 def description(self):
                     return "Minimal test env"
 
-                def step(self, action):
+                def _step(self):
+                    return (0, False, False, {})
+
+                def _reset(self):
                     pass
 
                 def close(self):
@@ -224,7 +228,10 @@ class TestBaseEnvStringRepresentations:
                 def description(self):
                     return "Duration test environment"
 
-                def step(self, action):
+                def _step(self):
+                    return (0, False, False, {})
+
+                def _reset(self):
                     pass
 
                 def close(self):
