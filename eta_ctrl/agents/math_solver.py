@@ -216,7 +216,7 @@ class MathSolver(BaseAlgorithm):
                 log.exception("Couldn't fetch the value for action {}")
 
         # Make sure that actions are returned to the correct order and as a numpy array.
-        actions: np.ndarray = np.ndarray((1, len(self.actions_order)))
+        actions: np.ndarray = np.ndarray((1, len(self.actions_order)), dtype=np.float32)
         for i, action in enumerate(self.actions_order):
             log.debug(f"Action '{action}' value: {solution[action]}")
             actions[0][i] = solution[action]
