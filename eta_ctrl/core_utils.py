@@ -56,12 +56,11 @@ def vectorize_environment(
     # Create the vectorized environment
     log.debug("Trying to vectorize the environment.")
     # Ensure n is one, if the DummyVecEnv is used (it doesn't support more than one)
-    if vectorizer.__class__.__name__ == "DummyVecEnv" and n != 1:
+    if type(vectorizer) is DummyVecEnv and n != 1:
         n = 1
         log.warning("Setting number of environments to 1 because DummyVecEnv (default) is used.")
 
-    if "verbose" in env_settings and env_settings["verbose"] is not None:
-        verbose = env_settings.pop("verbose")
+    verbose = env_settings.pop("verbose", verbose)
 
     # Create the vectorized environment
     def create_env(env_id: int) -> Env:
