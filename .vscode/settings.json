@@ -2,9 +2,10 @@
   "evenBetterToml.schema.associations": {
     ".*_structure.toml": "file://.vscode/schemas/structure.json",
   },
+  "autoDocstring.docstringFormat": "sphinx",
   "python.testing.pytestArgs": [
     "test"
   ],
   "python.testing.unittestEnabled": false,
-  "python.testing.pytestEnabled": true
+  "python.testing.pytestEnabled": true,
 }

@@ -9,7 +9,7 @@ from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from datetime import timedelta
 from logging import getLogger
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, Literal, TypedDict
 
 import numpy as np
 from fmpy import extract, read_model_description
@@ -62,7 +62,7 @@ class FMUSimulator:
         names_outputs: Sequence[str] | None = None,
         init_values: Mapping[str, float] | None = None,
         *,
-        return_type: str | None = None,
+        return_type: Literal["dict", "list"] = "dict",
     ) -> None:
         #: Path to the FMU model.
         self.fmu_path = fmu_path
@@ -209,11 +209,7 @@ class FMUSimulator:
 
         # Initialize some other parameters used to switch functionality of class methods.
         #: Return dictionaries from the step and get_values functions instead of lists.
-        self._return_dict: bool = False
-        if return_type is None:
-            self._return_dict = names_inputs is None or names_outputs is None
-        else:
-            self._return_dict = return_type != "list"
+        self._return_dict = return_type != "list"
 
     @property
     def input_vars(self) -> list[str]:
@@ -240,7 +236,7 @@ class FMUSimulator:
                     self._parameter_vars.append(var.name)
         return self._parameter_vars
 
-    def read_values(self, names: Sequence[str] | None = None) -> dict[str | int, Any] | list:
+    def read_values(self, names: Sequence[str] | None = None) -> dict[str, float] | list[float]:
         """Return current values of the simulation without advancing a simulation step or the simulation time.
 
         :param names: Sequence of values to read from the FMU. If this is None (default), all available values will be
@@ -314,7 +310,7 @@ class FMUSimulator:
         output_names: Sequence[str] | None = None,
         advance_time: bool = True,
         nr_substeps: int | None = None,
-    ) -> dict[str | int, Any] | list[Any]:
+    ) -> dict[str, float] | list[float]:
         """Simulate next time step in the FMU with defined input values and output values.
 
         :param input_values: Current values that should be pushed to the FMU. Names of the input_values must correspond
@@ -365,8 +361,7 @@ class FMUSimulator:
         :param init_values: Starting values for parameters that should be pushed to the FMU with names corresponding to
                             variables in the FMU.
         """
-        simulator = cls(0, fmu_path, start_time, stop_time, step_size, init_values=init_values)
-
+        simulator = cls(0, fmu_path, start_time, stop_time, step_size, init_values=init_values, return_type="dict")
         dt = np.dtype([(name, float) for name in simulator.read_values()])
         # mypy does not recognize the return type of floor division...
         result = np.rec.array(
@@ -388,7 +383,6 @@ class FMUSimulator:
                 result[step][name] = step_result[name]
 
             step += 1
-
         return result
 
     def reset(self, init_values: Mapping[str, float] | None = None) -> None:

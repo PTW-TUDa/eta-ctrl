@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from datetime import datetime
 
-import numpy as np
 
 from eta_ctrl.envs import BaseEnv
 from eta_ctrl.simulators import FMUSimulator
@@ -113,39 +112,27 @@ class SimEnv(BaseEnv, abc.ABC):
                 start_time=0.0,
                 stop_time=self.episode_duration,
                 step_size=float(self.sampling_time / self.sim_steps_per_sample),
-                names_inputs=[str(self.state_config.map_ext_ids[name]) for name in self.state_config.ext_inputs],
-                names_outputs=[str(self.state_config.map_ext_ids[name]) for name in self.state_config.ext_outputs],
+                names_inputs=[self.state_config.map_ext_ids[name] for name in self.state_config.ext_inputs],
+                names_outputs=[self.state_config.map_ext_ids[name] for name in self.state_config.ext_outputs],
                 init_values=_init_vals,
             )
 
-    def simulate(self) -> tuple[dict[str, np.ndarray], bool, float]:
-        """Perform a simulator step and return data as specified by the is_ext_output parameter of the
-        state_config.
+    def simulate(self) -> tuple[bool, float]:
+        """Perform a simulator step.
 
-        :return: Output of the simulation, boolean showing whether all simulation steps where successful, time elapsed
+        Updates the state with new external outputs from the simulation results.
+
+        :return: Boolean showing whether all simulation steps were successful and time elapsed
                  during simulation.
         """
         # generate FMU input from current state
-        step_inputs: list[float] = []
-        for key in self.state_config.ext_inputs:
-            try:
-                if self.state[key].size > 1:
-                    msg = "External Inputs can't have multiple values"
-                    raise ValueError(msg)
-                value = float(self.state[key][0])
-                if isinstance(value, int | float):
-                    state_var = self.state_config.vars[key]
-                    value = value / state_var.ext_scale_mult - state_var.ext_scale_add
-                step_inputs.append(value)
-            except KeyError as e:
-                msg = f"{e!s} is unavailable in environment state."
-                raise KeyError(msg) from e
+        step_inputs: dict[str, float] = self.get_external_inputs()
 
         sim_time_start = time.time()
-
         step_success = True
         try:
-            step_output = self.simulator.step(input_values=step_inputs)
+            # We provide output and input names to the FMU so output will be a dictionary
+            step_output: dict[str, float] = self.simulator.step(input_values=step_inputs)  # type: ignore[assignment]
         except Exception:
             step_success = False
             log.exception("Simulation failed")
@@ -153,17 +140,11 @@ class SimEnv(BaseEnv, abc.ABC):
         # stop timer for simulation step time debugging
         sim_time_elapsed = time.time() - sim_time_start
 
-        # save step_outputs into data_store
-        output = {}
+        # save step_outputs into state
         if step_success:
-            for idx, name in enumerate(self.state_config.ext_outputs):
-                value = step_output[idx]
-                if isinstance(value, int | float):
-                    state_var = self.state_config.vars[name]
-                    value = (value + state_var.ext_scale_add) * state_var.ext_scale_mult
-                output[name] = np.array([value])
+            self.set_external_outputs(step_output)
 
-        return output, step_success, sim_time_elapsed
+        return step_success, sim_time_elapsed
 
     def _step(self) -> tuple[float, bool, bool, dict]:
         """Perform one internal time step and return core step results.
@@ -216,8 +197,7 @@ class SimEnv(BaseEnv, abc.ABC):
         step_success, sim_time_elapsed = False, 0.0
         # simulate one time step and store the results.
         for i in range(self.sim_steps_per_sample):  # do multiple FMU steps in one environment-step
-            sim_result, step_success, sim_time_elapsed = self.simulate()  # only ext inputs are needed
-            self.state.update(sim_result)  # new external outputs from the FMU
+            step_success, sim_time_elapsed = self.simulate()  # only ext inputs are needed
 
             # Append intermediate simulation results to the state_log
             if i < self.sim_steps_per_sample - 1:
@@ -262,14 +242,9 @@ class SimEnv(BaseEnv, abc.ABC):
 
         # Read values from the fmu without time step and store the results
         start_obs = [str(self.state_config.map_ext_ids[name]) for name in self.state_config.ext_outputs]
-        output = self.simulator.read_values(start_obs)
-
-        for idx, name in enumerate(self.state_config.ext_outputs):
-            value = output[idx]
-            if isinstance(value, int | float):
-                scale_config = self.state_config.ext_scale[name]
-                value = (value + scale_config["add"]) * scale_config["multiply"]
-            self.state[name] = np.array([value])
+        # We provide output and input names to the FMU so output will be a dictionary
+        output: dict[str, float] = self.simulator.read_values(start_obs)  # type: ignore[assignment]
+        self.set_external_outputs(output)
 
         # Update scenario data
         self.state.update(self.get_scenario_state())

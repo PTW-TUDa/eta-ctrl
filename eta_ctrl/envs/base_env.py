@@ -504,17 +504,58 @@ class BaseEnv(Env, abc.ABC):
         :param names: Field names used when data is a Matrix without column names.
         :param sep: Separator to use between the fields.
         :param decimal: Sign to use for decimal points.
-
         """
         start_time = datetime.fromtimestamp(self.episode_timer)
         step = self.sampling_time / self.sim_steps_per_sample
         timerange = [start_time + timedelta(seconds=(k * step)) for k in range(len(self.state_log))]
         csv_export(path=path, data=self.state_log, index=timerange, names=names, sep=sep, decimal=decimal)
 
+    def get_observations(self) -> dict[str, np.ndarray]:
+        """Gather observations from the state.
+
+        :raises KeyError: Observation is not available in state
+        :return: Filtered observations as a dictionary.
+        :rtype: dict[str, np.ndarray]
+        """
+        observations = {}
+        for name in self.state_config.observations:
+            try:
+                observations[name] = self.state[name]
+            except KeyError as e:
+                msg = f"{e!s} is unavailable in environment state."
+                raise KeyError(msg) from e
+        return observations
+
+    def get_external_inputs(self) -> dict[str, float]:
+        """Gather external inputs from the state.
+        Uses scalar values instead of numpy arrays for values.
+
+        :raises KeyError: External input is not available in state
+        :raises ValueError: External input value is not scalar
+        :return: Filtered external inputs with external id as keys.
+        :rtype: dict[str, float]
+        """
+        external_inputs = {}
+        for ext_name in self.state_config.ext_inputs:
+            name = self.state_config.rev_ext_ids[ext_name]
+            state_var = self.state_config.vars[name]
+            try:
+                scaled_value = self.state[name].item()
+            except KeyError as e:
+                msg = f"{e!s} is unavailable in environment state."
+                raise KeyError(msg) from e
+            except ValueError as e:
+                msg = "External Inputs can't have multiple values"
+                raise ValueError(msg) from e
+            external_inputs[ext_name] = scaled_value / state_var.ext_scale_mult - state_var.ext_scale_add
+        return external_inputs
+
     def set_action(self, action: np.ndarray | dict[str, np.ndarray]) -> None:
         """Insert new actions into the state.
 
-        :param actions: New actions for the environment"""
+        :param action: New actions to be inserted.
+        :type action: np.ndarray | dict[str, np.ndarray]
+        """
         iterator: Iterator
         if isinstance(action, np.ndarray):
             iterator = zip(self.state_config.actions, action, strict=True)
@@ -525,8 +566,20 @@ class BaseEnv(Env, abc.ABC):
             val = value if isinstance(value, np.ndarray) else np.array([value])
             self.state[name] = val
 
-    def get_observations(self) -> dict[str, np.ndarray]:
-        """Gather observations from the state.
+    def set_external_outputs(self, external_outputs: dict[str, float]) -> None:
+        """Insert new external outputs into the state.
+        Uses scalar values instead of numpy arrays for values.
 
-        :return: Filtered Observations as a dictionary"""
-        return {name: self.state[name] for name in self.state_config.observations}
+        :param external_outputs: New external outputs with external id as keys.
+        :type external_outputs: dict[str, float]
+        :raises KeyError: Received an unknown external id
+        """
+        for ext_name, unscaled_value in external_outputs.items():
+            if ext_name not in self.state_config.ext_outputs:
+                msg = "Received unknown name for external outputs"
+                raise KeyError(msg)
+            name = self.state_config.rev_ext_ids[ext_name]
+            state_var = self.state_config.vars[name]
+            scaled_value = (unscaled_value + state_var.ext_scale_add) * state_var.ext_scale_mult
+
+            self.state[name] = np.array([scaled_value])
