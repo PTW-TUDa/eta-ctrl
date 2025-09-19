@@ -4,7 +4,6 @@ import abc
 from logging import getLogger
 from typing import TYPE_CHECKING
 
-import numpy as np
 from eta_nexus.connections import LiveConnect
 
 from eta_ctrl.envs import BaseEnv
@@ -135,30 +134,15 @@ class LiveEnv(BaseEnv, abc.ABC):
             Stable Baselines3 combines terminated and truncated with a logical OR to trigger
             the automatic environment reset. Implement both flags for compatibility.
         """
-        # Set the external inputs in the live connector
-        external_inputs = {}
-        for ext_key in self.state_config.ext_inputs:
-            key = self.state_config.rev_ext_ids[ext_key]
-            if self.state[key].size > 1:
-                msg = "External Inputs can't have multiple values"
-                raise ValueError(msg)
-            external_inputs[ext_key] = self.state[key][0]
-
-        results = self.live_connector.step(external_inputs)
-        # Convert to state data type
-        results = {name: np.array([value]) for name, value in results.items()}
+        # Set the external inputs in the live connector and read out the external outputs
+        results = self.live_connector.step(value=self.get_external_inputs())
 
         # Update scenario data, do one time step in the live connector and store the results.
         self.state.update(
             self.get_scenario_state()
         )  # TODO: change in MR https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/-/merge_requests/22
 
-        # Read out the external outputs
-        external_outputs = {
-            name: results[self.state_config.map_ext_ids[name]] for name in self.state_config.ext_outputs
-        }
-        external_outputs = {name: np.array([value]) for name, value in external_outputs.values()}
-        self.state.update(external_outputs)
+        self.set_external_outputs(external_outputs=results)
 
         return 0, self._done(), False, {}
 
@@ -195,13 +179,13 @@ class LiveEnv(BaseEnv, abc.ABC):
         """
         self._init_live_connector()
 
-        # Update scenario data, read out the start conditions from LiveConnect and store the results
+        # Read out the start conditions from LiveConnect and store the results
         start_obs_names = [self.state_config.map_ext_ids[name] for name in self.state_config.ext_outputs]
-
-        # Read out and store start conditions
         results = self.live_connector.read(*start_obs_names)
-        results = {name: np.array([value]) for name, value in results.items()}
-        self.state.update({self.state_config.rev_ext_ids[name]: results[name] for name in start_obs_names})
+
+        self.set_external_outputs(external_outputs=results)
+
+        # Update scenario data
         self.state.update(self.get_scenario_state())
 
         return {}

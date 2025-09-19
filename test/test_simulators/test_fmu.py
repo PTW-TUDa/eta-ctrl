@@ -21,13 +21,14 @@ class TestFMUSimulator:
             names_inputs=["u"],
             names_outputs=["s", "v", "a"],
             init_values=init_values,
+            return_type="list",
         )
 
     @pytest.fixture(scope="class", autouse=False)
     def map_simulator(self, config_fmu):
         """New format initialization also allows for the simulator to be initialized with just the fmu_path."""
 
-        return FMUSimulator(0, fmu_path=config_fmu["file"])
+        return FMUSimulator(0, fmu_path=config_fmu["file"], return_type="dict")
 
     def test_attributes(self, seq_simulator):
         """Check whether most important attributes are present"""
