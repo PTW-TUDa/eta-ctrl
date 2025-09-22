@@ -74,7 +74,7 @@ class LiveEnv(BaseEnv, abc.ABC):
         self.live_connector: LiveConnect
         #: Path or Dict to initialize the live connector.
         self.live_connect_config: Path | Sequence[Path] | dict[str, Any] | None = (
-            self.path_env / f"{self.config_name()}.json"
+            self.path_env / f"{self.config_name}.json"
         )
         #: Maximum error count when connections in live connector are aborted.
         self.max_error_count: int = max_errors
