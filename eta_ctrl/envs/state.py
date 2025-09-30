@@ -261,7 +261,7 @@ class StateConfig:
 
         for statevar in _mapping:
             for field_name, value in statevar.items():
-                if field_name in ("name", "ext_id"):  # Supposed to be strings
+                if field_name in ("name", "ext_id", "scenario_id"):  # Supposed to be strings
                     continue
                 if isinstance(value, str):
                     parameter_name = value
