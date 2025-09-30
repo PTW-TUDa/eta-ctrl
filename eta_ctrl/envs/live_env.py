@@ -196,4 +196,5 @@ class LiveEnv(BaseEnv, abc.ABC):
 
         Default behavior for the Live_Connector environment is to do nothing.
         """
-        self.live_connector.close()
+        if hasattr(self, "live_connector"):
+            self.live_connector.close()
