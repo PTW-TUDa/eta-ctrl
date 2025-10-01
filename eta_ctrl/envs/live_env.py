@@ -144,7 +144,7 @@ class LiveEnv(BaseEnv, abc.ABC):
 
         self.set_external_outputs(external_outputs=results)
 
-        return 0, self._done(), False, {}
+        return 0, self._terminated(), False, {}
 
     def _reset(
         self,
