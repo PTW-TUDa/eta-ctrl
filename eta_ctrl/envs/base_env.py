@@ -353,11 +353,11 @@ class BaseEnv(Env, abc.ABC):
             additional_state = {name: np.array([value]) for name, value in self.additional_state.items()}
             self.state.update(additional_state)
 
-    def _done(self) -> bool:
+    def _terminated(self) -> bool:
         """Check if the episode is over or not using the number of steps (n_steps) and the total number of
         steps in an episode (n_episode_steps).
 
-        :return: boolean showing, whether the episode is done.
+        :return: boolean showing, whether the episode is terminated.
         """
         return self.n_steps >= self.n_episode_steps
 

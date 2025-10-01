@@ -199,7 +199,7 @@ class PyomoEnv(BaseEnv, abc.ABC):
 
         reward = pyo.value(next(self.model[0].component_objects(pyo.Objective)))
 
-        return reward, self._done(), False, {}
+        return reward, self._terminated(), False, {}
 
     def update(self, observations: Sequence[Sequence[float | int]] | None = None) -> None:
         """Update the optimization model with observations from another environment.

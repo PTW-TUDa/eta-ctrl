@@ -179,7 +179,7 @@ class SimEnv(BaseEnv, abc.ABC):
         """
         step_success, sim_time_elapsed = self._update_state()
 
-        terminated = self._done() or not step_success
+        terminated = self._terminated() or not step_success
         info: dict[str, Any] = {"sim_time_elapsed": sim_time_elapsed}
 
         return 0, terminated, False, info

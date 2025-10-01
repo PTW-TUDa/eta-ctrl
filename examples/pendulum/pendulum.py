@@ -139,7 +139,7 @@ class PendulumEnv(BaseEnv, GymPendulum):
         costs = angle_normalize(th) ** 2 + 0.1 * thdot**2 + 0.001 * (u**2)
 
         # Check if the episode is completed
-        terminated = self._done()
+        terminated = self._terminated()
         truncated = False
 
         return -costs[0], terminated, truncated, {}
