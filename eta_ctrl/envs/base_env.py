@@ -110,30 +110,17 @@ class BaseEnv(Env, abc.ABC):
         #: Information about the optimization run and information about the paths.
         #: For example, it defines path_results and path_scenarios.
         self.config_run: ConfigRun = config_run
-        #: Path of the environment file.
-        self.path_env: pathlib.Path
-        for f in inspect.stack():
-            if "__class__" in f.frame.f_locals and f.frame.f_locals["__class__"] is self.__class__:
-                self.path_env = pathlib.Path(f.filename).parent
+
         #: Callback can be used for logging and plotting.
         self.callback: Callable | None = callback
-
         #: Callback can be used for modifying the state at each time step.
         self.state_modification_callback: Callable | None = state_modification_callback
 
-        # Store some important settings
         #: ID of the environment (useful for vectorized environments).
         self.env_id: int = int(env_id)
-        #: Number of completed episodes.
-        self.n_episodes: int = 0
-        #: Current step of the model (number of completed steps) in the current episode.
-        self.n_steps: int = 0
-        #: Current step of the model (total over all episodes).
-        self.n_steps_longtime: int = 0
         #: Render mode for rendering the environment
         self.render_mode: str | None = render_mode
 
-        # Set some standard environment settings
         #: Duration of one episode in seconds.
         self.episode_duration: float = float(
             episode_duration if not isinstance(episode_duration, timedelta) else episode_duration.total_seconds()
@@ -159,16 +146,29 @@ class BaseEnv(Env, abc.ABC):
             self.scenario_time_end = scenario_time_end
         else:
             self.scenario_time_end = datetime.strptime(scenario_time_end, "%Y-%m-%d %H:%M")
+
         # Check if scenario begin and end times make sense
         if self.scenario_time_begin > self.scenario_time_end:
             msg = "Start time of the scenario should be smaller than or equal to end time."
             raise ValueError(msg)
 
-        #: The time series DataFrame contains all time series scenario data. It can be filled by the
-        #: import_scenario method.
-        self.timeseries: pd.DataFrame = pd.DataFrame()
-        #: Data frame containing the currently valid range of time series data.
-        self.ts_current: pd.DataFrame = pd.DataFrame()
+        #: Number of simulation steps to be taken for each sample. This must be a divisor of 'sampling_time'.
+        self.sim_steps_per_sample: int = int(sim_steps_per_sample)
+
+        #: State Configuration for defining State Variables.
+        self.state_config: StateConfig = state_config
+        self.action_space, self.observation_space = self.state_config.continuous_spaces()
+
+        self._init_attributes()
+
+    def _init_attributes(self) -> None:
+        """Initialize environment attributes that don't depend on constructor arguments."""
+
+        #: Path of the environment file.
+        self.path_env: pathlib.Path
+        for f in inspect.stack():
+            if "__class__" in f.frame.f_locals and f.frame.f_locals["__class__"] is self.__class__:
+                self.path_env = pathlib.Path(f.filename).parent
 
         # Store data logs and log other information
         #: Episode timer (stores the start time of the episode).
@@ -182,12 +182,18 @@ class BaseEnv(Env, abc.ABC):
         #: Log of the environment state over multiple episodes.
         self.state_log_longtime: list[list[dict[str, np.ndarray]]] = []
 
-        #: Number of simulation steps to be taken for each sample. This must be a divisor of 'sampling_time'.
-        self.sim_steps_per_sample: int = int(sim_steps_per_sample)
+        #: The time series DataFrame contains all time series scenario data. It can be filled by the
+        #: import_scenario method.
+        self.timeseries: pd.DataFrame = pd.DataFrame()
+        #: Data frame containing the currently valid range of time series data.
+        self.ts_current: pd.DataFrame = pd.DataFrame()
 
-        #: State Configuration for defining State Variables.
-        self.state_config: StateConfig = state_config
-        self.action_space, self.observation_space = self.state_config.continuous_spaces()
+        #: Number of completed episodes.
+        self.n_episodes: int = 0
+        #: Current step of the model (number of completed steps) in the current episode.
+        self.n_steps: int = 0
+        #: Current step of the model (total over all episodes).
+        self.n_steps_longtime: int = 0
 
     @property
     def run_name(self) -> str:
