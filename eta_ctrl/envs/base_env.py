@@ -536,8 +536,8 @@ class BaseEnv(Env, abc.ABC):
         :rtype: dict[str, float]
         """
         external_inputs = {}
-        for ext_name in self.state_config.ext_inputs:
-            name = self.state_config.rev_ext_ids[ext_name]
+        for name in self.state_config.ext_inputs:
+            ext_name = self.state_config.map_ext_ids[name]
             state_var = self.state_config.vars[name]
             try:
                 scaled_value = self.state[name].item()
