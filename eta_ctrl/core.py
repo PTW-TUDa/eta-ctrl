@@ -250,13 +250,14 @@ class EtaCtrl:
         callback = CallbackEnvironment(self.config.settings.plot_interval)
         # Vectorize the environments
         self.environments = vectorize_environment(
-            env_class,
-            self.config_run,
-            self.config.settings.environment,
-            callback,
-            self.config.settings.verbose,
-            self.config.setup.vectorizer_class,
-            self.config.settings.n_environments,
+            env=env_class,
+            config_run=self.config_run,
+            env_settings=self.config.settings.environment,
+            callback=callback,
+            verbose=self.config.settings.verbose,
+            vectorizer=self.config.setup.vectorizer_class,
+            n=self.config.settings.n_environments,
+            seed=self.config.settings.seed,
             training=training,
             monitor_wrapper=self.config.setup.monitor_wrapper,
             norm_wrapper_obs=self.config.setup.norm_wrapper_obs,
