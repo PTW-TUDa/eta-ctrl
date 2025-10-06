@@ -68,6 +68,7 @@ class PendulumEnv(BaseEnv, GymPendulum):
         config_run: ConfigRun,
         verbose: int = 2,
         callback: Callable | None = None,
+        seed: int | None = None,
         *,
         state_config: StateConfig,
         scenario_time_begin: datetime | str,

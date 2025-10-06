@@ -91,6 +91,7 @@ class BaseEnv(Env, abc.ABC):
         verbose: int = 2,
         callback: Callable | None = None,
         state_modification_callback: Callable | None = None,
+        seed: int | None = None,
         *,
         scenario_time_begin: datetime | str,
         scenario_time_end: datetime | str,
@@ -158,6 +159,12 @@ class BaseEnv(Env, abc.ABC):
         #: State Configuration for defining State Variables.
         self.state_config: StateConfig = state_config
         self.action_space, self.observation_space = self.state_config.continuous_spaces()
+
+        if seed is not None:
+            # Initialize random generator
+            Env.reset(self, seed=seed)
+            self.action_space.seed(seed=seed)
+            self.observation_space.seed(seed=seed)
 
         self._init_attributes()
 
@@ -405,8 +412,6 @@ class BaseEnv(Env, abc.ABC):
         self._reset_state()
         # Set rng seed
         Env.reset(self, seed=seed)
-        self.action_space.seed(seed=seed)
-        self.observation_space.seed(seed=seed)
         # Set initial observations in child class
         info = self._reset(options=options)
         # Execute optional state modification callback function
