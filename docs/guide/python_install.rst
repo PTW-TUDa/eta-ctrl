@@ -55,4 +55,4 @@ Installation of Git
 
 If you do not already have it, install Git on your device. For Windows, you can download
 it from `git-scm.com <https://git-scm.com/download/win>`_. Alternatively, it is also
-possible to use GUIs (Graphical User Interfaces) for git such as SourceTree or `GitHub Desktop <https://desktop.github.com/>`_. If you have problems with git, see the :ref:`faq`.
+possible to use GUIs (Graphical User Interfaces) for git such as SourceTree or `GitHub Desktop <https://github.com/apps/desktop>`_. If you have problems with git, see the :ref:`faq`.

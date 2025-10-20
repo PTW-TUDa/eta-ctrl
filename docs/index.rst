@@ -29,6 +29,7 @@ Please read the development guide before starting development on *ETA Ctrl*: :re
 
     /eta_ctrl/introduction
     /eta_ctrl/control_algorithms
+    /eta_ctrl/environments/sim_env_creation_from_fmu
     /eta_ctrl/envs
     /eta_ctrl/common_functions
     /eta_ctrl/sb3_extensions

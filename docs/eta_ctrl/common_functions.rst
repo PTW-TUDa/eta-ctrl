@@ -13,7 +13,7 @@ Environments can be instantiated with the *vectorize_environment* function. The 
 environments with normalization wrappers and monitoring wrappers if required and it can create both interaction
 environments and normal environments.
 
-.. autofunction:: eta_ctrl.common::vectorize_environment
+.. autofunction:: eta_ctrl.core_utils::vectorize_environment
     :noindex:
 
 The *vectorize_environment* function will automatically add a callback function as a parameter during
@@ -34,10 +34,10 @@ The *initialize_model* function creates a new model from scratch, while the *loa
 existing model from a file created by a *stable_baselines3* algorithm. Both functions will ensure that parameters
 passed to the algorithm and that logging output is correctly initialized.
 
-.. autofunction:: eta_ctrl.common::initialize_model
+.. autofunction:: eta_ctrl.core_utils::initialize_model
     :noindex:
 
-.. autofunction:: eta_ctrl.common::load_model
+.. autofunction:: eta_ctrl.core_utils::load_model
     :noindex:
 
 Logging information
@@ -54,6 +54,6 @@ the network architecture.
 Other helpful functions
 -----------------------------
 .. automodule:: eta_ctrl.common
-    :members: is_vectorized_env, is_env_closed, episode_results_path, episode_name_string
+    :members: is_vectorized, is_closed, episode_results_path, episode_name_string
     :exclude-members: vectorize_environment, CallbackEnvironment, initialize_model, load_model, log_run_info, log_net_arch
     :noindex:

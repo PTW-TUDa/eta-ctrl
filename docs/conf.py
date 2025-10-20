@@ -62,7 +62,7 @@ intersphinx_mapping = {
     "stable_baselines3": ("https://stable-baselines3.readthedocs.io/en/master/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "pandas": ("https://pandas.pydata.org/docs/", None),
-    "torch": ("https://pytorch.org/docs/stable/", None),
+    "torch": ("https://docs.pytorch.org/docs/stable/", None),
     "gymnasium": ("https://gymnasium.farama.org/", None),
 }
 
@@ -70,7 +70,7 @@ autosummary_generate = True
 
 linkcheck_ignore = [r"https://$", r"https://web-api.tp.entsoe.eu/"]
 linkcheck_allowed_redirects = {
-    r"https://eta-ctrl.readthedocs.io/": r"https://eta-ctrl.readthedocs.io/en/main/",
+    r"https://eta-ctrl.readthedocs.io/": r"https://eta-ctrl.readthedocs.io/en/latest//",
     r"https://stable-baselines3.readthedocs.io/": r"https://stable-baselines3.readthedocs.io/en/master/",
 }
 linkcheck_anchors_ignore_for_url = (r"https://docs.python.org/",)

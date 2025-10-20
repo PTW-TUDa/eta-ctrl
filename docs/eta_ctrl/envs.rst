@@ -13,7 +13,7 @@ documentation <https://stable-baselines3.readthedocs.io/en/master/guide/custom_e
 the functions available to simplify implementation of specific functionality in custom environments. You can look
 at the :ref:`examples` for some inspiration what custom environments can look like.
 
-For simulation environments using FMU files, see the :doc:`FMU Workflow <eta_ctrl/envs/sim_env_creation_from_fmu>` documentation
+For simulation environments using FMU files, see the :doc:`FMU Workflow <./environments/sim_env_creation_from_fmu>` documentation
 for a streamlined approach to initially create FMU-based environments.
 
 The custom environments created with the utilities described here can be used directly with *stable_baselines3* or

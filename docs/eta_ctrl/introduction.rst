@@ -114,14 +114,14 @@ When you are using EtaCtrl (the class) the configuration will be read automatica
 
 Use :func:`eta_ctrl.config::from_file` to read the configuration from a JSON, TOML or YAML file:
 
-.. autofunction:: eta_ctrl.config::Config.from_config_file
+.. autofunction:: eta_ctrl.config::Config.from_file
 
 Configuration example
 ^^^^^^^^^^^^^^^^^^^^^^^^
 The following is the configuration for the pendulum example in this repository. It is relatively
 minimal in that it makes extensive use of the defaults defined in the *Config* classes.
 
-.. literalinclude:: /../examples/pendulum/pendulum_learning.json
+.. literalinclude:: /../examples/pendulum/config_learning.json
     :language: json
 
 Config section 'setup'

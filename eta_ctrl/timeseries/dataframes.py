@@ -284,14 +284,11 @@ def df_interpolate(
     """Interpolate missing values in a DataFrame with a specified frequency.
     Is able to handle unevenly spaced time series data.
 
-    Args:
-        dataframe (pd.DataFrame): DataFrame for interpolation.
-        freq (TimeStep): Frequency of the resulting DataFrame.
-        limit_direction (Literal["both", "forward", "backward"], optional): Direction in which to limit the
-            interpolation. Defaults to "both".
+    :param dataframe: DataFrame for interpolation.
+    :param freq: Frequency of the resulting DataFrame.
+    :param limit_direction: Direction in which to limit the interpolation. Defaults to "both".
 
-    Returns:
-        pd.DataFrame: Interpolated DataFrame.
+    :return: Interpolated DataFrame.
     """
     if not dataframe.index.is_unique:
         log.warning(
