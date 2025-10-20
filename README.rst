@@ -65,7 +65,7 @@ State Management
 Contributing
 *****************
 
-Please read the `development guide <https://eta-ctrl.readthedocs.io/en/main/guide/development.html>`_ before starting development on *ETA Ctrl*
+Please read the `development guide <https://eta-ctrl.readthedocs.io/en/latest/guide/development.html>`_ before starting development on *ETA Ctrl*
 
 
 Citing this Project / Authors

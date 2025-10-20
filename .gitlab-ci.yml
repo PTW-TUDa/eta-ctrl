@@ -98,15 +98,22 @@ secret_detection:
   stage: check
   before_script: []
 
-# linkcheck-docs:
-#   stage: check
-#   script:
-#     - rm -rf docs/_build docs/_stubs
-#     - cd docs
-#     - python -m sphinx -b linkcheck . _build/linkcheck
-#   retry:
-#     max: 2
-#     when: script_failure
+docs:
+  stage: check
+  script:
+    - cd docs
+    - make clean
+    - make ci-html
+
+linkcheck-docs:
+  stage: check
+  script:
+    - cd docs
+    - make clean
+    - make linkcheck
+  retry:
+    max: 2
+    when: script_failure
 
 julia:
   stage: check

@@ -1,11 +1,11 @@
 Creating a Simulation Environment from an existing Functional Mockup Unit
-===========
+============================================================================
 
 This Chapter describes how you can quickly generate an environment (SimEnv) from your existing .fmu(Functional Mockup Unit) file.
 This process aims to make it easier to create, configure, and validate environments based on FMU simulations.
 
 Creating an Environment from FMU
--------------------------------
+---------------------------------
 The most powerful feature is the ability to create an environment directly from an FMU file using the ``SimEnv.from_fmu()`` class method.
 This method handles all the necessary setup with minimal configuration:
 
@@ -16,6 +16,7 @@ Assuming you have already created an experiment repository, let's call it ``heat
     Alternatively, in a Python console ``poetry run python``, run
 
 .. code-block:: python
+
     from eta_ctrl.envs.sim_env import SimEnv
 
     SimEnv.from_fmu("heater_control/heating_tank.fmu")
@@ -30,17 +31,19 @@ You still need to:
 - Check model parameter values
 
 .. note::
+
    In the generation process, variable names from the FMU are used directly in the state configuration **without any transformation or relative naming**.
    For any state variable that interacts with a FMU the ``name`` property of a StateVar is the same as the FMU variable name.
    If you want to modify the StateVar ``name``, simply define the ``ext_id`` property and set it to the FMU variable name.
 
 Exporting just the FMU Variables and Parameters
-----------------------
+------------------------------------------------
 
 If you already have an Environment, you can also just export the structure of an FMU file to a TOML file using ``SimEnv.export_fmu_state_config()`` and ``SimEnv.export_fmu_parameters()``.
 These methods extract the inputs, outputs, and parameters from the FMU to TOML files.
 
 .. code-block:: bash
+
     poetry run export_fmu_state_config heater_control/heating_tank.fmu
     poetry run export_fmu_parameters heater_control/heating_tank.fmu
 

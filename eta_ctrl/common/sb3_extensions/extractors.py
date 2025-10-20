@@ -21,7 +21,7 @@ log = getLogger(__name__)
 class CustomExtractor(BaseFeaturesExtractor):
     """
     Advanced feature extractor which allows the definition of arbitrary network structures. Layers can be any
-    of the layers defined in `torch.nn <https://pytorch.org/docs/stable/nn.html>`_. The net_arch parameter will
+    of the layers defined in `torch.nn <https://docs.pytorch.org/docs/stable/nn.html>`_. The net_arch parameter will
     be interpreted by the function :py:func:`eta_ctrl.common.common.deserialize_net_arch`.
 
     :param observation_space: gymnasium space.
