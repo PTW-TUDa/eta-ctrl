@@ -13,9 +13,9 @@ from typing import TYPE_CHECKING, Literal, TypedDict
 
 import numpy as np
 from fmpy import extract, read_model_description
+from fmpy.build import build_platform_binary
 from fmpy.fmi2 import FMU2Model, FMU2Slave
 from fmpy.sundials import CVodeSolver
-from fmpy.util import compile_platform_binary
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -184,7 +184,7 @@ class FMUSimulator:
                 instanceName="FMUsimulator_" + str(_id),
             )
         except Exception:  # noqa: BLE001  fmpy raises bare Exceptions
-            compile_platform_binary(self.fmu_path)
+            build_platform_binary(unzipdir=self._unzipdir)
             self.fmu = FMU2Slave(
                 guid=self.model_description.guid,
                 unzipDirectory=self._unzipdir,

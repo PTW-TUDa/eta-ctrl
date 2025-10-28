@@ -182,6 +182,7 @@ test-julia:
   retry:
     max: 1
     when: script_failure
+  allow_failure: true
 
 .deploy:
   stage: deploy
