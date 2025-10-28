@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 from eta_ctrl.envs import BaseEnv
 from eta_ctrl.simulators import FMUSimulator
 from eta_ctrl.util import toml_export
+from eta_ctrl.util.io_utils import get_unique_output_path
 from eta_ctrl.util.utils import snake_to_camel_case
 
 if TYPE_CHECKING:
@@ -260,23 +261,6 @@ class SimEnv(BaseEnv, abc.ABC):
         self.simulator.close()  # close the FMU
 
     @classmethod
-    def _get_unique_output_path(cls, base_path: pathlib.Path) -> pathlib.Path:
-        """Get a unique output path with overwrite protection.
-
-        :param base_path: The desired output path.
-        :return: A unique path that doesn't exist.
-        """
-        output_path = base_path
-        counter = 1
-        while output_path.exists():
-            stem = base_path.stem
-            suffix = base_path.suffix
-            parent = base_path.parent
-            output_path = parent / f"{stem}_{counter}{suffix}"
-            counter += 1
-        return output_path
-
-    @classmethod
     def export_fmu_state_config(
         cls, fmu_path: pathlib.Path | str, output_path: pathlib.Path | str | None = None
     ) -> None:
@@ -306,7 +290,7 @@ class SimEnv(BaseEnv, abc.ABC):
                 else pathlib.Path(output_path)
             )
 
-        final_output_path = cls._get_unique_output_path(base_path)
+        final_output_path = get_unique_output_path(base_path)
         toml_export(final_output_path, fmu_data)
         log.info(f"FMU variables exported to {final_output_path}")
 
@@ -337,7 +321,7 @@ class SimEnv(BaseEnv, abc.ABC):
                 else pathlib.Path(output_path)
             )
 
-        final_output_path = cls._get_unique_output_path(base_path)
+        final_output_path = get_unique_output_path(base_path)
         toml_export(final_output_path, fmu_data)
         log.info(f"FMU parameters exported to {final_output_path}")
 

@@ -11,9 +11,11 @@ import pandas as pd
 from pyomo import environ as pyo
 from pyomo.core import base as pyo_base
 
+from eta_ctrl.common.export_pyomo import export_pyomo_state
 from eta_ctrl.envs import BaseEnv
 
 if TYPE_CHECKING:
+    import pathlib
     from collections.abc import Callable
     from typing import Any
 
@@ -573,3 +575,20 @@ class PyomoEnv(BaseEnv, abc.ABC):
             val = round(pyo.value(component), 5)
 
         return val
+
+    @classmethod
+    def create_state(
+        cls, model: pyo.ConcreteModel, model_name: str, output_dir: pathlib.Path | str | None = None
+    ) -> None:
+        """Create both state config and parameters files from a Pyomo model.
+
+        This method creates both a state configuration TOML file (containing variables/observations)
+        and a parameters TOML file from a Pyomo ConcreteModel, providing a complete setup for
+        Pyomo-based environments.
+
+        :param model: Pyomo ConcreteModel instance.
+        :param model_name: Name of the model for identification.
+        :param output_dir: Directory where files should be created. If None, uses current working directory.
+        """
+        # Delegate to the dedicated export function
+        export_pyomo_state(model, model_name, output_dir)
