@@ -12,6 +12,7 @@ from pyomo import environ as pyo
 from pyomo.core import base as pyo_base
 
 from eta_ctrl.envs import BaseEnv
+from eta_ctrl.util.utils import timestep_to_seconds
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -82,9 +83,7 @@ class PyomoEnv(BaseEnv, abc.ABC):
             log.info("prediction_scope parameter is not present. Setting prediction_scope to episode_duration.")
             self.prediction_scope = self.episode_duration
         else:
-            self.prediction_scope = float(
-                prediction_scope if not isinstance(prediction_scope, timedelta) else prediction_scope.total_seconds()
-            )
+            self.prediction_scope = timestep_to_seconds(prediction_scope)
 
         if self.prediction_scope % self.sampling_time != 0:
             msg = (

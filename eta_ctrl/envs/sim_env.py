@@ -132,7 +132,7 @@ class SimEnv(BaseEnv, abc.ABC):
         step_success = True
         try:
             # We provide output and input names to the FMU so output will be a dictionary
-            step_output: dict[str, float] = self.simulator.step(input_values=step_inputs)  # type: ignore[assignment]
+            step_output: dict[str, float] = self.simulator.step(input_values=step_inputs)
         except Exception:
             step_success = False
             log.exception("Simulation failed")
@@ -243,7 +243,7 @@ class SimEnv(BaseEnv, abc.ABC):
         # Read values from the fmu without time step and store the results
         start_obs = [str(self.state_config.map_ext_ids[name]) for name in self.state_config.ext_outputs]
         # We provide output and input names to the FMU so output will be a dictionary
-        output: dict[str, float] = self.simulator.read_values(start_obs)  # type: ignore[assignment]
+        output: dict[str, float] = self.simulator.read_values(start_obs)
         self.set_external_outputs(output)
 
         # Update scenario data
