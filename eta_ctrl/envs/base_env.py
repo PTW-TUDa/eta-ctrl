@@ -30,6 +30,7 @@ log = getLogger(__name__)
 
 class BaseEnv(Env, abc.ABC):
     """Abstract environment definition, providing some basic functionality for concrete environments to use.
+
     The class implements and adapts functions from gymnasium.Env. It provides additional functionality as required by
     the ETA Ctrl framework and should be used as the starting point for new environments.
 
@@ -37,14 +38,12 @@ class BaseEnv(Env, abc.ABC):
     environment. Read the documentation carefully to understand, how new environments can be developed, building on
     this starting point.
 
-    There are some attributes that must be set and some methods that must be implemented to satisfy the interface. This
-    is required to create concrete environments.
-    The required attributes are:
+    There are some class attributes that must be set and some methods that must be implemented to satisfy the interface.
+    This is required to create concrete environments.
+    The required class attributes are:
 
         - **version**: Version number of the environment.
         - **description**: Short description string of the environment.
-        - **action_space**: The action space of the environment (see also gymnasium.spaces for options).
-        - **observation_space**: The observation space of the environment (see also gymnasium.spaces for options).
 
     The gymnasium interface requires the following methods for the environment to work correctly within the framework.
     Consult the documentation of each method for more detail.
@@ -52,6 +51,7 @@ class BaseEnv(Env, abc.ABC):
         - **step()**
         - **reset()**
         - **close()**
+        - **render()**
 
     .. note::
         Subclasses should implement the private _step and _reset methods rather than
@@ -75,14 +75,20 @@ class BaseEnv(Env, abc.ABC):
     @property
     @abc.abstractmethod
     def version(self) -> str:
-        """Version of the environment."""
-        return ""
+        """Version of the environment.
+
+        Needs to be implemented for each subclass as a class attribute.
+        """
+        raise NotImplementedError
 
     @property
     @abc.abstractmethod
     def description(self) -> str:
-        """Long description of the environment."""
-        return ""
+        """Long description of the environment.
+
+        Needs to be implemented for each subclass as a class attribute.
+        """
+        raise NotImplementedError
 
     def __init__(
         self,

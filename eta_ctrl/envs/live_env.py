@@ -20,8 +20,15 @@ log = getLogger(__name__)
 
 
 class LiveEnv(BaseEnv, abc.ABC):
-    """Base class for Live Connector environments. The class will prepare the initialization of the LiveConnect class
+    """Base class for Live environments.
+
+    The class will create an ETA Nexus ConnectionManager instance
     and provide facilities to automatically read step results and reset the connection.
+
+    Additionally to required class attribute from `BaseEnv`, `LiveEnv` requires
+    the name of the connection manager configuration file as a class attribute:
+
+      - **config_name**: Name of the connection manager configuration.
 
     :param env_id: Identification for the environment, useful when creating multiple environments.
     :param config_run: Configuration of the optimization run.
@@ -40,8 +47,11 @@ class LiveEnv(BaseEnv, abc.ABC):
     @property
     @abc.abstractmethod
     def config_name(self) -> str:
-        """Name of the live_connect configuration."""
-        return ""
+        """Name of the connection manager configuration.
+
+        Needs to be implemented for each subclass as a class attribute.
+        """
+        raise NotImplementedError
 
     def __init__(
         self,
@@ -71,36 +81,36 @@ class LiveEnv(BaseEnv, abc.ABC):
             **kwargs,
         )
         #: Instance of the Live Connector.
-        self.live_connector: LiveConnect
+        self.connection_manager: LiveConnect
         #: Path or Dict to initialize the live connector.
-        self.live_connect_config: Path | Sequence[Path] | dict[str, Any] | None = (
+        self.connection_manager_config: Path | Sequence[Path] | dict[str, Any] | None = (
             self.path_env / f"{self.config_name}.json"
         )
         #: Maximum error count when connections in live connector are aborted.
         self.max_error_count: int = max_errors
 
-    def _init_live_connector(self, files: Path | Sequence[Path] | dict[str, Any] | None = None) -> None:
+    def _init_connection_manager(self, files: Path | Sequence[Path] | dict[str, Any] | None = None) -> None:
         """Initialize the live connector object. Make sure to call _names_from_state before this or to otherwise
         initialize the names array.
 
         :param files: Path or Dict to initialize the connection directly from JSON configuration files or a config
             dictionary.
         """
-        _files = self.live_connect_config if files is None else files
-        self.live_connect_config = _files
+        _files = self.connection_manager_config if files is None else files
+        self.connection_manager_config = _files
 
         if _files is None:
             msg = "Configuration files or a dictionary must be specified before the connector can be initialized."
             raise TypeError(msg)
 
         if isinstance(_files, dict):
-            self.live_connector = LiveConnect.from_dict(
+            self.connection_manager = LiveConnect.from_dict(
                 step_size=self.sampling_time,
                 max_error_count=self.max_error_count,
                 **_files,
             )
         else:
-            self.live_connector = LiveConnect.from_config(
+            self.connection_manager = LiveConnect.from_config(
                 files=_files, step_size=self.sampling_time, max_error_count=self.max_error_count
             )
 
@@ -135,7 +145,7 @@ class LiveEnv(BaseEnv, abc.ABC):
             the automatic environment reset. Implement both flags for compatibility.
         """
         # Set the external inputs in the live connector and read out the external outputs
-        results = self.live_connector.step(value=self.get_external_inputs())
+        results = self.connection_manager.step(value=self.get_external_inputs())
 
         # Update scenario data, do one time step in the live connector and store the results.
         self.state.update(
@@ -177,11 +187,11 @@ class LiveEnv(BaseEnv, abc.ABC):
             without using the seed. Subclasses should use the seed parameter
             for any additional randomized state observations they implement.
         """
-        self._init_live_connector()
+        self._init_connection_manager()
 
         # Read out the start conditions from LiveConnect and store the results
         start_obs_names = [self.state_config.map_ext_ids[name] for name in self.state_config.ext_outputs]
-        results = self.live_connector.read(*start_obs_names)
+        results = self.connection_manager.read(*start_obs_names)
 
         self.set_external_outputs(external_outputs=results)
 
@@ -194,7 +204,7 @@ class LiveEnv(BaseEnv, abc.ABC):
         """Close the environment. This should always be called when an entire run is finished. It should be used to
         close any resources (i.e. simulation models) used by the environment.
 
-        Default behavior for the Live_Connector environment is to do nothing.
+        Default behavior for the connection_manager environment is to do nothing.
         """
-        if hasattr(self, "live_connector"):
-            self.live_connector.close()
+        if hasattr(self, "connection_manager"):
+            self.connection_manager.close()
