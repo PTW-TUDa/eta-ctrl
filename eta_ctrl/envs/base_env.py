@@ -14,6 +14,7 @@ from gymnasium import Env
 
 from eta_ctrl import timeseries
 from eta_ctrl.util import csv_export
+from eta_ctrl.util.utils import timestep_to_seconds
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -123,13 +124,9 @@ class BaseEnv(Env, abc.ABC):
         self.render_mode: str | None = render_mode
 
         #: Duration of one episode in seconds.
-        self.episode_duration: float = float(
-            episode_duration if not isinstance(episode_duration, timedelta) else episode_duration.total_seconds()
-        )
+        self.episode_duration: float = timestep_to_seconds(episode_duration)
         #: Sampling time (interval between optimization time steps) in seconds.
-        self.sampling_time: float = float(
-            sampling_time if not isinstance(sampling_time, timedelta) else sampling_time.total_seconds()
-        )
+        self.sampling_time: float = timestep_to_seconds(sampling_time)
         #: Number of time steps (of width sampling_time) in each episode.
         self.n_episode_steps: int = int(self.episode_duration // self.sampling_time)
         #: Duration of the scenario for each episode (for total time imported from csv).

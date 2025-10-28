@@ -2,16 +2,17 @@ from __future__ import annotations
 
 import pathlib
 from collections.abc import Sequence
-from datetime import datetime, timedelta
 from os import PathLike
 from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from eta_ctrl import timeseries
+from eta_ctrl.util.utils import timestep_to_timedelta
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+    from datetime import datetime
     from typing import SupportsFloat
 
     import numpy as np
@@ -124,11 +125,11 @@ def scenario_from_csv(
 
     # Set defaults and convert values where necessary
     if total_time is not None:
-        total_time = total_time if isinstance(total_time, timedelta) else timedelta(seconds=total_time)
+        total_time = timestep_to_timedelta(total_time)
 
     # If resample_time is None, default to 0
     resample_time = resample_time if resample_time is not None else 0
-    _resample_time = resample_time if isinstance(resample_time, timedelta) else timedelta(seconds=resample_time)
+    _resample_time = timestep_to_timedelta(resample_time)
 
     _random = random if random is not None else False
 

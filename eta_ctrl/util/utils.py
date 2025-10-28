@@ -3,11 +3,14 @@ from __future__ import annotations
 import copy
 import re
 from collections.abc import Mapping
+from datetime import timedelta
 from logging import getLogger
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from typing import Any
+
+    from eta_ctrl.util.type_annotations import TimeStep
 
 
 log = getLogger(__name__)
@@ -110,3 +113,22 @@ def snake_to_camel_case(snake_name: str) -> str:
     clean_name = re.sub(r"[^a-zA-Z0-9]", "_", snake_name)
     parts = [part.capitalize() for part in clean_name.split("_") if part]
     return "".join(parts)
+
+
+def timestep_to_seconds(timestep: TimeStep | str) -> float:
+    """Convert a TimeStep or string representation to seconds as a float value.
+
+    :param timestep: Original timestamp value
+    :return: Value in seconds
+    """
+    seconds = timestep.total_seconds() if isinstance(timestep, timedelta) else timestep
+    return float(seconds)
+
+
+def timestep_to_timedelta(timestep: TimeStep | str) -> timedelta:
+    """Convert a TimeStep or string representation to a timedelta object.
+
+    :param timestep: Original timestamp value
+    :return: timedelta object representing the duration
+    """
+    return timestep if isinstance(timestep, timedelta) else timedelta(seconds=float(timestep))

@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 
 from eta_ctrl.util.type_annotations import FillMethod
+from eta_ctrl.util.utils import timestep_to_seconds, timestep_to_timedelta
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -149,15 +150,11 @@ def find_time_slice(
     if time_end is not None and total_time is None:
         total_time = time_end - time_begin
     elif total_time is not None:
-        total_time = timedelta(seconds=total_time) if not isinstance(total_time, timedelta) else total_time
+        total_time = timestep_to_timedelta(total_time)
         time_end = time_begin + total_time if time_end is None else time_end
     else:
         msg = "At least one of time_end and total_time must be specified to fully constrain the interval."
         raise ValueError(msg)
-
-    round_to_interval = (
-        round_to_interval.total_seconds() if isinstance(round_to_interval, timedelta) else round_to_interval
-    )
 
     # Determine the (possibly random) beginning time of the time slice and round it if necessary
     if random:
@@ -175,12 +172,15 @@ def find_time_slice(
         slice_begin = time_begin + timedelta(seconds=random.uniform() * time_gap)
     else:
         slice_begin = time_begin
-    if round_to_interval is not None and round_to_interval > 0:
+
+    round_to_interval = timestep_to_seconds(round_to_interval) if round_to_interval is not None else 0
+
+    if round_to_interval > 0:
         slice_begin = datetime.fromtimestamp((slice_begin.timestamp() // round_to_interval) * round_to_interval)
 
     # Determine the ending time of the time slice and round it if necessary
     slice_end = slice_begin + total_time
-    if round_to_interval is not None and round_to_interval > 0:
+    if round_to_interval > 0:
         slice_end = datetime.fromtimestamp((slice_end.timestamp() // round_to_interval) * round_to_interval)
 
     return slice_begin, slice_end
@@ -246,7 +246,7 @@ def df_resample(
         log.warning(f"Index has non-unique values. Dropping duplicates: {dataframe.index[duplicates].to_list()}.")
         dataframe = dataframe[~duplicates]
 
-    _periods_deltas: list[int] = [int(t.total_seconds() if isinstance(t, timedelta) else t) for t in periods_deltas]
+    _periods_deltas: list[int] = [int(timestep_to_seconds(t)) for t in periods_deltas]
 
     if len(_periods_deltas) == 1:
         delta = _periods_deltas[0]
@@ -297,7 +297,7 @@ def df_interpolate(
         )
         dataframe = dataframe[~dataframe.index.duplicated(keep="first")]
 
-    freq_seconds: float | int = freq.total_seconds() if isinstance(freq, timedelta) else freq
+    freq_seconds: float = timestep_to_seconds(freq)
     freq_str: str = str(int(freq_seconds)) + "s"
 
     old_index: pd.Index = dataframe.index

@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,7 @@ from eta_ctrl.util import (
     log_add_filehandler,
 )
 from eta_ctrl.util.io_utils import load_config
+from eta_ctrl.util.utils import timestep_to_seconds, timestep_to_timedelta
 from test.resources.config.config_python import config as python_dict
 
 
@@ -85,3 +87,36 @@ def test_load_config_file_fail2(config_resources_path: Path, monkeypatch):
     error_msg = re.escape(f"Config file {file_path} must define a dictionary of options.")
     with pytest.raises(TypeError, match=error_msg):
         load_config(file=file_path)
+
+
+class TestTimestep:
+    REF_VALUE = 99.0
+    REF_TIMEDELTA = timedelta(seconds=REF_VALUE)
+
+    @pytest.mark.parametrize(
+        ("timestep", "expected_seconds"),
+        [
+            (REF_VALUE, REF_VALUE),
+            (timedelta(seconds=REF_VALUE), REF_VALUE),
+            (int(REF_VALUE), REF_VALUE),
+            (str(REF_VALUE), REF_VALUE),
+            (timedelta(seconds=REF_VALUE, milliseconds=500), REF_VALUE + 0.5),
+        ],
+    )
+    def test_timestep_to_seconds(self, timestep, expected_seconds):
+        res = timestep_to_seconds(timestep=timestep)
+        assert res == expected_seconds
+
+    @pytest.mark.parametrize(
+        ("timestep", "expected_timedelta"),
+        [
+            (REF_VALUE, REF_TIMEDELTA),
+            (timedelta(seconds=REF_VALUE), REF_TIMEDELTA),
+            (int(REF_VALUE), REF_TIMEDELTA),
+            (str(REF_VALUE), REF_TIMEDELTA),
+            (timedelta(seconds=REF_VALUE, milliseconds=500), REF_TIMEDELTA + timedelta(milliseconds=500)),
+        ],
+    )
+    def test_timestep_to_timedelta(self, timestep, expected_timedelta):
+        res = timestep_to_timedelta(timestep=timestep)
+        assert res == expected_timedelta
