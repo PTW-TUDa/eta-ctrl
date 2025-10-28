@@ -42,8 +42,8 @@ def _load_pyomo_env_class(env_path: pathlib.Path) -> type[PyomoEnv]:
     sys.exit(1)
 
 
-def create_pyomo_state() -> None:
-    """Command-line interface for creating Pyomo state config and parameters from a PyomoEnv."""
+def export_pyomo_data() -> None:
+    """Command-line interface for exporting pyomo model data (state config and parameters) to TOML files."""
     # Initialize project logging
     get_logger(level=20, log_format="simple")  # INFO level for CLI output
 
