@@ -21,6 +21,27 @@ if TYPE_CHECKING:
 log = getLogger(__name__)
 
 
+def get_unique_output_path(base_path: pathlib.Path) -> pathlib.Path:
+    """Get a unique output path with overwrite protection.
+
+    This function ensures that files are not accidentally overwritten by
+    appending a counter to the filename if the original path already exists.
+    For example: 'file.txt' -> 'file_1.txt' -> 'file_2.txt', etc.
+
+    :param base_path: The desired output path.
+    :return: A unique path that doesn't exist.
+    """
+    output_path = base_path
+    counter = 1
+    while output_path.exists():
+        stem = base_path.stem
+        suffix = base_path.suffix
+        parent = base_path.parent
+        output_path = parent / f"{stem}_{counter}{suffix}"
+        counter += 1
+    return output_path
+
+
 def json_import(path: Path) -> list[Any] | dict[str, Any]:
     """Extend standard JSON import to allow '//' comments in JSON files.
 

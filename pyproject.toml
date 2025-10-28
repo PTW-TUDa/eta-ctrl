@@ -60,6 +60,7 @@ optional-dependencies.docs = [
     update-julia-agent = "eta_ctrl:update_agent"
     create-sim-env = "scripts.fmu_cli:create_sim_env"
     export-fmu-data = "scripts.fmu_cli:export_fmu_data"
+    export-pyomo-data = "scripts.pyomo_export_cli:create_pyomo_state"
 
 [tool.poetry]
 requires-poetry = ">=2.0"
