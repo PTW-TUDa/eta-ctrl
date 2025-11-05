@@ -143,6 +143,8 @@ class LiveEnv(BaseEnv, abc.ABC):
         .. note::
             Stable Baselines3 combines terminated and truncated with a logical OR to trigger
             the automatic environment reset. Implement both flags for compatibility.
+
+        :meta public:
         """
         # Set the external inputs in the live connector and read out the external outputs
         results = self.connection_manager.step(value=self.get_external_inputs())
@@ -186,6 +188,8 @@ class LiveEnv(BaseEnv, abc.ABC):
             The base implementation initializes external outputs from the live connector
             without using the seed. Subclasses should use the seed parameter
             for any additional randomized state observations they implement.
+
+        :meta public:
         """
         self._init_connection_manager()
 

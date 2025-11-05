@@ -117,10 +117,9 @@ Base Environment
 
 .. autoclass:: eta_ctrl.envs::BaseEnv
     :members:
-    :private-members:
-    :inherited-members: abc.ABC
+    :inherited-members:
     :show-inheritance:
-    :exclude-members: reward_range, metadata, spec, _seed, _abc_impl
+    :exclude-members: reward_range, metadata, spec
     :noindex:
 
 Model Predictive Control (MPC) Environment
@@ -128,13 +127,9 @@ Model Predictive Control (MPC) Environment
 PyomoEnv is a class for using Pyomo modelling language for environment representation.
 
 .. autoclass:: eta_ctrl.envs::PyomoEnv
-
     :members:
-    :private-members:
-    :inherited-members: abc.ABC
     :show-inheritance:
-    :exclude-members: reward_range, metadata, spec, _seed, _init_legacy, _init_state_space, _abc_impl
-    :noindex:
+    :no-index:
 
 Simulation (FMU) Environment
 -----------------------------
@@ -142,13 +137,9 @@ The SimEnv supports the control of environments represented as FMU simulation mo
 subclassing this environment. The FMU file will be loaded from the same directory as the environment itself.
 
 .. autoclass:: eta_ctrl.envs::SimEnv
-
     :members:
-    :private-members:
-    :inherited-members: abc.ABC
     :show-inheritance:
-    :exclude-members: reward_range, metadata, spec, _seed, _init_legacy, _init_state_space, _abc_impl
-    :noindex:
+    :no-index:
 
 Live Connection Environment
 -----------------------------
@@ -157,13 +148,9 @@ The LiveEnv is an environment which creates direct (live) connections to actual 
 because ConnectionManager needs additional configuration.
 
 .. autoclass:: eta_ctrl.envs::LiveEnv
-
     :members:
-    :private-members:
-    :inherited-members: abc.ABC
     :show-inheritance:
-    :exclude-members: reward_range, metadata, spec, _seed, _init_legacy, _init_state_space, _abc_impl
-    :noindex:
+    :no-index:
 
 
 Julia Environment
@@ -175,8 +162,5 @@ imported in the setup file for the parameter *environment_import*. The parameter
 
 .. autoclass:: eta_ctrl.envs::JuliaEnv
     :members:
-    :private-members:
-    :inherited-members: abc.ABC
     :show-inheritance:
-    :exclude-members: reward_range, metadata, spec, _seed, _init_legacy, _init_state_space, _abc_impl
-    :noindex:
+    :no-index:
