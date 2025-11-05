@@ -177,6 +177,8 @@ class SimEnv(BaseEnv, abc.ABC):
         .. note::
             Stable Baselines3 combines terminated and truncated with a logical OR to trigger
             the automatic environment reset. Implement both flags for compatibility.
+
+        :meta public:
         """
         step_success, sim_time_elapsed = self._update_state()
 
@@ -237,6 +239,8 @@ class SimEnv(BaseEnv, abc.ABC):
             The base implementation initializes external outputs from the FMU without using the seed.
             Subclasses should use the seed parameter for any additional
             randomized state observations they implement.
+
+        :meta public:
         """
         # reset the FMU after every episode with new parameters
         self._init_simulator(self.model_parameters)

@@ -27,7 +27,7 @@ class DrKea(PyomoEnv):
         self.model_parameters["temperature_change_heating"] *= self.sampling_time  # type: ignore[index]
         self.model_parameters["temperature_change_cleaning"] *= self.sampling_time  # type: ignore[index]
 
-        self._use_model_time_increments = True  # Increment by one instead of the sampling time
+        self.use_model_time_increments = True  # Increment by one instead of the sampling time
         self.timeseries = self.import_scenario(*scenario_files)  # Load time series data
         # Convert electricity cost from   € / MW h   to   €/kW min
         self.timeseries["energy_price"] = self.timeseries["electrical_energy_price"] / 1000 / 3600 * self.sampling_time

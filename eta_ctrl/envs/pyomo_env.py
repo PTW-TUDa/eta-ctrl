@@ -125,7 +125,7 @@ class PyomoEnv(BaseEnv, abc.ABC):
         #:   Set this to true, if model time increments (1, 2, 3, ...) are used. Otherwise, sampling_time will be used
         #:   as the time increment. Note: This is only relevant for the first model time increment, later increments
         #:   may differ.
-        self._use_model_time_increments: bool = False
+        self.use_model_time_increments: bool = False
 
     @property
     def model(self) -> tuple[pyo.ConcreteModel, list]:
@@ -156,6 +156,8 @@ class PyomoEnv(BaseEnv, abc.ABC):
         """Create the abstract pyomo model. This is where the pyomo model description should be placed.
 
         :return: Abstract pyomo model.
+
+        :meta public:
         """
         msg = "The abstract MPC environment does not implement a model."
         raise NotImplementedError(msg)
@@ -190,6 +192,8 @@ class PyomoEnv(BaseEnv, abc.ABC):
         .. note::
             Stable Baselines3 combines terminated and truncated with a logical OR to trigger
             the automatic environment reset. Implement both flags for compatibility.
+
+        :meta public:
         """
         self._reset_state()
 
@@ -211,11 +215,9 @@ class PyomoEnv(BaseEnv, abc.ABC):
 
         # The timeseries data must be updated for the next time step. The index depends on whether time itself is being
         # shifted. If time is being shifted, the respective variable should be set as "time_var".
-        step = int(1 if self._use_model_time_increments else self.sampling_time)
+        step = int(1 if self.use_model_time_increments else self.sampling_time)
         duration = int(
-            self.prediction_scope // self.sampling_time + 1
-            if self._use_model_time_increments
-            else self.prediction_scope
+            self.prediction_scope // self.sampling_time + 1 if self.use_model_time_increments else self.prediction_scope
         )
 
         if self.time_var is not None:
@@ -333,6 +335,8 @@ class PyomoEnv(BaseEnv, abc.ABC):
             The base implementation initializes observations from the pyomo model without using the seed.
             Subclasses should use the seed parameter for any additional
             randomized state observations they implement.
+
+        :meta public:
         """
         if self.n_steps > 0:
             self.model = self._model()
@@ -542,7 +546,7 @@ class PyomoEnv(BaseEnv, abc.ABC):
                 solution[com.name] = pyo.value(com)
             else:
                 solution[com.name] = {}
-                if self._use_model_time_increments:
+                if self.use_model_time_increments:
                     for ind, val in com.items():
                         solution[com.name][
                             self.timeseries.index[self.n_steps].to_pydatetime()

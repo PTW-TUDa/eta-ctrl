@@ -305,6 +305,8 @@ class BaseEnv(Env, abc.ABC):
         state rather than returning observations directly.
 
         :return: Tuple of (reward, terminated, truncated, info)
+
+        :meta public:
         """
 
     def step(self, action: np.ndarray) -> StepResult:
@@ -384,7 +386,10 @@ class BaseEnv(Env, abc.ABC):
         seed: int | None = None,
         options: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Abstract reset method that must be implemented by child classes."""
+        """Abstract reset method that must be implemented by subclasses.
+
+        :meta public:
+        """
 
     def reset(
         self,
