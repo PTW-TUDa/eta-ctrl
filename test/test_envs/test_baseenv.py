@@ -4,7 +4,9 @@ import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
+import gymnasium
 import matplotlib as mpl
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -279,3 +281,315 @@ class TestBaseEnvStringRepresentations:
         assert "run_name" in repr_result
         assert "episode_duration" in repr_result
         assert "sampling_time" in repr_result
+
+
+class TestActionValidation:
+    """Test the improved action validation error messages."""
+
+    @pytest.fixture
+    def test_env_factory(self):
+        """Factory fixture to create test environments with different action spaces or state configs.
+
+        Uses context manager to ensure temporary directories are properly cleaned up (no memory leaks).
+        """
+
+        def _create_env(action_space=None, state_config=None):
+            """Create a test environment with optional custom action space or state config.
+
+            Args:
+                action_space: Optional custom action space to override default.
+                state_config: Optional custom StateConfig. If not provided, uses default with one observation.
+
+            Returns:
+                Tuple of (env, temp_dir_context) where temp_dir_context must be kept alive.
+            """
+
+            class GenericTestEnv(BaseEnv):
+                @property
+                def version(self):
+                    return "v1.0.0"
+
+                @property
+                def description(self):
+                    return "Test environment for action validation"
+
+                def _step(self):
+                    return 0.0, False, False, {}
+
+                def _reset(self, *, seed=None, options=None):
+                    return {}
+
+                def close(self):
+                    pass
+
+                def render(self):
+                    pass
+
+            # Use TemporaryDirectory context manager - automatically cleans up
+            temp_dir_context = tempfile.TemporaryDirectory()
+            temp_path = Path(temp_dir_context.name)
+
+            config_run = ConfigRun(
+                series="test_series",
+                name="validation_test",
+                description="Validation test",
+                path_root=temp_path,
+                path_results=temp_path / "results",
+            )
+
+            # Use provided state_config or default
+            if state_config is None:
+                state_config = StateConfig(
+                    StateVar(name="obs1", is_agent_observation=True, low_value=0, high_value=100),
+                )
+
+            env = GenericTestEnv(
+                env_id=1,
+                config_run=config_run,
+                state_config=state_config,
+                scenario_time_begin=datetime(2023, 1, 1),
+                scenario_time_end=datetime(2023, 1, 2),
+                episode_duration=3600,
+                sampling_time=60,
+            )
+
+            # Override action space if provided
+            if action_space is not None:
+                env.action_space = action_space
+
+            # Store cleanup context on env to prevent premature deletion
+            env._temp_dir_context = temp_dir_context
+            return env
+
+        return _create_env
+
+    @pytest.fixture
+    def box_env(self, test_env_factory):
+        """Create environment with Box action space."""
+        box_state_config = StateConfig(
+            StateVar(name="action1", is_agent_action=True, low_value=-1.0, high_value=2.0),
+            StateVar(name="action2", is_agent_action=True, low_value=0.0, high_value=5.0),
+            StateVar(name="action3", is_agent_action=True, low_value=-10.0, high_value=10.0),
+            StateVar(name="obs1", is_agent_observation=True, low_value=0, high_value=100),
+        )
+        return test_env_factory(state_config=box_state_config)
+
+    @pytest.fixture
+    def discrete_env(self, test_env_factory):
+        """Create environment with Discrete action space."""
+        return test_env_factory(action_space=gymnasium.spaces.Discrete(5))
+
+    @pytest.fixture
+    def multi_discrete_env(self, test_env_factory):
+        """Create environment with MultiDiscrete action space."""
+        return test_env_factory(action_space=gymnasium.spaces.MultiDiscrete([5, 3, 10]))
+
+    @pytest.fixture
+    def dict_env(self, test_env_factory):
+        """Create environment with Dict action space."""
+        return test_env_factory(
+            action_space=gymnasium.spaces.Dict(
+                {
+                    "position": gymnasium.spaces.Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32),
+                    "velocity": gymnasium.spaces.Box(low=-10.0, high=10.0, shape=(2,), dtype=np.float32),
+                }
+            )
+        )
+
+    # Box action tests
+    def test_box_action_shape_mismatch(self, box_env):
+        """Test error message for wrong action shape."""
+        invalid_action = np.array([1.0, 2.0])
+
+        with pytest.raises(RuntimeError) as exc_info:
+            box_env._actions_valid(invalid_action)
+
+        error_msg = str(exc_info.value)
+        assert "Action validation failed" in error_msg
+        assert "Shape mismatch" in error_msg
+        assert "Expected: (3,)" in error_msg
+        assert "Received: (2,)" in error_msg
+        assert "Expected 3 action(s), but received 2 action(s)" in error_msg
+
+    def test_box_action_out_of_bounds(self, box_env):
+        """Test error message for actions outside bounds."""
+        invalid_action = np.array([1.5, 10.0, -15.0])
+
+        with pytest.raises(RuntimeError) as exc_info:
+            box_env._actions_valid(invalid_action)
+
+        error_msg = str(exc_info.value)
+        assert "Bound violations" in error_msg
+        assert "action[1] = 10" in error_msg
+        assert "exceeds maximum bound of 5" in error_msg
+        assert "action[2] = -15" in error_msg
+        assert "is below minimum bound of -10" in error_msg
+
+    def test_box_action_dtype_mismatch(self, box_env):
+        """Test error message for wrong dtype."""
+        invalid_action = np.array([1, 2, 3], dtype=np.int64)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            box_env._actions_valid(invalid_action)
+
+        error_msg = str(exc_info.value)
+        assert "Action validation failed" in error_msg
+
+    def test_box_action_multiple_violations(self, box_env):
+        """Test error message with multiple bound violations."""
+        invalid_action = np.array([5.0, 10.0, 20.0])
+
+        with pytest.raises(RuntimeError) as exc_info:
+            box_env._actions_valid(invalid_action)
+
+        error_msg = str(exc_info.value)
+        assert "Bound violations" in error_msg
+        assert "action[0]" in error_msg
+        assert "action[1]" in error_msg
+        assert "action[2]" in error_msg
+
+    def test_valid_box_action_no_error(self, box_env):
+        """Test that valid actions don't raise errors."""
+        valid_action = np.array([0.5, 2.5, 5.0], dtype=np.float32)
+        box_env._actions_valid(valid_action)
+
+    def test_format_array_truncation(self, box_env):
+        """Test that large arrays are formatted with truncation."""
+        large_action = np.ones(100) * 5.5
+        formatted = box_env._format_array(large_action, max_items=10)
+
+        assert "..." in formatted
+        assert "shape:" in formatted
+        assert "(100,)" in formatted
+        assert "dtype:" in formatted
+
+    def test_error_message_includes_action_space(self, box_env):
+        """Test that error messages include the action space description."""
+        invalid_action = np.array([100.0, 100.0, 100.0])
+
+        with pytest.raises(RuntimeError) as exc_info:
+            box_env._actions_valid(invalid_action)
+
+        error_msg = str(exc_info.value)
+        assert "Action space:" in error_msg
+        assert "Box" in error_msg
+
+    # Discrete action tests
+    def test_discrete_action_out_of_range_high(self, discrete_env):
+        """Test error message for discrete action value too high."""
+        invalid_action = np.array([10])
+
+        with pytest.raises(RuntimeError) as exc_info:
+            discrete_env._actions_valid(invalid_action)
+
+        error_msg = str(exc_info.value)
+        assert "Value out of range" in error_msg
+        assert "Valid range: [0, 4]" in error_msg
+        assert "Received: 10" in error_msg
+
+    def test_discrete_action_out_of_range_negative(self, discrete_env):
+        """Test error message for negative discrete action."""
+        invalid_action = np.array([-1])
+
+        with pytest.raises(RuntimeError) as exc_info:
+            discrete_env._actions_valid(invalid_action)
+
+        error_msg = str(exc_info.value)
+        assert "Value out of range" in error_msg
+        assert "Received: -1" in error_msg
+
+    def test_discrete_action_wrong_shape(self, discrete_env):
+        """Test error message for discrete action with wrong shape."""
+        invalid_action = np.array([1, 2, 3])
+
+        with pytest.raises(RuntimeError) as exc_info:
+            discrete_env._actions_valid(invalid_action)
+
+        error_msg = str(exc_info.value)
+        assert "Shape mismatch" in error_msg
+
+    def test_discrete_action_valid(self, discrete_env):
+        """Test that valid discrete actions pass."""
+        discrete_env._actions_valid(3)
+
+    # MultiDiscrete action tests
+    def test_multi_discrete_shape_mismatch(self, multi_discrete_env):
+        """Test error message for wrong shape in MultiDiscrete."""
+        invalid_action = np.array([1, 2])
+
+        with pytest.raises(RuntimeError) as exc_info:
+            multi_discrete_env._actions_valid(invalid_action)
+
+        error_msg = str(exc_info.value)
+        assert "Shape mismatch" in error_msg
+        assert "Expected: (3,)" in error_msg
+        assert "Received: (2,)" in error_msg
+
+    def test_multi_discrete_value_violations(self, multi_discrete_env):
+        """Test error message for out-of-range values in MultiDiscrete."""
+        invalid_action = np.array([2, 5, 15])
+
+        with pytest.raises(RuntimeError) as exc_info:
+            multi_discrete_env._actions_valid(invalid_action)
+
+        error_msg = str(exc_info.value)
+        assert "Value violations" in error_msg
+        assert "action[1]" in error_msg
+        assert "action[2]" in error_msg
+
+    def test_multi_discrete_single_violation(self, multi_discrete_env):
+        """Test error message for single violation in MultiDiscrete."""
+        invalid_action = np.array([0, 1, 20])
+
+        with pytest.raises(RuntimeError) as exc_info:
+            multi_discrete_env._actions_valid(invalid_action)
+
+        error_msg = str(exc_info.value)
+        assert "Value violations (1 found)" in error_msg
+        assert "action[2] = 20" in error_msg
+        assert "outside valid range [0, 9]" in error_msg
+
+    def test_multi_discrete_valid(self, multi_discrete_env):
+        """Test that valid MultiDiscrete actions pass."""
+        multi_discrete_env._actions_valid(np.array([4, 2, 9]))
+
+    # Dict action tests
+    def test_dict_action_wrong_type(self, dict_env):
+        """Test error message when providing array instead of dict."""
+        invalid_action = np.array([1.0, 2.0, 3.0, 4.0])
+
+        with pytest.raises(RuntimeError) as exc_info:
+            dict_env._actions_valid(invalid_action)
+
+        error_msg = str(exc_info.value)
+        assert "Dict action space validation failed" in error_msg
+        assert "Expected a dictionary with keys:" in error_msg
+        assert "position" in error_msg
+        assert "velocity" in error_msg
+        assert "Received type: ndarray" in error_msg
+
+    def test_dict_action_missing_keys(self, dict_env):
+        """Test error message for missing keys in dict action."""
+        invalid_action = {"position": np.array([0.5, 0.5], dtype=np.float32)}
+
+        with pytest.raises(RuntimeError) as exc_info:
+            dict_env._actions_valid(invalid_action)
+
+        error_msg = str(exc_info.value)
+        assert "Missing keys:" in error_msg
+        assert "velocity" in error_msg
+
+    def test_dict_action_extra_keys(self, dict_env):
+        """Test error message for extra keys in dict action."""
+        invalid_action = {
+            "position": np.array([0.5, 0.5], dtype=np.float32),
+            "velocity": np.array([1.0, 2.0], dtype=np.float32),
+            "acceleration": np.array([0.1, 0.2], dtype=np.float32),
+        }
+
+        with pytest.raises(RuntimeError) as exc_info:
+            dict_env._actions_valid(invalid_action)
+
+        error_msg = str(exc_info.value)
+        assert "Unexpected keys:" in error_msg
+        assert "acceleration" in error_msg
