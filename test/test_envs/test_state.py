@@ -250,7 +250,7 @@ class TestStateConfig:
             assert name == config.rev_ext_ids[ext_id]
 
     def test_get_items(self, state_config: StateConfig):
-        for name in set(state_config.actions) | state_config.observations:
+        for name in state_config.actions + state_config.observations:
             assert state_config.loc[name] == state_config.vars[name]
 
     def test_from_file(self, config_resources_path):

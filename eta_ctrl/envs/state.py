@@ -13,7 +13,7 @@ from eta_ctrl.util.io_utils import load_config
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
-    from typing import Any, Literal
+    from typing import Any
 
     from typing_extensions import Self
 
@@ -171,9 +171,9 @@ class StateConfig:
         #: List of variables that are agent actions. Needs to be ordered.
         self.actions: list[str] = self.df_vars.query("is_agent_action == True").index.tolist()
         #: Set of variables that are agent observations.
-        self.observations: set[str] = set(self.df_vars.query("is_agent_observation == True").index.tolist())
+        self.observations: list[str] = self.df_vars.query("is_agent_observation == True").index.tolist()
         #: Set of variables that should be logged.
-        self.add_to_state_log: set[str] = set(self.df_vars.query("add_to_state_log == True").index.tolist())
+        self.add_to_state_log: list[str] = self.df_vars.query("add_to_state_log == True").index.tolist()
 
         #: List of variables that should be provided to an external source (such as an FMU).
         self.ext_inputs: list[str] = self.df_vars.query("is_ext_input == True").index.tolist()
@@ -184,29 +184,15 @@ class StateConfig:
         #: Reverse mapping of external IDs to their corresponding variable names.
         self.rev_ext_ids: dict[str, str] = {v: k for k, v in self.map_ext_ids.items()}
 
-        def scale_dict(_id: Literal["ext", "interact", "scenario"]) -> dict[str, dict[str, float]]:
-            # Filter rows by type and select the columns for scaling
-            cut_df = self.df_vars.loc[self.df_vars[f"{_id}_id"].notna(), [f"{_id}_scale_add", f"{_id}_scale_mult"]]
-            # Rename columns to 'add' and 'mult' and convert to dictionary
-            return cut_df.set_axis(["add", "multiply"], axis=1).to_dict(orient="index")
-
-        #: Dictionary of scaling values for external input values (for example from simulations).
-        #: Contains fields 'add' and 'multiply'
-        self.ext_scale: dict[str, dict[str, float]] = scale_dict("ext")
-
         #: List of variables that should be read from an interaction environment.
         self.interact_outputs: list[str] = self.df_vars.query("from_interact == True").index.tolist()
         #: Mapping of internal environment names to interact IDs.
         self.map_interact_ids: dict[str, str] = self.df_vars["interact_id"].to_dict()
-        #: Dictionary of scaling values for interact values. Contains fields 'add' and 'multiply'.
-        self.interact_scale: dict[str, dict[str, float]] = scale_dict("interact")
 
         #: List of variables which are loaded from scenario files.
         self.scenarios: list[str] = self.df_vars.query("from_scenario == True").index.tolist()
         #: Mapping of internal environment names to scenario IDs.
         self.map_scenario_ids: dict[str, str] = self.df_vars["scenario_id"].to_dict()
-        #: Dictionary of scaling values for scenario values. Contains fields 'add' and 'multiply'.
-        self.scenario_scale: dict[str, dict[str, float]] = scale_dict("scenario")
 
         #: List of variables that have minimum values for an abort condition.
         self.abort_conditions_min: list[str] = self.df_vars["abort_condition_min"].dropna().index.tolist()
