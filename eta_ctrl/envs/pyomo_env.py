@@ -13,7 +13,6 @@ from pyomo.core import base as pyo_base
 
 from eta_ctrl.common.export_pyomo import export_pyomo_state
 from eta_ctrl.envs import BaseEnv
-from eta_ctrl.util.utils import timestep_to_seconds
 
 if TYPE_CHECKING:
     import pathlib
@@ -42,7 +41,7 @@ class PyomoEnv(BaseEnv, abc.ABC):
     :param episode_duration: Duration of the episode in seconds.
     :param sampling_time: Duration of a single time sample / time step in seconds.
     :param model_parameters: Parameters for the mathematical model.
-    :param prediction_scope: Duration of the prediction (usually a subsample of the episode duration).
+    :param prediction_horizon: Duration of the prediction (usually a subsample of the episode duration).
     :param render_mode: Renders the environments to help visualise what the agent see, examples
         modes are "human", "rgb_array", "ansi" for text.
     :param kwargs: Other keyword arguments (for subclasses).
@@ -60,7 +59,7 @@ class PyomoEnv(BaseEnv, abc.ABC):
         episode_duration: TimeStep | str,
         sampling_time: TimeStep | str,
         model_parameters: Mapping[str, Any],
-        prediction_scope: TimeStep | str | None = None,
+        prediction_horizon: TimeStep | str | None = None,
         render_mode: str | None = None,
         **kwargs: Any,
     ) -> None:
@@ -76,29 +75,31 @@ class PyomoEnv(BaseEnv, abc.ABC):
             render_mode=render_mode,
             **kwargs,
         )
-        # Check configuration for MILP compatibility
-        #: Total duration of one prediction/optimization run when used with the MPC agent.
-        #: This is automatically set to the value of episode_duration if it is not supplied
-        #: separately.
-        self.prediction_scope: float
-        if prediction_scope is None:
-            log.info("prediction_scope parameter is not present. Setting prediction_scope to episode_duration.")
-            self.prediction_scope = self.episode_duration
-        else:
-            self.prediction_scope = timestep_to_seconds(prediction_scope)
 
-        if self.prediction_scope % self.sampling_time != 0:
+        # Check configuration for MILP compatibility
+        # Total duration of one prediction/optimization run when used with the MPC agent.
+        # Necessary parameter for the PyomoEnv. If not supplied, raises an error.
+        self.prediction_horizon: float
+        if prediction_horizon is None:
+            msg = "Parameter prediction_horizon is not present in config, but is required for the `PyomoEnv`"
+            raise ValueError(msg)
+
+        self.prediction_horizon = float(
+            prediction_horizon if not isinstance(prediction_horizon, timedelta) else prediction_horizon.total_seconds()
+        )
+
+        if self.prediction_horizon % self.sampling_time != 0:
             msg = (
-                "The sampling_time must fit evenly into the prediction_scope "
-                "(prediction_scope % sampling_time must equal 0)."
+                "The sampling_time must be a divisor of the prediction_horizon"
+                "(prediction_horizon % sampling_time must equal 0)."
             )
             raise ValueError(msg)
 
         # Make some more settings easily accessible
-        #: Number of steps in the prediction (prediction_scope/sampling_time).
-        self.n_prediction_steps: int = int(self.prediction_scope // self.sampling_time)
+        #: Number of steps in the prediction (prediction_horizon/sampling_time).
+        self.n_prediction_steps: int = int(self.prediction_horizon // self.sampling_time)
         #: Duration of the scenario for each episode (for total time imported from csv).
-        self.scenario_duration: float = self.episode_duration + self.prediction_scope
+        self.scenario_duration: float = self.episode_duration + self.prediction_horizon
 
         #: Configuration for the MILP model parameters.
         self.model_parameters = model_parameters
@@ -217,7 +218,9 @@ class PyomoEnv(BaseEnv, abc.ABC):
         # shifted. If time is being shifted, the respective variable should be set as "time_var".
         step = int(1 if self.use_model_time_increments else self.sampling_time)
         duration = int(
-            self.prediction_scope // self.sampling_time + 1 if self.use_model_time_increments else self.prediction_scope
+            self.prediction_horizon // self.sampling_time + 1
+            if self.use_model_time_increments
+            else self.prediction_horizon
         )
 
         if self.time_var is not None:

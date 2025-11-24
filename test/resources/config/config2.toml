@@ -24,7 +24,7 @@ seed = 123
 scenario_time_begin = "2022-03-18 00:00"
 scenario_time_end = "2022-03-18 00:30"
 sim_steps_per_sample = 1
-prediction_scope = 1200 # time in seconds, optimization horizon K, is constant
+prediction_horizon = 1200 # time in seconds, optimization horizon K, is constant
 
 [[environment_specific.scenario_files]]
 path = "electricity_price_test.csv"

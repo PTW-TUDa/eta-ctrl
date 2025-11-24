@@ -7,8 +7,8 @@ relpath_results = "results"
 relpath_scenarios = "scenarios"
 
 [settings]
-sampling_time = 10  # time in seconds
-episode_duration = 600  # time in seconds
+sampling_time = 10  # seconds
+episode_duration = 600  # seconds
 n_episodes_play = 1
 verbose = 2
 seed = 123
@@ -18,31 +18,29 @@ interact_with_env = false
 scenario_time_begin = "2022-03-18 00:00"
 scenario_time_end = "2022-03-18 00:10"
 sim_steps_per_sample = 1
-prediction_scope = 900  # time in seconds, optimization horizon K, is constant
+prediction_horizon = 900  # seconds, optimization horizon K
 
 [[environment_specific.scenario_files]]  # accessible via the scenario_files parameter
 path = "electricity_price_test.csv"
 interpolation_method = "interpolate"
 time_conversion_str = "%d.%m.%Y %H:%M"
 
-
-
 [environment_specific.model_parameters]
-p_heat = 10  # power consumption for heating
-tank_temperature_start = 60  # temperature in °C
-tank_temperature_min = 55  # temperature in °C
-tank_temperature_max = 65  # temperature in °C
-temperature_change_heating = 0.02  # temperature change per second
-temperature_change_cleaning = -0.01  # temperature change per second
+p_heat = 10  # kW, heating power consumption
+tank_temperature_start = 60  # °C
+tank_temperature_min = 55  # °C
+tank_temperature_max = 65  # °C
+temperature_change_heating = 0.02  # Kelvin per second
+temperature_change_cleaning = -0.01  # Kelvin per second
 
 [interaction_env_specific]
 scenario_time_begin = "2022-03-18 00:00"
 scenario_time_end = "2022-03-18 00:30"
 
 [interaction_env_specific.parameters]
-tank_temperature_start = 60  # temperature in °C
-temperature_change_heating = 0.02  # temperature change per second
-temperature_change_cleaning = -0.01  # temperature change per second
+tank_temperature_start = 60  # in °C
+temperature_change_heating = 0.02  # Kelvin per second
+temperature_change_cleaning = -0.01  # Kelvin per second
 
 [agent_specific]
 solver_name = "cplex_direct"
