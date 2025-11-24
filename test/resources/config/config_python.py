@@ -33,7 +33,7 @@ config = {  # noqa: INP001
                 "time_conversion_str": "%d.%m.%Y %H:%M",
             }
         ],
-        "prediction_scope": 1200,
+        "prediction_horizon": 1200,
         "model_parameters": {
             "N": 5,
             "n_start": 1,
