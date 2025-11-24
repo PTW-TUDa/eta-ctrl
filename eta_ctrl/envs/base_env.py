@@ -6,11 +6,11 @@ import pathlib
 import time
 from datetime import datetime, timedelta
 from logging import getLogger
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import pandas as pd
-from gymnasium import Env
+from gymnasium import Env, spaces
 
 from eta_ctrl import timeseries
 from eta_ctrl.util import csv_export
@@ -349,18 +349,204 @@ class BaseEnv(Env, abc.ABC):
             self.render()
         return self.get_observations(), reward, terminated, truncated, info
 
-    def _actions_valid(self, action: np.ndarray) -> None:
+    def _actions_valid(self, action: np.ndarray | dict) -> None:
         """Check whether the actions are within the specified action space.
 
         :param action: Actions taken by the agent.
         :raise: RuntimeError, when the actions are not inside of the action space.
         """
         if not self.action_space.contains(action):
-            msg = (
-                f"Agent action (shape: {action.shape})"
-                f" does not correspond to the environment action space ({self.action_space})."
-            )
-            raise RuntimeError(msg)
+            error_msg = self._build_action_error_message(action)
+            raise RuntimeError(error_msg)
+
+    def _build_action_error_message(self, action: np.ndarray | dict) -> str:
+        """Build a detailed error message explaining why the action is invalid.
+
+        :param action: The invalid action that was provided.
+        :return: Detailed error message string.
+        """
+        error_parts = ["Action validation failed!"]
+        error_parts.append(f"\nReceived action: {self._format_array(action)}")
+        error_parts.append(f"Action space: {self.action_space}")
+
+        # Delegate to specific validators based on space type
+        if isinstance(self.action_space, spaces.Box):
+            error_parts.extend(self._validate_box_action(cast("np.ndarray", action), self.action_space))
+        elif isinstance(self.action_space, spaces.Discrete):
+            error_parts.extend(self._validate_discrete_action(cast("np.ndarray", action), self.action_space))
+        elif isinstance(self.action_space, spaces.MultiDiscrete):
+            error_parts.extend(self._validate_multi_discrete_action(cast("np.ndarray", action), self.action_space))
+        elif isinstance(self.action_space, spaces.Dict):
+            error_parts.extend(self._validate_dict_action(action, self.action_space))
+        else:
+            error_parts.append("\nThe action does not match the expected action space type.")
+
+        return "\n".join(error_parts)
+
+    def _add_shape_error(self, errors: list[str], expected: tuple, received: tuple) -> None:
+        """Add shape mismatch error details to error list
+
+        :param errors: List to append error messages to.
+        :param expected: Expected shape.
+        :param received: Received shape.
+        """
+        errors.append("\nShape mismatch:")
+        errors.append(f"  Expected: {expected}")
+        errors.append(f"  Received: {received}")
+        if len(expected) == 1 and len(received) == 1:
+            errors.append(f"  → Expected {expected[0]} action(s), but received {received[0]} action(s)")
+
+    def _add_violations(self, errors: list[str], violations: list[str], violation_type: str = "Bound") -> None:
+        """Add violation details to error list with truncationS
+
+        :param errors: List to append error messages to.
+        :param violations: List of violation messages.
+        :param violation_type: Type of violation (e.g., "Bound", "Value").
+        """
+        if violations:
+            errors.append(f"\n{violation_type} violations ({len(violations)} found):")
+            errors.extend(violations[:10])
+            if len(violations) > 10:
+                errors.append(f"  ... and {len(violations) - 10} more violation(s)")
+
+    def _validate_box_action(self, action: np.ndarray, space: spaces.Box) -> list[str]:
+        """Validate Box space action and return specific error details.
+
+        :param action: The action to validate.
+        :param space: The Box space to validate against.
+        :return: List of error message parts.
+        """
+        errors: list[str] = []
+
+        # Check shape
+        if action.shape != space.shape:
+            self._add_shape_error(errors, space.shape, action.shape)
+            return errors
+
+        # Check dtype compatibility (warn but don't fail for float32 vs float64)
+        if action.dtype != space.dtype and not (
+            np.issubdtype(action.dtype, np.floating) and np.issubdtype(space.dtype, np.floating)
+        ):
+            errors.append("\nData type mismatch:")
+            errors.append(f"  Expected: {space.dtype}")
+            errors.append(f"  Received: {action.dtype}")
+
+        # Check bounds
+        violations = []
+        action_flat = action.flatten()
+        low_flat = np.broadcast_to(space.low, space.shape).flatten()
+        high_flat = np.broadcast_to(space.high, space.shape).flatten()
+
+        for idx, (val, low, high) in enumerate(zip(action_flat, low_flat, high_flat, strict=False)):
+            if val < low:
+                violations.append(f"  - action[{idx}] = {val:.6g} is below minimum bound of {low:.6g}")
+            elif val > high:
+                violations.append(f"  - action[{idx}] = {val:.6g} exceeds maximum bound of {high:.6g}")
+
+        self._add_violations(errors, violations, "Bound")
+        return errors
+
+    def _validate_discrete_action(self, action: np.ndarray | int, space: spaces.Discrete) -> list[str]:
+        """Validate Discrete space action and return specific error details.
+
+        :param action: The action to validate.
+        :param space: The Discrete space to validate against.
+        :return: List of error message parts.
+        """
+        errors: list[str] = []
+
+        # Convert to int if it's an array
+        if isinstance(action, np.ndarray):
+            if action.size != 1:
+                self._add_shape_error(errors, (1,), action.shape)
+                return errors
+            action_val = int(action.item())
+        else:
+            action_val = int(action)
+
+        # Check bounds
+        if action_val < space.start or action_val >= space.start + space.n:
+            errors.append("\nValue out of range:")
+            errors.append(f"  Valid range: [{space.start}, {space.start + space.n - 1}]")
+            errors.append(f"  Received: {action_val}")
+
+        return errors
+
+    def _validate_multi_discrete_action(self, action: np.ndarray, space: spaces.MultiDiscrete) -> list[str]:
+        """Validate MultiDiscrete space action and return specific error details.
+
+        :param action: The action to validate.
+        :param space: The MultiDiscrete space to validate against.
+        :return: List of error message parts.
+        """
+        errors: list[str] = []
+
+        # Check shape
+        if action.shape != space.nvec.shape:
+            self._add_shape_error(errors, space.nvec.shape, action.shape)
+            return errors
+
+        # Check individual action values
+        violations = []
+        action_flat = action.flatten()
+        nvec_flat = space.nvec.flatten()
+        start_flat = np.broadcast_to(space.start, space.nvec.shape).flatten()
+
+        for idx, (val, n, start) in enumerate(zip(action_flat, nvec_flat, start_flat, strict=False)):
+            if val < start or val >= start + n:
+                violations.append(f"  - action[{idx}] = {val} is outside valid range [{start}, {start + n - 1}]")
+
+        self._add_violations(errors, violations, "Value")
+        return errors
+
+    def _validate_dict_action(self, action: np.ndarray | dict, space: spaces.Dict) -> list[str]:
+        """Validate Dict space action and return specific error details.
+
+        :param action: The action to validate.
+        :param space: The Dict space to validate against.
+        :return: List of error message parts.
+        """
+        errors: list[str] = []
+        errors.append("\nDict action space validation failed.")
+        errors.append(f"  Expected a dictionary with keys: {list(space.spaces.keys())}")
+
+        if not isinstance(action, dict):
+            errors.append(f"  Received type: {type(action).__name__}")
+            errors.append("  → Dict action spaces require actions to be dictionaries, not arrays")
+        else:
+            missing_keys = set(space.spaces.keys()) - set(action.keys())
+            extra_keys = set(action.keys()) - set(space.spaces.keys())
+
+            if missing_keys:
+                errors.append(f"  Missing keys: {list(missing_keys)}")
+            if extra_keys:
+                errors.append(f"  Unexpected keys: {list(extra_keys)}")
+
+        return errors
+
+    def _format_array(self, arr: np.ndarray | dict, max_items: int = 10) -> str:
+        """Format a numpy array or dict for display in error messages.
+
+        :param arr: Array or dict to format.
+        :param max_items: Maximum number of items to display before truncating.
+        :return: Formatted string representation.
+        """
+        # Handle dict actions (for Dict action spaces)
+        if isinstance(arr, dict):
+            return str(arr)
+
+        # Handle numpy arrays - cast needed for mypy type narrowing
+        arr = cast("np.ndarray", arr)
+
+        if arr.size <= max_items:
+            return str(arr)
+
+        # For large arrays, show first few and last few elements
+        arr_flat = arr.flatten()
+        first_items = arr_flat[: max_items // 2]
+        last_items = arr_flat[-(max_items // 2) :]
+        formatted = f"[{' '.join(f'{x:.6g}' for x in first_items)} ... {' '.join(f'{x:.6g}' for x in last_items)}]"
+        return f"{formatted} (shape: {arr.shape}, dtype: {arr.dtype})"
 
     def _reset_state(self) -> None:
         """Take some initial values and create a new environment state object, stored in self.state."""
