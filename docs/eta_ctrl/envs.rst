@@ -38,7 +38,7 @@ Each state variable is represented by a *StateVar* object:
 
 .. autoclass:: eta_ctrl.envs::StateVar
     :members:
-    :noindex:
+    :no-index:
     :exclude-members: from_dict
 
     For example, the variable "tank_temperature" might be part of the environment's state. Let's assume it
@@ -96,7 +96,7 @@ All state variables are combined into the *StateConfig* object:
 
 .. autoclass:: eta_ctrl.envs::StateConfig
     :members:
-    :noindex:
+    :no-index:
     :exclude-members: loc, from_dict,
 
     Using the examples above, we could create the *StateConfig* object by passing our three state variables to
@@ -120,7 +120,7 @@ Base Environment
     :inherited-members:
     :show-inheritance:
     :exclude-members: reward_range, metadata, spec
-    :noindex:
+    :no-index:
 
 Model Predictive Control (MPC) Environment
 ------------------------------------------------
@@ -150,17 +150,5 @@ because ConnectionManager needs additional configuration.
 .. autoclass:: eta_ctrl.envs::LiveEnv
     :members:
     :show-inheritance:
-    :no-index:
-
-
-Julia Environment
------------------------------
-The JuliaEnv is an environment that supports the connection to a julia file. Make sure to set the *julia_env_file*
-where your julia file is located. In contrast to the other environments, the Julia class, written in Python, must be
-imported in the setup file for the parameter *environment_import*. The parameter *julia_env_file* is located in the
-*settings* section of the configuration file. See also :ref:`eta_experiment_config`.
-
-.. autoclass:: eta_ctrl.envs::JuliaEnv
-    :members:
-    :show-inheritance:
+    :exclude-members: reward_range, metadata, spec, _seed, _init_legacy, _init_state_space, _abc_impl
     :no-index:

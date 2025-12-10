@@ -5,11 +5,7 @@ from gymnasium.vector.utils import concatenate, create_empty_array
 from stable_baselines3.common.vec_env import DummyVecEnv
 
 from eta_ctrl.common import NoPolicy
-from eta_ctrl.util.julia_utils import julia_extensions_available
 from test.resources.agents.rule_based import RuleBasedController
-
-if julia_extensions_available():
-    pass
 
 
 class TestRuleBased:

@@ -7,13 +7,4 @@ for users of the library as well.
 
 .. automodule:: eta_ctrl.util
     :members:
-    :noindex:
-
-Additional Utilities Julia Extension
----------------------------------------
-The *util_julia* module provides some useful utilities which are utilized within *ETA Ctrl* but might be useful
-for users of the library as well.
-
-.. automodule:: eta_ctrl.util.julia_utils
-    :members:
-    :noindex:
+    :no-index:

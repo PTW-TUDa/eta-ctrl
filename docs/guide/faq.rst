@@ -112,18 +112,6 @@ First, find the path to your sphinx installation, then add it via the terminal o
 
     Adding sphinx scripts to PATH
 
-.. _julia_not_found:
-
-I want to install Julia, but the Julia executable cannot be found
-------------------------------------------------------------------
-If you receive the following error message, when you want to install the Julia executable:
-
-.. code-block:: console
-
-    $ Exception: Julia executable cannot be found. If you have installed Julia, make sure Julia executable is in the system path. If you have not installed Julia, download from https://julialang.org/downloads/ and install it.
-
-Add the path from Julia to Windows as described in :ref:`install_julia` and restart ETA Ctrl.
-
 .. _packages_error:
 
 I want to start *ETA Ctrl*, but in some external packages there were changes
@@ -135,19 +123,6 @@ code, update *ETA Ctrl* with the following command:
 
     $ pip install --upgrade --upgrade-strategy=only-if-needed eta_ctrl
 
-I want to start a julia experiment, but there is an AttributeError
--------------------------------------------------------------------
-If you receive the following (or a similar) error message, when you want to start a julia experiment:
-
-.. code-block:: console
-
-    $ Exception: AttributeError: module 'eta_ctrl.agents' has no attribute 'Nsga2'.
-
-Make sure PyJulia is installed in the correct virtual environment as described in :ref:`install_julia`.
-
-I made changes in the NSGA2 agent and want to do a commit, but my tests are not passing
----------------------------------------------------------------------------------------
-Make sure that you have refreshed the stored agent model as described in :ref:`testing_your_code`.
 
 Resolve FMPy compilation issue on macOS (x64)
 -----------------------------------------------
@@ -227,10 +202,3 @@ After following these steps, you should have a new FMU file that contains the co
 This resolution has been tested on macOS Ventura 13.4.1 (xarm64: M1).
 See also:
 https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-utility/-/issues/200
-
-
-I want to start a julia experiment, but there is a PyJulia import error with PyCall
--------------------------------------------------------------------------------------
-
-Ensure you have the necessary installation rights. If not, follow the installation process with no installation
-rights as outlined in :ref:`install_julia` and restart the Julia experiment.

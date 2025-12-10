@@ -26,8 +26,7 @@ class NoVecEnv(DummyVecEnv):
     it receives over to the environment, even if they were meant for multiple environments. Therefore, the environment
     has to specifically support parallel evaluation of multiple action sets.
 
-    This vectorizer is useful for environments implemented for example in julia, where we do not want to create multiple
-    environments and could potentially implement multithreading inside the environment.
+    This vectorizer is useful for scenarios where we want to implement multithreading inside the environment.
 
     .. note::
         The reset function of the environment should only return a single set of observations. The order in which the

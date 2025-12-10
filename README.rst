@@ -3,7 +3,7 @@ ETA Ctrl Framework
 
 The `ETA Ctrl` framework provides a standardized interface for developing digital twins of factories or machines in a factory.
 It is designed to facilitate rolling horizon optimization, simulation, and interaction with factory systems.
-The framework is based on the Gymnasium environment and integrates seamlessly with tools like FMUs, Julia, Pyomo models, and live connections to real-world assets.
+The framework is based on the Gymnasium environment and integrates seamlessly with tools like FMUs, Pyomo models, and live connections to real-world assets.
 
 Documentation
 *****************
@@ -37,7 +37,6 @@ Environment
   - **`LiveEnv`**: Extends `BaseEnv` for live environments interacting with real-world systems.
   - **`PyomoEnv`**: Extends `BaseEnv` for environments using Model Predictive Control (MPC).
   - **`SimEnv`**: Extends `BaseEnv` for environments using FMU-based simulations.
-  - **`JuliaEnv`**: Environment class for interacting with Julia-based simulation models.
 
 - **Vectorization**:
 

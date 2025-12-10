@@ -175,13 +175,6 @@ Or if you have the virtual environment already activated:
 
     $ pytest
 
-Please always refresh the *test_nsga2_agent.zip* file when changes are made in the nsga2 agent and in julia files. The zip-file is located
-in *eta-ctrl/test/resources/agents* and creates a new NSGA2 model for the tests. To do this, execute the following
-command in the terminal:
-
-.. code-block:: console
-
-    $ poetry run update-julia-agent
 
 Editing this documentation
 -----------------------------
@@ -221,33 +214,40 @@ All the CI/CD instructions are listed in the *.gitlab-ci.yml* file.
 GitLab - Docker containers
 -----------------------------
 
-The directory *.gitlab* contains the dockerfiles which defines the images that the jobs
-of the CI/CD run on. Currently there are two main dockerfiles, one to describe Python-Julia
-environment and another just for Python.
+The directory *.gitlab* contains the dockerfiles which define the images that the jobs
+of the CI/CD run on.
 
 All the dockerfiles contains an correspondent image stored in **Packages & Registries > Container Registry**.
 In which the image will be used in a container to execute the jobs.
 
-To update the containers first you need to login in GitLab through docker.
+Use the script '.gitlab/docker/build_and_push_docker' to build and push all required images.
+This requires a gitlab deploy token `DEPLOY_TOKEN` in the project .env file.
+
+The images can also be build manually, but it's recommended to use the script.
+
+Manual building
+~~~~~~~~~~~~~~~~~
+
+To update the containers first you need to login in GitLab through docker:
 
 .. code-block:: console
 
     $ docker login git-reg.ptw.maschinenbau.tu-darmstadt.de
 
 
-Then you build and upload the image from the dockerfile. For example, for the pyjulia image use the following command
-inside the project folder:
+Then you build and upload the image from the dockerfile.
+To build an image for e.g. Python version 3.10, execute:
 
 .. code-block:: console
 
-    $ docker build -t git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/pyjulia:py3.9-jl1.9 -f .gitlab/docker/pyjulia-39-19.dockerfile .
+    $ docker build -t git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/poetry2.1.1:py3.10 -f .gitlab/docker/dockerfile --build-args="PYTHON_VERSION=3.10" .
 
 Using tags for the images is a good practice to differentiate image versions, in case it's not used it's automatic
-labeled as *latest*. Currently there are three images for Python environments called *python*, with Python versions
-differentiated by tags (py3.9, py3.10 and py3.11) and there is an image with combined Python and Julia installations.
+labeled as *latest*. Currently there are three images for Python environments, grouped by the current Poetry version, with Python versions
+differentiated by tags (py3.10, py3.11 and py3.12).
 
 The last step is to upload the images to the private docker registry.
 
 .. code-block:: console
 
-    $ docker push git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/pyjulia:py3.9-jl1.9
+    $ docker push git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/poetry2.1.1:py3.10

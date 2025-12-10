@@ -34,7 +34,7 @@ learning but can be employed in generalized rolling horizon optimization setting
 The functions available in eta_ctrl.envs make it easy to create new, custom environments
 (see `stable_baselines3 custom environments <https://stable-baselines3.readthedocs.io/en/master/guide/custom_env.html>`_).
 For example, they provide functionality for integrating FMU simulation models,
-communicating with real machinery in factories, or even integrating environments written in Julia.
+communicating with real assets in factories, or integrating Pyomo models as environments.
 
 The *EtaCtrl* class is built on top of this functionality and extends the general Markov Decision Process by the option to
 introduce interactions between multiple environments. This enables the creation of digital twins, which could for
@@ -130,7 +130,7 @@ The settings configured in the setup section are the following:
 
 .. autoclass:: eta_ctrl.config::ConfigSetup
     :members:
-    :noindex:
+    :no-index:
     :exclude-members: from_dict
 
 Config section 'paths'
@@ -153,7 +153,7 @@ The configuration options in the settings section are the following.
 
 .. autoclass:: eta_ctrl.config::ConfigSettings
     :members:
-    :noindex:
+    :no-index:
     :exclude-members: from_dict
 
 Configuration for optimization runs
@@ -171,5 +171,5 @@ docs: :py:class:`eta_ctrl.config.ConfigRun`.
 
 .. autoclass:: eta_ctrl.config::ConfigRun
     :members:
-    :noindex:
+    :no-index:
     :exclude-members: from_dict, set_env_info, set_interaction_env_info, create_results_folders
