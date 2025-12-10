@@ -742,7 +742,7 @@ class BaseEnv(Env, abc.ABC):
         """
         external_inputs = {}
         for name in self.state_config.ext_inputs:
-            ext_name = self.state_config.map_ext_ids[name]
+            ext_id = self.state_config.map_ext_ids[name]
             state_var = self.state_config.vars[name]
             try:
                 scaled_value = self.state[name].item()
@@ -752,13 +752,13 @@ class BaseEnv(Env, abc.ABC):
             except ValueError as e:
                 msg = "External Inputs can't have multiple values"
                 raise ValueError(msg) from e
-            external_inputs[ext_name] = scaled_value / state_var.ext_scale_mult - state_var.ext_scale_add
+            external_inputs[ext_id] = scaled_value / state_var.ext_scale_mult - state_var.ext_scale_add
         return external_inputs
 
     def set_action(self, action: np.ndarray | dict[str, np.ndarray]) -> None:
-        """Insert new actions into the state.
+        """Set action values in the state.
 
-        :param action: New actions to be inserted.
+        :param action: Actions to be set.
         :type action: np.ndarray | dict[str, np.ndarray]
         """
         iterator: Iterator
@@ -772,18 +772,23 @@ class BaseEnv(Env, abc.ABC):
             self.state[name] = val
 
     def set_external_outputs(self, external_outputs: dict[str, float]) -> None:
-        """Insert new external outputs into the state.
-        Uses scalar values instead of numpy arrays for values.
+        """Set external outputs in the state.
+        Accepts scalars instead of numpy arrays as values.
 
-        :param external_outputs: New external outputs with external id as keys.
+        :param external_outputs: Dict of external outputs with external_ids as keys.
         :type external_outputs: dict[str, float]
         :raises KeyError: Received an unknown external id
         """
-        for ext_name, unscaled_value in external_outputs.items():
-            if ext_name not in self.state_config.ext_outputs:
-                msg = "Received unknown name for external outputs"
+        for ext_id, unscaled_value in external_outputs.items():
+            name = self.state_config.rev_ext_ids.get(ext_id)
+
+            # Check if name exists and if it is an output
+            if name is None or name not in self.state_config.ext_outputs:
+                if name is None:
+                    msg = "Received unknown name for external outputs"
+                else:
+                    msg = f"{name} is not configured as an external output."
                 raise KeyError(msg)
-            name = self.state_config.rev_ext_ids[ext_name]
             state_var = self.state_config.vars[name]
             scaled_value = (unscaled_value + state_var.ext_scale_add) * state_var.ext_scale_mult
 
