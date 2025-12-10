@@ -32,7 +32,6 @@ dependencies = [
     "stable-baselines3 (>=2.4.0,<3.0.0)", # no SemVer
     "tensorboard (>=2.14.0,<2.15.0)",
     "pyomo (>=6.9.2,<6.10.0)",
-    "julia (>=0.6.2,<0.7.0)",
     "eta-nexus (>=0.0.1,<0.1.0)",
     "pydantic (>=2.11.7,<3.0.0)",
 ]
@@ -56,8 +55,6 @@ optional-dependencies.docs = [
     Issues = "https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/-/issues"
 
 [project.scripts]
-    install-julia = "eta_ctrl:install_julia"
-    update-julia-agent = "eta_ctrl:update_agent"
     create-sim-env = "scripts.fmu_cli:create_sim_env"
     export-fmu-data = "scripts.fmu_cli:export_fmu_data"
     export-pyomo-data = "scripts.pyomo_export_cli:export_pyomo_data"
@@ -131,7 +128,6 @@ module = [
     "pandas.*",
     "gymnasium.*",
     "pyomo.*",
-    "julia.*",
     "setuptools",
     "keyboard.*",
     "onnxruntime.*",

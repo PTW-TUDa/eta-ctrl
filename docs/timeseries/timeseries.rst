@@ -13,11 +13,11 @@ Scenario data is often required to perform optimizations and simulations of fact
 can import data from multiple files and returns a cleaned Dataframe.
 
 .. autofunction:: eta_ctrl.timeseries::scenario_from_csv
-    :noindex:
+    :no-index:
 
 Extensions for pandas.DataFrame
 ------------------------------------
 
 .. automodule:: eta_ctrl.timeseries.dataframes
     :members:
-    :noindex:
+    :no-index:

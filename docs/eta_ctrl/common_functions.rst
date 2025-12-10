@@ -14,7 +14,7 @@ environments with normalization wrappers and monitoring wrappers if required and
 environments and normal environments.
 
 .. autofunction:: eta_ctrl.core_utils::vectorize_environment
-    :noindex:
+    :no-index:
 
 The *vectorize_environment* function will automatically add a callback function as a parameter during
 environment instantiation. The callback should be called by the environment after each episode and
@@ -24,7 +24,7 @@ The callback generally used by *EtaCtrl* is *CallbackEnvironment*, which allows 
 intervals. A *callback* can be anything that is callable and takes an environment instance as its only argument.
 
 .. autoclass:: eta_ctrl.common::CallbackEnvironment
-    :noindex:
+    :no-index:
     :members: __call__
 
 Instantiating Algorithms
@@ -35,10 +35,10 @@ existing model from a file created by a *stable_baselines3* algorithm. Both func
 passed to the algorithm and that logging output is correctly initialized.
 
 .. autofunction:: eta_ctrl.core_utils::initialize_model
-    :noindex:
+    :no-index:
 
 .. autofunction:: eta_ctrl.core_utils::load_model
-    :noindex:
+    :no-index:
 
 Logging information
 ---------------------
@@ -46,14 +46,14 @@ There are also functions for logging information about the optimization runs, su
 the network architecture.
 
 .. autofunction:: eta_ctrl.common::log_run_info
-    :noindex:
+    :no-index:
 
 .. autofunction:: eta_ctrl.common::log_net_arch
-    :noindex:
+    :no-index:
 
 Other helpful functions
 -----------------------------
 .. automodule:: eta_ctrl.common
     :members: is_vectorized, is_closed, episode_results_path, episode_name_string
     :exclude-members: vectorize_environment, CallbackEnvironment, initialize_model, load_model, log_run_info, log_net_arch
-    :noindex:
+    :no-index:

@@ -20,20 +20,9 @@ build:
   apt_packages:
     - libgl1-mesa-glx
   jobs:
-    post_create_environment:
-      # Install Julia 1.9.2 and create a symlink to the executable
-      - wget https://julialang-s3.julialang.org/bin/linux/x64/1.9/julia-1.9.2-linux-x86_64.tar.gz
-      - tar zxvf julia-1.9.2-linux-x86_64.tar.gz
-      - ln -s ${PWD}/julia-1.9.2/bin/julia ${READTHEDOCS_VIRTUALENV_PATH}/bin/julia
-      - julia --version
     pre_install:
       # Update pip
       - python -m pip install --upgrade pip
-    post_install:
-      # Install pyjulia and make sure PyCall is available
-      - pip install julia
-      - python -c "import julia; julia.install()"
-      - install-julia
     pre_build:
       # Build documentation stubs for the API documentation
       - sphinx-apidoc --tocfile api -e -M -o docs/_stubs eta_ctrl

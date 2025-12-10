@@ -5,12 +5,6 @@ from .io_utils import (
     toml_import as toml_import,
     yaml_import as yaml_import,
 )
-from .julia_utils import (
-    import_jl as import_jl,
-    install_julia as install_julia,
-    julia_extensions_available as julia_extensions_available,
-    update_agent as update_agent,
-)
 from .logging_utils import (
     LOG_DEBUG as LOG_DEBUG,
     LOG_ERROR as LOG_ERROR,

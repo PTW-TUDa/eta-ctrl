@@ -77,37 +77,3 @@ The optional requirements can be installed using pip. For example:
 .. code-block:: console
 
    $ pip install eta_ctrl[eta-x]
-
-.. _install_julia:
-
-Using Julia Extensions
--------------------------------------
-
-First, it is necessary to have julia available in your system, the recommended version
-is the latest stable version but minimum v.1.8 (`download julia <https://julialang.org/downloads/>`_).
-
-If your hardware has no installation rights, use the Windows Package Manager **winget**. Open the terminal and run the following command for the Windows operating system:
-
-.. code-block::
-
-    $ winget install Julialang.Julia --version [version_number]
-
-Next, it's important, that you include Julia to the operating system path. For windows 10 do the following steps:
-
-- **1st step**: Open run (Windows Key + R) and write ``rundll32 sysdm.cpl,EditEnvironmentVariables`` .
-- **2nd step**: Under either "User Variables" or "System Variables", the row "Path" add with "edit" the Julia path. The Julia
-  path should have the following schema: ``C:Users\User\AppData\Local\Programs\Julia-1.8.5\bin``.
-- **3rd step**: Click OK and restart eta-ctrl.
-
-If you are using a different operating system, look here: (`path julia <https://julialang.org/downloads/platform/#windows>`_)
-
-The next step is to activate your virtual environment for the eta-ctrl
-and inside the eta-ctrl directory execute the following command:
-
-.. code-block::
-
-    $ install-julia
-
-Make sure to install Julia using the same Python virtual environment that you are using to execute your code.
-
-This command will install PyJulia, configure PyCall in your system, and install the Julia extensions package (ju_extensions) from ETA Ctrl.
