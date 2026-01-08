@@ -220,6 +220,11 @@ class BaseEnv(Env, abc.ABC):
         #: Path for the scenario data.
         return self.config_run.path_scenarios
 
+    @property
+    def path_series_results(self) -> pathlib.Path:
+        #: Path for storing results of series of runs.
+        return self.config_run.path_series_results
+
     def import_scenario(self, *scenario_paths: Mapping[str, Any], prefix_renamed: bool = True) -> pd.DataFrame:
         """Load data from csv into self.timeseries_data by using scenario_from_csv.
 
