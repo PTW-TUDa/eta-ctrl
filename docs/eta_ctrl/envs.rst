@@ -2,22 +2,23 @@
 
 Environments
 ===============
-*ETA Ctrl* environments are based on the interfaces offered by `stable_baselines3
-<https://stable-baselines3.readthedocs.io/en/master/guide/custom_env.html>`_ which are in turn based on the
-`Farama gymnasium environments <https://gymnasium.farama.org/api/env/>`_. The *ETA Ctrl* environments are provided as
-abstract classes which must be subclassed to create useful implementations. For the specific use cases they are
-intended for, these base classes make the creation of new environments much easier.
+*ETA Ctrl* environments are based on the interface offered by `stable_baselines3
+<https://stable-baselines3.readthedocs.io/en/master/guide/custom_env.html>`_ which is in turn based on the
+`Gymnasium Env-class <https://gymnasium.farama.org/api/env/>`_. *ETA Ctrl* environments are provided as
+abstract classes which must be subclassed to create useful implementations. These base classes are intended
+ to facilitate the creation of new environments for their specific use cases (fmu simulation, pyomo model,
+ live environment).
 
 Custom environments should follow the interface for custom environments discussed in the `stable_baselines3
 documentation <https://stable-baselines3.readthedocs.io/en/master/guide/custom_env.html>`_. The following describes
 the functions available to simplify implementation of specific functionality in custom environments. You can look
 at the :ref:`examples` for some inspiration what custom environments can look like.
 
-For simulation environments using FMU files, see the :doc:`FMU Workflow <./environments/sim_env_creation_from_fmu>` documentation
-for a streamlined approach to initially create FMU-based environments.
+For simulation environments using FMU files, see the :doc:`FMU Workflow <./environments/sim_env_creation_from_fmu>`
+documentation for a streamlined approach to initially create FMU-based environments.
 
-The custom environments created with the utilities described here can be used directly with *stable_baselines3* or
-*gymnasium*. However, using the :class:`~eta_ctrl.EtaCtrl` class is recommended (see :ref:`intro-eta-ctrl`).
+The custom environments created with the utilities described here are intended to be used with the
+ :class:`~eta_ctrl.EtaCtrl` class (see :ref:`intro-eta-ctrl`).
 When using the *EtaCtrl* class for your optimization runs, the parameters required for environment instantiation must
 be configured in the *environment_specific* section of the configuration. If interaction between environments is also
 configured, additional parameters can be set in the configuration file. To configure the interaction environment, use
@@ -28,11 +29,11 @@ Environment State Configuration
 --------------------------------
 
 The most important concept to understand when working with the environment utilities provided by *ETA Ctrl* is
-is the handling and configuration of the environment state. The state is represented by
+the handling and configuration of the environment state. The state is represented by
 :py:class:`eta_ctrl.envs::StateVar` objects which each correspond to one variable of the environment. All
 StateVar objects of an environment are combined into the StateConfig object. From the StateConfig object we can
-determine most other aspects of the environment, such as for example the observation space and action space. The
-*gymnasium* documentation provides more information about `Spaces <https://gymnasium.farama.org/api/spaces/>`_.
+determine most other aspects of the environment, for example the observation space and action space. The *gymnasium*
+ documentation provides more information about `Spaces <https://gymnasium.farama.org/api/spaces/>`_.
 
 Each state variable is represented by a *StateVar* object:
 
@@ -113,7 +114,8 @@ as actions.
 
 Base Environment
 ------------------
-*TODO: What is an environment?*
+BaseEnv is the abstract base class for all environments in *ETA Ctrl*. It provides common functionality
+and enforces the implementation of certain methods.
 
 .. autoclass:: eta_ctrl.envs::BaseEnv
     :members:
@@ -122,7 +124,7 @@ Base Environment
     :exclude-members: reward_range, metadata, spec
     :no-index:
 
-Model Predictive Control (MPC) Environment
+Pyomo Environment
 ------------------------------------------------
 PyomoEnv is a class for using Pyomo modelling language for environment representation.
 
@@ -133,7 +135,7 @@ PyomoEnv is a class for using Pyomo modelling language for environment represent
 
 Simulation (FMU) Environment
 -----------------------------
-The SimEnv supports the control of environments represented as FMU simulation models. Make sure to set the *fmu_name* attribute when
+The SimEnv supports the representation of environments represented as FMU simulation models. Make sure to set the *fmu_name* attribute when
 subclassing this environment. The FMU file will be loaded from the same directory as the environment itself.
 
 .. autoclass:: eta_ctrl.envs::SimEnv
