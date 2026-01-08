@@ -89,6 +89,19 @@ class LiveEnv(BaseEnv, abc.ABC):
         #: Maximum error count when connections in live connector are aborted.
         self.max_error_count: int = max_errors
 
+    def __str__(self) -> str:
+        """Human-readable string representation of LiveEnv."""
+        base_str = super().__str__()
+        config_name = self.config_name
+        return f"{base_str}, Live config: {config_name}"
+
+    def __repr__(self) -> str:
+        """Developer-friendly string representation of LiveEnv."""
+        base_repr = super().__repr__()
+        # Remove the closing parenthesis to add our info
+        base_repr = base_repr.rstrip(")")
+        return f"{base_repr}, config_name='{self.config_name}', max_error_count={self.max_error_count})"
+
     def _init_connection_manager(self, files: Path | Sequence[Path] | dict[str, Any] | None = None) -> None:
         """Initialize the live connector object. Make sure to call _names_from_state before this or to otherwise
         initialize the names array.
