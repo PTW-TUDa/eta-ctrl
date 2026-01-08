@@ -1,3 +1,5 @@
+"""Tests for StateConfig class."""
+
 import numpy as np
 import pytest
 from gymnasium.spaces.box import Box
@@ -199,6 +201,11 @@ class TestStateConfig:
             StateVar(name="observation1", is_agent_observation=True),
         )
 
+    @pytest.fixture(scope="class")
+    def config_from_test_env_file(self, config_resources_path):
+        path = config_resources_path / "test_env_state_config.toml"
+        return StateConfig.from_file(path)
+
     def test_continuous_action_space_should_include_all_and_only_agent_actions(self, state_config):
         # also tests: continuous_action_space_should_span_from_low_to_high_value_for_every_statevar
         action_space = state_config.continuous_action_space()
@@ -253,9 +260,8 @@ class TestStateConfig:
         for name in state_config.actions + state_config.observations:
             assert state_config.loc[name] == state_config.vars[name]
 
-    def test_from_file(self, config_resources_path):
-        path = config_resources_path / "test_env_state_config.toml"
-        StateConfig.from_file(path)
+    def test_from_file(self, config_from_test_env_file):
+        assert config_from_test_env_file is not None
 
     def test_state_params(self):
         state_params = {"extra_param": True}
@@ -339,7 +345,7 @@ class TestStateConfig:
 
         # Should show first 3 of each with ... indicating truncation
         repr_str = repr(config)
-        assert "actions=['action_0', 'action_1', 'action_2']..." in repr_str
+        assert "actions=['action_0', 'action_1', 'action_2', ...]" in repr_str
         assert "observations=" in repr_str
         assert "..." in repr_str  # Should have truncation indicator
 
@@ -354,21 +360,74 @@ class TestStateConfig:
         assert "actions=['action_0', 'action_1', 'action_2']" in repr_str
         assert "..." not in repr_str
 
-    def test_from_file_config_str_repr(self, config_resources_path):
+    def test_from_file_config_str_repr(self, config_from_test_env_file):
         """Test __str__ and __repr__ methods using config loaded from file."""
-        path = config_resources_path / "test_env_state_config.toml"
-        config = StateConfig.from_file(path)
-
         # Based on the TOML file: 1 action (torque), 4 observations (th, cos_th, sin_th, th_dot)
-        str_result = str(config)
+        str_result = str(config_from_test_env_file)
         assert "1 actions" in str_result
         assert "4 observations" in str_result
         assert "5 total variables" in str_result
 
-        repr_result = repr(config)
+        repr_result = repr(config_from_test_env_file)
         assert "actions=['torque']" in repr_result
         assert "observations=" in repr_result
         # With 4 observations, it should be truncated (showing first 3 with ...)
         assert "..." in repr_result
         # Check that at least some observation names are present (first 3)
         assert "observations=[" in repr_result
+
+    def test_manual_creation_no_source_path(self):
+        """Test that manually created StateConfig has no source path."""
+        config = StateConfig(
+            StateVar(name="test_action", is_agent_action=True), StateVar(name="test_obs", is_agent_observation=True)
+        )
+        assert config._source_path is None
+
+    def test_from_dict_no_source_path(self):
+        """Test that from_dict without source path sets _source_path to None."""
+        state_vars = [{"name": "action1", "is_agent_action": True}, {"name": "obs1", "is_agent_observation": True}]
+        config = StateConfig.from_dict(state_vars)
+        assert config._source_path is None
+
+    def test_from_file_sets_source_path(self, config_resources_path, config_from_test_env_file):
+        """Test that from_file sets _source_path to the file path."""
+        path = config_resources_path / "test_env_state_config.toml"
+        assert config_from_test_env_file._source_path == path
+
+    def test_str_representation_without_source_path(self):
+        """Test __str__ method when no source path is available."""
+        config = StateConfig(
+            StateVar(name="action1", is_agent_action=True), StateVar(name="obs1", is_agent_observation=True)
+        )
+        str_result = str(config)
+        expected = "StateConfig with 1 actions, 1 observations (2 total variables)"
+        assert str_result == expected
+        assert "from" not in str_result
+
+    def test_str_representation_with_file_source_path(self, config_from_test_env_file):
+        """Test __str__ method with real file path from from_file."""
+        str_result = str(config_from_test_env_file)
+        assert "StateConfig with 1 actions, 4 observations (5 total variables) from" in str_result
+        assert str(config_from_test_env_file._source_path) in str_result
+
+    def test_repr_representation_unchanged_with_source_path(self, config_from_test_env_file):
+        """Test that __repr__ method doesn't include source path (developer format)."""
+        repr_result = repr(config_from_test_env_file)
+        expected = "StateConfig(actions=['torque'], observations=['cos_th', 'sin_th', 'th', ...])"
+        assert repr_result == expected
+        # Ensure path is not in repr (it's for developers, not end users)
+        assert str(config_from_test_env_file._source_path) not in repr_result
+        assert "from" not in repr_result
+
+    def test_source_path_attribute_access(self, config_resources_path):
+        """Test that _source_path attribute can be accessed directly."""
+        # Test manual creation
+        manual_config = StateConfig(StateVar(name="test", is_agent_action=True))
+        assert hasattr(manual_config, "_source_path")
+        assert manual_config._source_path is None
+
+        # Test file creation
+        path = config_resources_path / "test_env_state_config.toml"
+        file_config = StateConfig.from_file(path)
+        assert hasattr(file_config, "_source_path")
+        assert file_config._source_path == path

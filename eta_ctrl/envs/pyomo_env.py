@@ -128,6 +128,21 @@ class PyomoEnv(BaseEnv, abc.ABC):
         #:   may differ.
         self.use_model_time_increments: bool = False
 
+    def __str__(self) -> str:
+        """Human-readable string representation of PyomoEnv."""
+        base_str = super().__str__()
+        pred_steps = self.n_prediction_steps
+        return f"{base_str}, Prediction steps: {pred_steps}"
+
+    def __repr__(self) -> str:
+        """Developer-friendly string representation of PyomoEnv."""
+        base_repr = super().__repr__()
+        # Remove the closing parenthesis to add our info
+        base_repr = base_repr.rstrip(")")
+        return (
+            f"{base_repr}, prediction_horizon={self.prediction_horizon}, n_prediction_steps={self.n_prediction_steps})"
+        )
+
     @property
     def model(self) -> tuple[pyo.ConcreteModel, list]:
         """The model property is a tuple of the concrete model and the order of the action space. This is used

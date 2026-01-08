@@ -92,6 +92,19 @@ class SimEnv(BaseEnv, abc.ABC):
         #: Instance of the FMU. This can be used to directly access the eta_ctrl.FMUSimulator interface.
         self.simulator: FMUSimulator
 
+    def __str__(self) -> str:
+        """Human-readable string representation of SimEnv."""
+        base_str = super().__str__()
+        fmu_name = self.fmu_name
+        return f"{base_str}, FMU: {fmu_name}"
+
+    def __repr__(self) -> str:
+        """Developer-friendly string representation of SimEnv."""
+        base_repr = super().__repr__()
+        # Remove the closing parenthesis to add our info
+        base_repr = base_repr.rstrip(")")
+        return f"{base_repr}, fmu_name='{self.fmu_name}', sim_steps_per_sample={self.sim_steps_per_sample})"
+
     def _init_simulator(self, init_values: Mapping[str, int | float] | None = None) -> None:
         """Initialize the simulator object. Make sure to call _names_from_state before this or to otherwise initialize
         the names array.

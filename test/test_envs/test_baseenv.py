@@ -54,63 +54,21 @@ class TestStateLog:
 
 
 class TestBaseEnvStringRepresentations:
-    """Test __str__ and __repr__ methods for BaseEnv."""
+    """Test __str__ and __repr__ methods for BaseEnv using unified factory."""
 
     @pytest.fixture(scope="class")
-    def concrete_base_env(self):
-        """Create a concrete BaseEnv subclass for testing."""
-
-        class TestEnv(BaseEnv):
-            @property
-            def version(self):
-                return "v2.1.0"
-
-            @property
-            def description(self):
-                return "Test environment for string representation testing"
-
-            def _step(self):
-                # Minimal implementation for testing
-                return 0.0, False, False, {}
-
-            def _reset(self):
-                return {}
-
-            def close(self):
-                pass
-
-            def render(self):
-                pass
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
-            config_run = ConfigRun(
-                series="test_series",
-                name="repr_test_run",
-                description="Test run for string representations",
-                path_root=temp_path,
-                path_results=temp_path / "results",
-                path_scenarios=temp_path / "scenarios",
-            )
-
-            state_config = StateConfig(
-                StateVar(name="heating_power", is_agent_action=True, low_value=0, high_value=5000),
-                StateVar(name="cooling_power", is_agent_action=True, low_value=0, high_value=3000),
-                StateVar(name="room_temp", is_agent_observation=True, low_value=15, high_value=30),
-                StateVar(name="outside_temp", is_agent_observation=True, low_value=-20, high_value=40),
-            )
-
-            env = TestEnv(
-                env_id=42,
-                config_run=config_run,
-                state_config=state_config,
-                scenario_time_begin=datetime(2023, 6, 15, 8, 0),
-                scenario_time_end=datetime(2023, 6, 15, 20, 0),
-                episode_duration=7200,  # 2 hours
-                sampling_time=300,  # 5 minutes
-            )
-
-            yield env
+    def concrete_base_env(self, unified_env_factory):
+        """Create a concrete BaseEnv instance for testing."""
+        return unified_env_factory(
+            env_type="base",
+            env_id=42,
+            config_run_params={
+                "series": "test_series",
+                "name": "repr_test_run",
+                "description": "Test run for string representations",
+            },
+            state_config_type="default",
+        )
 
     def test_str_representation_initial_state(self, concrete_base_env):
         """Test __str__ method for initial state of BaseEnv."""
@@ -118,7 +76,7 @@ class TestBaseEnvStringRepresentations:
         concrete_base_env.n_episodes = 0
         concrete_base_env.n_steps = 0
 
-        expected = "TestEnv(id=42, 2 actions, 2 observations, Episode 0, Step 0/24)"
+        expected = "TestBaseEnv(id=42, 2 actions, 2 observations, Episode 0, Step 0/24)"
         assert str(concrete_base_env) == expected
 
     def test_str_representation_with_progress(self, concrete_base_env):
@@ -126,60 +84,24 @@ class TestBaseEnvStringRepresentations:
         concrete_base_env.n_episodes = 3
         concrete_base_env.n_steps = 15
 
-        expected = "TestEnv(id=42, 2 actions, 2 observations, Episode 3, Step 15/24)"
+        expected = "TestBaseEnv(id=42, 2 actions, 2 observations, Episode 3, Step 15/24)"
         assert str(concrete_base_env) == expected
 
-    def test_str_representation_different_env_sizes(self):
+    def test_str_representation_different_env_sizes(self, unified_env_factory):
         """Test __str__ method with different numbers of actions and observations."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
-            config_run = ConfigRun(
-                series="test_series",
-                name="size_test",
-                description="Size test",
-                path_root=temp_path,
-                path_results=temp_path / "results",
-            )
+        env = unified_env_factory(
+            env_type="base",
+            env_id=1,
+            config_run_params={"series": "test_series", "name": "size_test", "description": "Size test"},
+            state_config_type="many_actions",
+            scenario_time_begin=datetime(2023, 1, 1),
+            scenario_time_end=datetime(2023, 1, 2),
+            episode_duration=3600,
+            sampling_time=60,
+        )
 
-            # Create config with many actions and few observations
-            many_actions_config = StateConfig(
-                *[StateVar(name=f"action_{i}", is_agent_action=True, low_value=0, high_value=100) for i in range(8)],
-                StateVar(name="single_obs", is_agent_observation=True, low_value=0, high_value=1),
-            )
-
-            class MinimalTestEnv(BaseEnv):
-                @property
-                def version(self):
-                    return "v1.0.0"
-
-                @property
-                def description(self):
-                    return "Minimal test env"
-
-                def _step(self):
-                    return (0, False, False, {})
-
-                def _reset(self):
-                    pass
-
-                def close(self):
-                    pass
-
-                def render(self):
-                    pass
-
-            env = MinimalTestEnv(
-                env_id=1,
-                config_run=config_run,
-                state_config=many_actions_config,
-                scenario_time_begin=datetime(2023, 1, 1),
-                scenario_time_end=datetime(2023, 1, 2),
-                episode_duration=3600,
-                sampling_time=60,
-            )
-
-            expected = "MinimalTestEnv(id=1, 8 actions, 1 observations, Episode 0, Step 0/60)"
-            assert str(env) == expected
+        expected = "TestBaseEnv(id=1, 8 actions, 1 observations, Episode 0, Step 0/60)"
+        assert str(env) == expected
 
     def test_repr_representation_initial_state(self, concrete_base_env):
         """Test __repr__ method for initial state of BaseEnv."""
@@ -188,7 +110,7 @@ class TestBaseEnvStringRepresentations:
         concrete_base_env.n_steps = 0
 
         expected = (
-            "TestEnv(env_id=42, run_name='repr_test_run', n_episodes=0, n_steps=0, "
+            "TestBaseEnv(env_id=42, run_name='repr_test_run', n_episodes=0, n_steps=0, "
             "episode_duration=7200.0, sampling_time=300.0)"
         )
         assert repr(concrete_base_env) == expected
@@ -199,64 +121,33 @@ class TestBaseEnvStringRepresentations:
         concrete_base_env.n_steps = 8
 
         expected = (
-            "TestEnv(env_id=42, run_name='repr_test_run', n_episodes=10, n_steps=8, "
+            "TestBaseEnv(env_id=42, run_name='repr_test_run', n_episodes=10, n_steps=8, "
             "episode_duration=7200.0, sampling_time=300.0)"
         )
         assert repr(concrete_base_env) == expected
 
-    def test_repr_representation_different_durations(self):
+    def test_repr_representation_different_durations(self, unified_env_factory):
         """Test __repr__ method with different episode durations and sampling times."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
-            config_run = ConfigRun(
-                series="duration_test_series",
-                name="duration_test_run_with_long_name",
-                description="Duration test",
-                path_root=temp_path,
-                path_results=temp_path / "results",
-            )
+        env = unified_env_factory(
+            env_type="base",
+            env_id=999,
+            config_run_params={
+                "series": "duration_test_series",
+                "name": "duration_test_run_with_long_name",
+                "description": "Duration test",
+            },
+            state_config_type="minimal",
+            scenario_time_begin=datetime(2023, 1, 1),
+            scenario_time_end=datetime(2023, 1, 2),
+            episode_duration=1800,  # 30 minutes
+            sampling_time=30,  # 30 seconds
+        )
 
-            state_config = StateConfig(
-                StateVar(name="test_action", is_agent_action=True),
-                StateVar(name="test_obs", is_agent_observation=True),
-            )
-
-            class DurationTestEnv(BaseEnv):
-                @property
-                def version(self):
-                    return "v3.2.1"
-
-                @property
-                def description(self):
-                    return "Duration test environment"
-
-                def _step(self):
-                    return (0, False, False, {})
-
-                def _reset(self):
-                    pass
-
-                def close(self):
-                    pass
-
-                def render(self):
-                    pass
-
-            env = DurationTestEnv(
-                env_id=999,
-                config_run=config_run,
-                state_config=state_config,
-                scenario_time_begin=datetime(2023, 1, 1),
-                scenario_time_end=datetime(2023, 1, 2),
-                episode_duration=1800,  # 30 minutes
-                sampling_time=30,  # 30 seconds
-            )
-
-            expected = (
-                "DurationTestEnv(env_id=999, run_name='duration_test_run_with_long_name', "
-                "n_episodes=0, n_steps=0, episode_duration=1800.0, sampling_time=30.0)"
-            )
-            assert repr(env) == expected
+        expected = (
+            "TestBaseEnv(env_id=999, run_name='duration_test_run_with_long_name', "
+            "n_episodes=0, n_steps=0, episode_duration=1800.0, sampling_time=30.0)"
+        )
+        assert repr(env) == expected
 
     def test_str_and_repr_consistency(self, concrete_base_env):
         """Test that __str__ and __repr__ provide different but consistent information."""
@@ -267,8 +158,8 @@ class TestBaseEnvStringRepresentations:
         assert str_result != repr_result
 
         # Both should contain the class name
-        assert "TestEnv" in str_result
-        assert "TestEnv" in repr_result
+        assert "TestBaseEnv" in str_result
+        assert "TestBaseEnv" in repr_result
 
         # Both should contain the env_id
         assert "42" in str_result
@@ -593,3 +484,68 @@ class TestActionValidation:
         error_msg = str(exc_info.value)
         assert "Unexpected keys:" in error_msg
         assert "acceleration" in error_msg
+
+
+class TestUnifiedEnvironmentFactory:
+    """Test the unified environment factory to ensure it creates all environment types correctly."""
+
+    def test_create_base_env(self, unified_env_factory):
+        """Test creating BaseEnv using unified factory."""
+        env = unified_env_factory(env_type="base", env_id=1, state_config_type="basic")
+        assert env.__class__.__name__ == "TestBaseEnv"
+        assert env.env_id == 1
+        assert hasattr(env, "action_space")
+        assert hasattr(env, "observation_space")
+
+    def test_create_pyomo_env(self, unified_env_factory):
+        """Test creating PyomoEnv using unified factory."""
+        env = unified_env_factory(
+            env_type="pyomo",
+            env_id=2,
+            state_config_type="multi_action",
+            n_prediction_steps=24,
+            prediction_horizon=7200.0,
+        )
+        assert env.__class__.__name__ == "TestPyomoEnv"
+        assert env.env_id == 2
+        assert env.n_prediction_steps == 24
+        assert env.prediction_horizon == 7200.0
+        assert hasattr(env, "action_space")
+        assert hasattr(env, "observation_space")
+
+    def test_create_sim_env(self, unified_env_factory):
+        """Test creating SimEnv using unified factory."""
+        env = unified_env_factory(
+            env_type="sim", env_id=3, state_config_type="sim", fmu_name="custom_model.fmu", sim_steps_per_sample=5
+        )
+        assert env.__class__.__name__ == "TestSimEnv"
+        assert env.env_id == 3
+        assert env.fmu_name == "custom_model.fmu"
+        assert hasattr(env, "action_space")
+        assert hasattr(env, "observation_space")
+
+    def test_create_live_env(self, unified_env_factory):
+        """Test creating LiveEnv using unified factory."""
+        env = unified_env_factory(
+            env_type="live", env_id=4, state_config_type="live", config_name="production_config", max_errors=50
+        )
+        assert env.__class__.__name__ == "TestLiveEnv"
+        assert env.env_id == 4
+        assert env.config_name == "production_config"
+        assert hasattr(env, "action_space")
+        assert hasattr(env, "observation_space")
+
+    def test_factory_error_handling(self, unified_env_factory):
+        """Test that factory properly handles invalid environment types."""
+        with pytest.raises(ValueError, match="Unknown env_type: invalid"):
+            unified_env_factory(env_type="invalid")
+
+    def test_state_config_factory_integration(self, unified_env_factory):
+        """Test that factory correctly uses different state config types."""
+        # Test all state config types
+        for config_type in ["default", "many_actions", "minimal", "basic", "multi_action", "sim", "live"]:
+            env = unified_env_factory(env_type="base", state_config_type=config_type)
+            assert env.state_config is not None
+            # Verify action and observation spaces are created
+            assert hasattr(env, "action_space")
+            assert hasattr(env, "observation_space")

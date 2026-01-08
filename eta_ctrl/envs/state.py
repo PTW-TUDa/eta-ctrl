@@ -154,9 +154,11 @@ class StateConfig:
     is very important for the functionality of EtaCtrl.
     """
 
-    def __init__(self, *state_vars: StateVar) -> None:
+    def __init__(self, *state_vars: StateVar, _source_path: Path | None = None) -> None:
         #: Mapping of the variables names to their StateVar instance with all associated information.
         self.vars = {var.name: var for var in state_vars}
+        #: Private attribute to store the source file path (if loaded from file).
+        self._source_path: Path | None = _source_path
         # Additional Dataframe for easier access
         if state_vars:
             self.df_vars: pd.DataFrame = pd.DataFrame([var.model_dump() for var in state_vars]).set_index("name")
@@ -226,13 +228,17 @@ class StateConfig:
             log.debug(f"Using State parameters {state_params} from {path} for StateConfig.")
         else:
             log.warning(f"State parameters in {path} need to be a dict!")
-            return cls.from_dict(mapping=all_states)
+            return cls.from_dict(mapping=all_states, _source_path=path)
 
-        return cls.from_dict(mapping=all_states, state_params=state_params)
+        return cls.from_dict(mapping=all_states, state_params=state_params, _source_path=path)
 
     @classmethod
     def from_dict(
-        cls, mapping: Sequence[dict[str, Any]] | pd.DataFrame, *, state_params: dict[str, float] | None = None
+        cls,
+        mapping: Sequence[dict[str, Any]] | pd.DataFrame,
+        *,
+        state_params: dict[str, float] | None = None,
+        **kwargs: Any,
     ) -> Self:
         """Convert a potentially incomplete StateConfig DataFrame or a list of dictionaries to the
         standardized StateConfig format. This will ignore any additional columns.
@@ -262,7 +268,7 @@ class StateConfig:
                         new_value = -new_value
                     statevar[field_name] = new_value
 
-        return cls(*[StateVar.from_dict(col) for col in _mapping])
+        return cls(*[StateVar.from_dict(col) for col in _mapping], **kwargs)
 
     def store_file(self, file: Path) -> None:
         """Save the StateConfig to a comma separated file.
@@ -332,19 +338,21 @@ class StateConfig:
         n_observations = len(self.observations)
         n_total = len(self.vars)
 
-        return f"StateConfig with {n_actions} actions, {n_observations} observations ({n_total} total variables)"
+        base_str = f"StateConfig with {n_actions} actions, {n_observations} observations ({n_total} total variables)"
+
+        if self._source_path is not None:
+            return f"{base_str} from '{self._source_path}'"
+
+        return base_str
 
     def __repr__(self) -> str:
         """Developer-friendly string representation of StateConfig."""
-        n_actions = len(self.actions)
-        n_observations = len(self.observations)
-
         # Show first few variables for context
-        actions_preview = self.actions[:3]
-        observations_preview = list(self.observations)[:3]
+        actions_str = str(self.actions[:3]).split("]")[0]
+        observations_str = str(sorted(self.observations)[:3]).split("]")[0]
 
-        actions_str = f"{actions_preview}{'...' if n_actions > 3 else ''}"
-        observations_str = f"{observations_preview}{'...' if n_observations > 3 else ''}"
+        actions_str = f"{actions_str}{', ...' if len(self.actions) > 3 else ''}]"
+        observations_str = f"{observations_str}{', ...' if len(self.observations) > 3 else ''}]"
 
         return f"StateConfig(actions={actions_str}, observations={observations_str})"
 
