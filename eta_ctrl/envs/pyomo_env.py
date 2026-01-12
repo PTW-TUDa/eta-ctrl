@@ -197,11 +197,13 @@ class PyomoEnv(BaseEnv, abc.ABC):
         :return: A tuple containing:
 
             * **reward**: The value of the reward function. This is just one floating point value.
-            * **terminated**: Boolean value specifying whether an episode has been completed. If this is set to true,
-              the reset function will automatically be called by the agent or by EtaCtrl
-            * **truncated**: Boolean, whether the truncation condition outside the scope is satisfied.
-              Typically, this is a timelimit, but could also be used to indicate an agent physically going out of
-              bounds. Can be used to end the episode prematurely before a terminal state is reached.
+            * **terminated (bool)**: Whether the agent reaches the terminal state (as defined under the MDP of the task)
+                which can be positive or negative. An example is reaching the goal state or moving into the lava from
+                the Sutton and Barto Gridworld. If true, the Vectorizer will call :meth:`reset`.
+            * **truncated (bool)**: Whether the truncation condition outside the scope of the MDP is satisfied
+                (i.e. the episode ended). Typically, this is a timelimit, but could also be used to indicate an agent
+                physically going out of bounds. Can be used to end the episode prematurely before a terminal state is
+                reached. If true, the Vectorizer will call :meth:`reset`.
             * **info**: Provide some additional info about the state of the environment. The contents of this may
               be used for logging purposes in the future but typically do not currently serve a purpose.
 
@@ -212,15 +214,11 @@ class PyomoEnv(BaseEnv, abc.ABC):
         :meta public:
         """
         self._reset_state()
-
         # Update and log current state
         self.update()
-
         self.state_log.append(self.state)
-
         reward = pyo.value(next(self.model[0].component_objects(pyo.Objective)))
-
-        return reward, self._terminated(), False, {}
+        return reward, False, self._truncated(), {}
 
     def update(self, observations: Sequence[Sequence[float | int]] | None = None) -> None:
         """Update the optimization model with observations from another environment.
