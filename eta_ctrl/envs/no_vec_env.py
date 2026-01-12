@@ -55,8 +55,8 @@ class NoVecEnv(DummyVecEnv):
         self.buf_obs = OrderedDict(
             [(k, np.zeros((self.num_envs, *tuple(shapes[k])), dtype=dtypes[k])) for k in self.keys]
         )
+        self.buf_rewards = np.zeros((self.num_envs,), dtype=np.float32)
         self.buf_dones = np.zeros((self.num_envs,), dtype=bool)
-        self.buf_rews = np.zeros((self.num_envs,), dtype=np.float32)
         self.buf_infos = [{} for _ in range(self.num_envs)]
 
         self.actions: np.ndarray
@@ -79,24 +79,23 @@ class NoVecEnv(DummyVecEnv):
             raise TypeError(msg)
 
         # Re-initialize the observation buffers (necessary because the number of action sets is not known beforehand).
-        obs, self.buf_rews, _terminated, truncated, self.buf_infos = self.envs[0].step(self.actions)  # type: ignore[assignment]
+        obs, self.buf_rewards, terminated, truncated, self.buf_infos = self.envs[0].step(self.actions)  # type: ignore[assignment]
 
         for idx in range(self.num_envs):
-            self.buf_dones[idx] = _terminated[idx]  # type: ignore[index]
-            self.buf_infos[idx]["TimeLimit.truncated"] = truncated[idx] and not _terminated[idx]  # type: ignore[index]
-
-            if self.buf_dones[idx]:
+            self.buf_infos[idx]["TimeLimit.truncated"] = truncated and not terminated
+            if truncated and not terminated:
                 self.buf_infos[idx]["terminal_observation"] = obs[idx]
                 obs[idx], self.reset_infos[0] = self.envs[0].reset()
+
+            self.buf_dones[idx] = truncated or terminated
             self._save_obs(idx, obs[idx])
 
         # The type of the return value is currently not correct because stablesbaslines3 v2.2.1 has not completely
         # migrated gymnasium into the project but ETA Ctrl still needs five return parameters.
-        return (  # type: ignore[return-value]
+        return (
             self._obs_from_buf(),
-            np.copy(self.buf_rews),
+            np.copy(self.buf_rewards),
             np.copy(self.buf_dones),
-            np.copy(truncated),
             deepcopy(self.buf_infos),
         )
 
