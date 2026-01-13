@@ -7,7 +7,7 @@ import logging
 import pathlib
 import sys
 
-from eta_ctrl.envs.sim_env import SimEnv
+from eta_ctrl.common.sim_env_scaffolder import SimEnvScaffolder
 
 # Configure logging at module level for all CLI scripts
 logging.basicConfig(
@@ -44,7 +44,7 @@ def create_sim_env() -> None:
     fmu_path = pathlib.Path(args.fmu_path)
     _validate_fmu_path(fmu_path)
 
-    SimEnv.from_fmu(fmu_path, args.output_dir)
+    SimEnvScaffolder.from_fmu(fmu_path, args.output_dir)
 
 
 def export_fmu_data() -> None:
@@ -70,11 +70,11 @@ def export_fmu_data() -> None:
     if args.output_dir:
         state_config_output = str(pathlib.Path(args.output_dir) / f"{fmu_path.stem}_state_config.toml")
 
-    SimEnv.export_fmu_state_config(fmu_path, state_config_output)
+    SimEnvScaffolder.export_fmu_state_config(fmu_path, state_config_output)
 
     # Export parameters
     parameters_output = None
     if args.output_dir:
         parameters_output = str(pathlib.Path(args.output_dir) / f"{fmu_path.stem}_parameters.toml")
 
-    SimEnv.export_fmu_parameters(fmu_path, parameters_output)
+    SimEnvScaffolder.export_fmu_parameters(fmu_path, parameters_output)
