@@ -30,7 +30,9 @@ class DrKea(PyomoEnv):
         self.use_model_time_increments = True  # Increment by one instead of the sampling time
         self.timeseries = self.import_scenario(*scenario_files)  # Load time series data
         # Convert electricity cost from   € / MW h   to   €/kW min
-        self.timeseries["energy_price"] = self.timeseries["electrical_energy_price"] / 1000 / 3600 * self.sampling_time
+        self.timeseries["energy_price"] = (
+            self.timeseries["Electrical_Energy_Price_MWh"] / 1000 / 3600 * self.sampling_time
+        )
 
     def _model(self) -> pyo.ConcreteModel:
         """This is where the actual model is defined.

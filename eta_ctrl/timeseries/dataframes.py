@@ -100,7 +100,7 @@ def df_from_csv(
         # Find number of fields, names of fields and a conversion string for time
         length = len(first_line)
         splitter = re.compile("[^A-Za-z0-9 _-]")
-        names = [splitter.split(s.strip(), 1)[0].lower().strip().replace(" ", "_") for s in first_line]
+        names = [splitter.sub("", s.strip()).strip().replace(" ", "_") for s in first_line]
 
     # Load the CSV file
     if infer_datetime_format:
