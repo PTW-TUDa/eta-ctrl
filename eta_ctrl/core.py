@@ -410,9 +410,9 @@ class EtaCtrl:
             try:
                 log.debug("Resetting environments before starting to play.")
                 observations = self._reset_envs()
-            except ValueError as e:
-                msg = "It is likely that returned observations do not conform to the specified state config."
-                raise ValueError(msg) from e
+            except Exception:
+                log.exception("Resetting environments failed")
+                raise
             n_episodes = 0
 
             log.debug("Start playing process of agent in environment.")
