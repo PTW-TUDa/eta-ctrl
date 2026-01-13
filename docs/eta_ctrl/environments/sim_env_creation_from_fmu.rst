@@ -4,9 +4,9 @@ Creating a Simulation Environment from an existing Functional Mockup Unit
 This Chapter describes how you can quickly generate an environment (SimEnv) from your existing .fmu(Functional Mockup Unit) file.
 This process aims to make it easier to create, configure, and validate environments based on FMU simulations.
 
-Creating an Environment from FMU
+Using the SimEnvScaffolder
 ---------------------------------
-The most powerful feature is the ability to create an environment directly from an FMU file using the ``SimEnv.from_fmu()`` class method.
+The most powerful feature is the ability to create an environment template directly from an FMU file using the ``SimEnvScaffolder.from_fmu()`` class method.
 This method handles all the necessary setup with minimal configuration:
 
 Assuming you have already created an experiment repository, let's call it ``heater-control``. And you have installed it with poetry.
@@ -17,9 +17,9 @@ Assuming you have already created an experiment repository, let's call it ``heat
 
 .. code-block:: python
 
-    from eta_ctrl.envs.sim_env import SimEnv
+    from eta_ctrl.common.sim_env_factory import SimEnvScaffolder
 
-    SimEnv.from_fmu("heater_control/heating_tank.fmu")
+    SimEnvScaffolder.from_fmu("heater_control/heating_tank.fmu")
 
 This will:
 - Create ``heating_tank.py``, containing ``HeatingTankEnv``, a subclass of ``SimEnv``.
@@ -39,7 +39,7 @@ You still need to:
 Exporting just the FMU Variables and Parameters
 ------------------------------------------------
 
-If you already have an Environment, you can also just export the structure of an FMU file to a TOML file using ``SimEnv.export_fmu_state_config()`` and ``SimEnv.export_fmu_parameters()``.
+If you already have an Environment, you can also just export the structure of an FMU file to a TOML file using ``SimEnvScaffolder.export_fmu_state_config()`` and ``SimEnvScaffolder.export_fmu_parameters()``.
 These methods extract the inputs, outputs, and parameters from the FMU to TOML files.
 
 .. code-block:: bash
