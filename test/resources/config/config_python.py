@@ -20,16 +20,15 @@ config = {  # noqa: INP001
         "n_environments": 1,
         "verbose": 2,
         "seed": 123,
-    },
-    "environment_specific": {
         "scenario_time_begin": "2022-03-18 00:00",
         "scenario_time_end": "2022-03-18 00:30",
+    },
+    "environment_specific": {
         "sim_steps_per_sample": 1,
         "scenario_files": [
             {
                 "path": "electricity_price_test.csv",
                 "interpolation_method": "ffill",
-                "resample_method": "asfreq",
                 "time_conversion_str": "%d.%m.%Y %H:%M",
             }
         ],
@@ -53,6 +52,5 @@ config = {  # noqa: INP001
             "temperatureChangeCleaningValue": -0.025,
         },
     },
-    "interaction_env_specific": {"scenario_time_begin": "2022-03-18 06:00", "scenario_time_end": "2022-03-18 10:00"},
     "agent_specific": {"action_index": 1, "solver_name": "cplex_direct"},
 }

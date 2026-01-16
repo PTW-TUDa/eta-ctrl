@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
     from typing import Literal
 
-    from eta_ctrl.util.type_annotations import Path, TimeStep
+    from eta_ctrl.util.type_annotations import InferDatetimeType, Path, TimeStep
 
 log = getLogger(__name__)
 
@@ -31,7 +31,7 @@ def df_from_csv(
     path: Path,
     *,
     delimiter: str = ";",
-    infer_datetime_from: str | Sequence[int] | tuple[int, int] = "dates",
+    infer_datetime_from: InferDatetimeType | Sequence[int] | tuple[int, int] = "dates",
     time_conversion_str: str = "%Y-%m-%d %H:%M",
 ) -> pd.DataFrame:
     """Take data from a csv file, process it and return a Timeseries (pandas Data Frame) object.
@@ -57,7 +57,7 @@ def df_from_csv(
 
     :param time_conversion_str: Time conversion string according to the python (strptime) format.
     """
-    path = pathlib.Path(path) if not isinstance(path, pathlib.Path) else path
+    path = pathlib.Path(path)
 
     conversion_string = None
     infer_datetime_format = False
@@ -155,6 +155,13 @@ def find_time_slice(
     else:
         msg = "At least one of time_end and total_time must be specified to fully constrain the interval."
         raise ValueError(msg)
+
+    round_to_interval = (
+        round_to_interval.total_seconds() if isinstance(round_to_interval, timedelta) else round_to_interval
+    )
+    # pandas Timestamp returns a different timestamp than python datetime objects!
+    if isinstance(time_begin, pd.Timestamp):
+        time_begin = time_begin.to_pydatetime()
 
     # Determine the (possibly random) beginning time of the time slice and round it if necessary
     if random:
@@ -286,7 +293,8 @@ def df_interpolate(
 
     :param dataframe: DataFrame for interpolation.
     :param freq: Frequency of the resulting DataFrame.
-    :param limit_direction: Direction in which to limit the interpolation. Defaults to "both".
+    :param limit_direction: Direction in which to limit the
+            interpolation. Defaults to "both".
 
     :return: Interpolated DataFrame.
     """

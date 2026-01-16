@@ -19,6 +19,7 @@ Number = float | int | np.floating | np.signedinteger | np.unsignedinteger
 TimeStep = int | float | datetime.timedelta
 
 FillMethod = Literal["ffill", "bfill", "interpolate", "asfreq"]
+InferDatetimeType = Literal["string", "dates"]
 
 ActionType = np.ndarray
 EnvSettings = dict[str, Any]

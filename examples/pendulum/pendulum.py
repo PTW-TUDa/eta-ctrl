@@ -26,7 +26,6 @@ from eta_ctrl.envs import BaseEnv, StateConfig
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from datetime import datetime
     from typing import Any
 
     from eta_ctrl.config import ConfigRun
@@ -44,8 +43,6 @@ class PendulumEnv(BaseEnv, GymPendulum):
     :param config_run: Configuration of the optimization run
     :param verbose: Verbosity to use for logging (default: 2)
     :param callback: callback which should be called after each episode
-    :param scenario_time_begin: Beginning time of the scenario
-    :param scenario_time_end: Ending time of the scenario
     :param episode_duration: Duration of the episode in seconds
     :param sampling_time: Duration of a single time sample / time step in seconds
     :param max_speed: Maximum speed of the pendulum
@@ -71,8 +68,6 @@ class PendulumEnv(BaseEnv, GymPendulum):
         seed: int | None = None,
         *,
         state_config: StateConfig,
-        scenario_time_begin: datetime | str,
-        scenario_time_end: datetime | str,
         episode_duration: TimeStep | str,
         sampling_time: TimeStep | str,
         max_speed: int,
@@ -83,6 +78,7 @@ class PendulumEnv(BaseEnv, GymPendulum):
         do_render: bool = True,
         screen_dim: int = 500,
         render_mode: str = "human",
+        **kwargs: Any,
     ) -> None:
         super().__init__(
             env_id=env_id,
@@ -90,11 +86,10 @@ class PendulumEnv(BaseEnv, GymPendulum):
             state_config=state_config,
             verbose=verbose,
             callback=callback,
-            scenario_time_begin=scenario_time_begin,
-            scenario_time_end=scenario_time_end,
             episode_duration=episode_duration,
             sampling_time=sampling_time,
             render_mode=render_mode,
+            **kwargs,
         )
 
         # Load environment dynamics specific settings

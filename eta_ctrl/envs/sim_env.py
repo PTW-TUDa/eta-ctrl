@@ -5,17 +5,12 @@ import time
 from logging import getLogger
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    import pathlib
-    from datetime import datetime
-
-
 from eta_ctrl.envs import BaseEnv
 from eta_ctrl.simulators import FMUSimulator
 
 if TYPE_CHECKING:
+    import pathlib
     from collections.abc import Callable, Mapping
-    from datetime import datetime
     from typing import Any
 
     from eta_ctrl.config import ConfigRun
@@ -31,8 +26,6 @@ class SimEnv(BaseEnv, abc.ABC):
     :param config_run: Configuration of the optimization run.
     :param verbose: Verbosity to use for logging.
     :param callback: callback which should be called after each episode.
-    :param scenario_time_begin: Beginning time of the scenario.
-    :param scneario_time_end: Ending time of the scenario.
     :param episode_duration: Duration of the episode in seconds.
     :param sampling_time: Duration of a single time sample / time step in seconds.
     :param model_parameters: Parameters for the mathematical model.
@@ -55,8 +48,6 @@ class SimEnv(BaseEnv, abc.ABC):
         verbose: int = 2,
         callback: Callable | None = None,
         *,
-        scenario_time_begin: datetime | str,
-        scenario_time_end: datetime | str,
         episode_duration: TimeStep | str,
         sampling_time: TimeStep | str,
         model_parameters: Mapping[str, Any] | None = None,
@@ -69,8 +60,6 @@ class SimEnv(BaseEnv, abc.ABC):
             config_run=config_run,
             verbose=verbose,
             callback=callback,
-            scenario_time_begin=scenario_time_begin,
-            scenario_time_end=scenario_time_end,
             episode_duration=episode_duration,
             sampling_time=sampling_time,
             render_mode=render_mode,
@@ -260,9 +249,6 @@ class SimEnv(BaseEnv, abc.ABC):
         # We provide output and input names to the FMU so output will be a dictionary
         output: dict[str, float] = self.simulator.read_values(start_obs)
         self.set_external_outputs(output)
-
-        # Update scenario data
-        self.state.update(self.get_scenario_state())
 
         return {}
 

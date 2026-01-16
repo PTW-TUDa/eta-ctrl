@@ -82,16 +82,14 @@ class StateVar(BaseModel):
     index: int = 0
 
     def model_post_init(self, context: Any) -> None:
-        if (self.is_ext_input or self.is_ext_output) and self.ext_id is None:
-            object.__setattr__(self, "ext_id", self.name)
-            log.info(f"Using name as ext_id for variable {self.name}")
-
-        if (not self.from_interact) ^ (self.interact_id is None):
-            msg = f"Variable {self.name} is either missing `interact_id` or `from_interact`."
-            raise KeyError(msg)
-        if (not self.from_scenario) ^ (self.scenario_id is None):
-            msg = f"Variable {self.name} is either missing `scenario_id` or `from_scenario`."
-            raise KeyError(msg)
+        for flag, id_value, id_name in [
+            (self.is_ext_input, self.ext_id, "ext_id"),
+            (self.is_ext_output, self.ext_id, "ext_id"),
+            (self.from_scenario, self.scenario_id, "scenario_id"),
+        ]:
+            if flag and id_value is None:
+                object.__setattr__(self, "ext_id", self.name)
+                log.info(f"Using name as {id_name} for variable {self.name}")
 
     @classmethod
     def from_dict(cls, mapping: Mapping[str, Any] | pd.Series) -> StateVar:
@@ -192,7 +190,7 @@ class StateConfig:
         self.map_interact_ids: dict[str, str] = self.df_vars["interact_id"].to_dict()
 
         #: List of variables which are loaded from scenario files.
-        self.scenarios: list[str] = self.df_vars.query("from_scenario == True").index.tolist()
+        self.scenario_outputs: list[str] = self.df_vars.query("from_scenario == True").index.tolist()
         #: Mapping of internal environment names to scenario IDs.
         self.map_scenario_ids: dict[str, str] = self.df_vars["scenario_id"].to_dict()
 

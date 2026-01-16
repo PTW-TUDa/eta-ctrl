@@ -28,8 +28,6 @@
         "plot_interval": 50
     },
     "environment_specific": {
-        "scenario_time_begin": "2022-01-04 12:12",
-        "scenario_time_end": "2022-01-04 12:13",
         "scale_actions": true
     },
     "agent_specific": {     // Parameters for PPO Algorithm

@@ -8,7 +8,6 @@ import pyomo.environ as pyo
 from eta_ctrl.envs import PyomoEnv
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
     from typing import Any
 
 
@@ -19,7 +18,7 @@ class DrKea(PyomoEnv):
     version = "1.1"
     description = "Demonstration of a simple MPC environment for a tank heating system."
 
-    def __init__(self, scenario_files: Sequence[Mapping[str, Any]], **kwargs: Any) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         # Instantiate PyomoEnv
         super().__init__(**kwargs)
 
@@ -28,11 +27,6 @@ class DrKea(PyomoEnv):
         self.model_parameters["temperature_change_cleaning"] *= self.sampling_time  # type: ignore[index]
 
         self.use_model_time_increments = True  # Increment by one instead of the sampling time
-        self.timeseries = self.import_scenario(*scenario_files)  # Load time series data
-        # Convert electricity cost from   € / MW h   to   €/kW min
-        self.timeseries["energy_price"] = (
-            self.timeseries["Electrical_Energy_Price_MWh"] / 1000 / 3600 * self.sampling_time
-        )
 
     def _model(self) -> pyo.ConcreteModel:
         """This is where the actual model is defined.
@@ -114,7 +108,12 @@ class DrKea(PyomoEnv):
 
         model.objective = pyo.Objective(rule=objective_rule, sense=pyo.minimize, doc="Total cost of heating")
 
-        return model.create_instance(self.pyo_component_params(None, self.timeseries, model.t))
+        ts = (
+            self.scenario_manager.get_scenario_state_with_duration(n_step=0, duration=self.n_prediction_steps + 1)
+            if self.scenario_manager is not None
+            else None
+        )
+        return model.create_instance(data=self.pyo_component_params(component_name=None, ts=ts, index=model.t))
 
     ### This method does not need to be implemented
     def _reset(
@@ -131,6 +130,7 @@ class DrKea(PyomoEnv):
         :param options: Options for the reset.
         :return: Initial observation and info dictionary.
         """
+        super()._reset()
         return {}
 
     def close(self) -> None:

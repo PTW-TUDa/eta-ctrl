@@ -56,7 +56,9 @@ class Config:
         object.__setattr__(self, "path_results", self.path_root / self.relpath_results)
 
         if self.relpath_scenarios is not None:
-            object.__setattr__(self, "path_scenarios", self.path_root / self.relpath_scenarios)
+            self.path_scenarios = self.path_root / self.relpath_scenarios
+
+        self.settings.create_scenario_manager(self.path_scenarios)
 
     @classmethod
     def from_file(cls, file: Path, path_root: Path, overwrite: Mapping[str, Any] | None = None) -> Config:

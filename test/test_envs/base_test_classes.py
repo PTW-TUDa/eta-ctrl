@@ -14,6 +14,7 @@ from eta_ctrl.envs.live_env import LiveEnv
 from eta_ctrl.envs.pyomo_env import PyomoEnv
 from eta_ctrl.envs.sim_env import SimEnv
 from eta_ctrl.envs.state import StateConfig, StateVar
+from test.test_agents.test_mathsolver import DummyScenarioManager
 
 
 @pytest.fixture(scope="class")
@@ -151,8 +152,10 @@ def unified_env_factory(config_run_factory, state_config_factory):
             model_parameters = env_specific_params.get("model_parameters", {})
             prediction_horizon = env_specific_params.get("prediction_horizon", 3600.0)
             n_prediction_steps = env_specific_params.get("n_prediction_steps", 12)
+            scenario_manager = DummyScenarioManager()
             return TestPyomoEnv(
                 **common_params,
+                scenario_manager=scenario_manager,
                 model_parameters=model_parameters,
                 prediction_horizon=prediction_horizon,
                 n_prediction_steps=n_prediction_steps,

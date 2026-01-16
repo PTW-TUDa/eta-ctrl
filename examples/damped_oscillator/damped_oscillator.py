@@ -12,7 +12,6 @@ from eta_ctrl.envs import SimEnv
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from datetime import datetime
     from typing import Any
 
     from eta_ctrl.config import ConfigRun
@@ -28,8 +27,6 @@ class DampedOscillatorEnv(SimEnv):
     :param config_run: Configuration of the optimization run
     :param verbose: Verbosity to use for logging (default: 2)
     :param callback: callback which should be called after each episode
-    :param scenario_time_begin: Beginning time of the scenario
-    :param scenario_time_end: Ending time of the scenario
     :param episode_duration: Duration of the episode in seconds
     :param sampling_time: Duration of a single time sample / time step in seconds
     :param scale_actions: Normalize the actions when using RL algorithms
@@ -47,8 +44,6 @@ class DampedOscillatorEnv(SimEnv):
         verbose: int = 2,
         callback: Callable | None = None,
         *,
-        scenario_time_begin: datetime | str,
-        scenario_time_end: datetime | str,
         episode_duration: TimeStep | str,
         sampling_time: TimeStep | str,
         scale_actions: bool = False,
@@ -60,8 +55,6 @@ class DampedOscillatorEnv(SimEnv):
             config_run,
             verbose,
             callback,
-            scenario_time_begin=scenario_time_begin,
-            scenario_time_end=scenario_time_end,
             episode_duration=episode_duration,
             sampling_time=sampling_time,
             render_mode=render_mode,

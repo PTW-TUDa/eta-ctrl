@@ -29,18 +29,6 @@ class TestStateVar:
         assert state_var_default.abort_condition_min == -np.inf
         assert state_var_default.abort_condition_max == np.inf
 
-    @pytest.mark.parametrize(
-        ("name"),
-        [
-            pytest.param("interact", id="interact"),
-            pytest.param("scenario", id="scenario"),
-        ],
-    )
-    def test_missing_params(self, name):
-        msg = f"Variable {name} is either missing `{name}_id` or `from_{name}`"
-        with pytest.raises(KeyError, match=msg):
-            StateVar(name=name, **{f"from_{name}": True})
-
     @pytest.fixture(scope="class")
     def state_var_scenario(self):
         return StateVar(
