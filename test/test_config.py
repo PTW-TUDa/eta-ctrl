@@ -25,7 +25,7 @@ class TestConfig:
     def test_from_dict_overwrite(self, config_dict, config_resources_path):
         overwrite = {
             "agent_specific": {"solver_name": "foobar"},
-            "environment_specific": {"scenario_files": [{"path": "foobar.csv"}]},
+            "environment_specific": {"foo": [{"bar": "quux"}]},
         }
 
         config_opt = Config.from_dict(
@@ -33,7 +33,7 @@ class TestConfig:
         )
 
         assert config_opt.settings.agent["solver_name"] == "foobar"
-        assert config_opt.settings.environment["scenario_files"][0]["path"] == "foobar.csv"
+        assert config_opt.settings.environment["foo"][0]["bar"] == "quux"
 
     def test_from_dict_fail(self, config_dict, config_resources_path):
         config_dict.pop("settings")
@@ -54,7 +54,7 @@ class TestConfig:
 
     def test_build_config_altname(self, config_dict: dict, caplog, config_resources_path):
         config_dict["interaction_environment_specific"] = {"foo": "bar"}
-        config_dict.pop("interaction_env_specific")
+        config_dict.pop("interaction_env_specific", None)
         config_dict["agentspecific"] = {"solver_name": "foobar"}
         config = Config.from_dict(config_dict, config_name="", path_root=config_resources_path)
         assert config.settings.interaction_env["foo"] == "bar"

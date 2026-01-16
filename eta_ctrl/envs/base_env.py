@@ -9,19 +9,18 @@ from logging import getLogger
 from typing import TYPE_CHECKING, cast
 
 import numpy as np
-import pandas as pd
 from gymnasium import Env, spaces
 
-from eta_ctrl import timeseries
 from eta_ctrl.util import csv_export
 from eta_ctrl.util.utils import timestep_to_seconds
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator, Mapping, Sequence
+    from collections.abc import Callable, Iterator, Sequence
     from typing import Any
 
     from eta_ctrl.config import ConfigRun
     from eta_ctrl.envs.state import StateConfig
+    from eta_ctrl.timeseries.scenario_manager import ScenarioManager
     from eta_ctrl.util.type_annotations import ObservationType, Path, StepResult, TimeStep
 
 
@@ -63,8 +62,6 @@ class BaseEnv(Env, abc.ABC):
     :param verbose: Verbosity to use for logging.
     :param callback: callback that should be called after each episode.
     :param state_modification_callback: callback that should be called after state setup, before logging the state.
-    :param scenario_time_begin: Beginning time of the scenario.
-    :param scenario_time_end: Ending time of the scenario.
     :param episode_duration: Duration of the episode in seconds.
     :param sampling_time: Duration of a single time sample / time step in seconds.
     :param render_mode: Renders the environments to help visualise what the agent see, examples
@@ -100,11 +97,10 @@ class BaseEnv(Env, abc.ABC):
         state_modification_callback: Callable | None = None,
         seed: int | None = None,
         *,
-        scenario_time_begin: datetime | str,
-        scenario_time_end: datetime | str,
         episode_duration: TimeStep | str,
         sampling_time: TimeStep | str,
         sim_steps_per_sample: int | str = 1,
+        scenario_manager: ScenarioManager | None = None,
         render_mode: str | None = None,
         **kwargs: Any,
     ) -> None:
@@ -135,26 +131,6 @@ class BaseEnv(Env, abc.ABC):
         self.sampling_time: float = timestep_to_seconds(sampling_time)
         #: Number of time steps (of width sampling_time) in each episode.
         self.n_episode_steps: int = int(self.episode_duration // self.sampling_time)
-        #: Duration of the scenario for each episode (for total time imported from csv).
-        self.scenario_duration: float = self.episode_duration + self.sampling_time
-
-        #: Beginning time of the scenario.
-        self.scenario_time_begin: datetime
-        if isinstance(scenario_time_begin, datetime):
-            self.scenario_time_begin = scenario_time_begin
-        else:
-            self.scenario_time_begin = datetime.strptime(scenario_time_begin, "%Y-%m-%d %H:%M")
-        #: Ending time of the scenario (should be in the format %Y-%m-%d %H:%M).
-        self.scenario_time_end: datetime
-        if isinstance(scenario_time_end, datetime):
-            self.scenario_time_end = scenario_time_end
-        else:
-            self.scenario_time_end = datetime.strptime(scenario_time_end, "%Y-%m-%d %H:%M")
-
-        # Check if scenario begin and end times make sense
-        if self.scenario_time_begin > self.scenario_time_end:
-            msg = "Start time of the scenario should be smaller than or equal to end time."
-            raise ValueError(msg)
 
         #: Number of simulation steps to be taken for each sample. This must be a divisor of 'sampling_time'.
         self.sim_steps_per_sample: int = int(sim_steps_per_sample)
@@ -163,8 +139,12 @@ class BaseEnv(Env, abc.ABC):
         self.state_config: StateConfig = state_config
         self.action_space, self.observation_space = self.state_config.continuous_spaces()
 
+        #: Manager to load scenario data into the state
+        self.scenario_manager = scenario_manager
+
         if seed is not None:
             # Initialize random generator
+            # Explicitly use Env class from gymnasium since super() doesn't work with multiple inheritance
             Env.reset(self, seed=seed)
             self.action_space.seed(seed=seed)
             self.observation_space.seed(seed=seed)
@@ -192,12 +172,6 @@ class BaseEnv(Env, abc.ABC):
         #: Log of the environment state over multiple episodes.
         self.state_log_longtime: list[list[dict[str, np.ndarray]]] = []
 
-        #: The time series DataFrame contains all time series scenario data. It can be filled by the
-        #: import_scenario method.
-        self.timeseries: pd.DataFrame = pd.DataFrame()
-        #: Data frame containing the currently valid range of time series data.
-        self.ts_current: pd.DataFrame = pd.DataFrame()
-
         #: Number of completed episodes.
         self.n_episodes: int = 0
         #: Current step of the model (number of completed steps) in the current episode.
@@ -224,82 +198,6 @@ class BaseEnv(Env, abc.ABC):
     def path_series_results(self) -> pathlib.Path:
         #: Path for storing results of series of runs.
         return self.config_run.path_series_results
-
-    def import_scenario(self, *scenario_paths: Mapping[str, Any], prefix_renamed: bool = True) -> pd.DataFrame:
-        """Load data from csv into self.timeseries_data by using scenario_from_csv.
-
-        :param scenario_paths: One or more scenario configuration dictionaries (or a list of dicts), which each contain
-            a path for loading data from a scenario file. The dictionary should have the following structure, with <X>
-            denoting the variable value:
-
-            .. note ::
-                [{*path*: <X>, *prefix*: <X>, *interpolation_method*: <X>, *resample_method*: <X>,
-                *scale_factors*: {col_name: <X>}, *rename_cols*: {col_name: <X>}, *infer_datetime_cols*: <X>,
-                *time_conversion_str*: <X>}]
-
-            * **path**: Path to the scenario file (relative to scenario_path).
-            * **prefix**: Prefix for all columns in the file, useful if multiple imported files
-              have the same column names.
-            * **interpolation_method**: A pandas interpolation method, required if the frequency of
-              values must be increased in comparison to the files' data. (e.g.: 'linear' or 'pad').
-            * **scale_factors**: Scaling factors for specific columns. This can be useful for
-              example, if a column contains data in kilowatt and should be imported in watts.
-              In this case, the scaling factor for the column would be 1000.
-            * **rename_cols**: Mapping of column names from the file to new names for the imported
-              data.
-            * **infer_datetime_cols**: Number of the column which contains datetime data. If this
-              value is not present, the time_conversion_str variable will be used to determine
-              the datetime format.
-            * **time_conversion_str**: Time conversion string, determining the datetime format
-              used in the imported file (default: %Y-%m-%d %H:%M).
-        :param prefix_renamed: Determine whether the prefix is also applied to renamed columns.
-        :return: Data Frame of the imported and formatted scenario data.
-        """
-        paths = []
-        prefix = []
-        int_methods = []
-        scale_factors = []
-        rename_cols = {}
-        infer_datetime_from = []
-        time_conversion_str = []
-
-        for path in scenario_paths:
-            paths.append(self.path_scenarios / path["path"])
-            prefix.append(path.get("prefix", None))
-            int_methods.append(path.get("interpolation_method", None))
-            scale_factors.append(path.get("scale_factors", None))
-            (rename_cols.update(path.get("rename_cols", {})),)
-            infer_datetime_from.append(path.get("infer_datetime_cols", "string"))
-            time_conversion_str.append(path.get("time_conversion_str", "%Y-%m-%d %H:%M"))
-
-        self.ts_current = timeseries.scenario_from_csv(
-            paths=paths,
-            resample_time=self.sampling_time,
-            start_time=self.scenario_time_begin,
-            end_time=self.scenario_time_end,
-            total_time=self.scenario_duration,
-            random=self.np_random,
-            interpolation_method=int_methods,
-            scaling_factors=scale_factors,
-            rename_cols=rename_cols,
-            prefix_renamed=prefix_renamed,
-            infer_datetime_from=infer_datetime_from,
-            time_conversion_str=time_conversion_str,
-        )
-
-        return self.ts_current
-
-    def get_scenario_state(self) -> dict[str, Any]:
-        """Get scenario data for the current time step of the environment, as specified in state_config. This assumes
-        that scenario data in self.ts_current is available and scaled correctly.
-
-        :return: Scenario data for current time step.
-        """
-        scenario_state = {}
-        for scen in self.state_config.scenarios:
-            scenario_state[scen] = self.ts_current[self.state_config.map_scenario_ids[scen]].iloc[self.n_steps]
-
-        return scenario_state
 
     @abc.abstractmethod
     def _step(self) -> tuple[float, bool, bool, dict]:
@@ -339,13 +237,20 @@ class BaseEnv(Env, abc.ABC):
             * **info**: Provide some additional info about the state of the environment. The contents of this may be
               used for logging purposes in the future but typically do not currently serve a purpose.
         """
+        # Clear state
         self._reset_state()
-        self._actions_valid(action)
 
+        # Check actions
+        self._actions_valid(action)
         self.set_action(action=action)
+
+        # Update with scenario data, if existing
+        self.set_scenario_state()
+
         # Perform the actual step in the environment
         reward, terminated, truncated, info = self._step()
         self.n_steps += 1
+
         # Execute optional state modification callback function
         if self.state_modification_callback:
             self.state_modification_callback()
@@ -557,7 +462,7 @@ class BaseEnv(Env, abc.ABC):
         return f"{formatted} (shape: {arr.shape}, dtype: {arr.dtype})"
 
     def _reset_state(self) -> None:
-        """Take some initial values and create a new environment state object, stored in self.state."""
+        """Clear self.state and initialize with additional_state."""
         self.state = {}
         if self.additional_state is not None:
             additional_state = {name: np.array([value]) for name, value in self.additional_state.items()}
@@ -608,21 +513,30 @@ class BaseEnv(Env, abc.ABC):
         # Reset state_log and counters
         if self.n_steps > 0:
             self._reset_episode()
-        # Reset state
+
+        # Clear state
         self._reset_state()
+
         # Set rng seed
         Env.reset(self, seed=seed)
+
+        # Update with scenario data, if existing
+        self.set_scenario_state()
+
         # Set initial observations in child class
         info = self._reset(options=options)
+
         # Execute optional state modification callback function
         if self.state_modification_callback:
             self.state_modification_callback()
 
+        # Log state
         self.state_log.append(self.state)
 
-        # Render the environment when calling the reset function
+        # Render the environment
         if self.render_mode is not None:
             self.render()
+
         return self.get_observations(), info
 
     def _reduce_state_log(self) -> list[dict[str, np.ndarray]]:
@@ -799,3 +713,10 @@ class BaseEnv(Env, abc.ABC):
             scaled_value = (unscaled_value + state_var.ext_scale_add) * state_var.ext_scale_mult
 
             self.state[name] = np.array([scaled_value])
+
+    def set_scenario_state(self) -> None:
+        """Set scenario output values for the current timestep in the state."""
+        if self.scenario_manager is not None:
+            scenario_data = self.scenario_manager.get_scenario_state(n_steps=self.n_steps)
+            for scenario_id in self.state_config.scenario_outputs:
+                self.state[scenario_id] = scenario_data[scenario_id]

@@ -1,20 +1,28 @@
 from __future__ import annotations
 
 import itertools
+from datetime import datetime
 from logging import getLogger
 from typing import TYPE_CHECKING
 
 from attrs import Factory, converters, define, field, fields
 
+from eta_ctrl.timeseries.scenario_manager import ConfigCsvScenario, CsvScenarioManager
 from eta_ctrl.util import dict_pop_any
 
 if TYPE_CHECKING:
+    from pathlib import Path
     from typing import Any
 
     from attrs import Attribute
 
 
 log = getLogger(__name__)
+
+
+def convert_datetime(datetime_: str) -> datetime:
+    """Convert a string to a datetime object with format '%Y-%m-%d %H:%M'"""
+    return datetime.strptime(datetime_, "%Y-%m-%d %H:%M")
 
 
 def _env_defaults(instance: ConfigSettings, attrib: Attribute, new_value: dict[str, Any] | None) -> dict[str, Any]:
@@ -75,7 +83,13 @@ class ConfigSettings:
         default=10,
         converter=converters.pipe(converters.default_if_none(1), int),  # type: ignore[misc]
     )  # mypy currently does not recognize converters.default_if_none
-
+    #: Beginning time of the scenario(must be in the format %Y-%m-%d %H:%M)..
+    scenario_time_begin: datetime | None = field(default=None, converter=converters.optional(convert_datetime))
+    #: Ending time of the scenario (must be in the format %Y-%m-%d %H:%M).
+    scenario_time_end: datetime | None = field(default=None, converter=converters.optional(convert_datetime))
+    #: Boolean flag whether to use a random time slice when the difference of
+    #: scenario_time_end and scenario_time_begin is greater than the episode duration
+    use_random_time_slice: bool = field(default=False)
     #: Duration of an episode in seconds (can be a float value).
     episode_duration: float = field(converter=float)
     #: Duration between time samples in seconds (can be a float value).
@@ -163,6 +177,9 @@ class ConfigSettings:
         save_model_every_x_episodes = settings.pop("save_model_every_x_episodes", None)
         plot_interval = settings.pop("plot_interval", None)
 
+        scenario_time_begin = settings.pop("scenario_time_begin", None)
+        scenario_time_end = settings.pop("scenario_time_end", None)
+
         if "episode_duration" not in settings:
             log.error("'episode_duration' is not specified in settings.")
             errors = True
@@ -192,6 +209,7 @@ class ConfigSettings:
         )
 
         log_to_file = settings.pop("log_to_file", False)
+        use_random_time_slice: bool = settings.pop("use_random_time_slice", False)
 
         # Log configuration values which were not recognized.
         for name in itertools.chain(settings, dikt):
@@ -213,6 +231,9 @@ class ConfigSettings:
             interact_with_env=interact_with_env,
             save_model_every_x_episodes=save_model_every_x_episodes,
             plot_interval=plot_interval,
+            scenario_time_begin=scenario_time_begin,
+            scenario_time_end=scenario_time_end,
+            use_random_time_slice=use_random_time_slice,
             episode_duration=episode_duration,
             sampling_time=sampling_time,
             sim_steps_per_sample=sim_steps_per_sample,
@@ -222,6 +243,51 @@ class ConfigSettings:
             agent=agent,
             interaction_env=interaction_env,
             log_to_file=log_to_file,
+        )
+
+    def create_scenario_manager(self, path_scenarios: Path | None = None) -> None:
+        """Create a ScenarioManager for the environment.
+
+        :param path_scenarios: Path to the scenario files, default None.
+        :type path_scenarios: Path
+        """
+        raw_configs: list[dict[str, Any]] | None = self.environment.get("scenario_files")
+        if raw_configs is None:
+            # Don't create a scenario manager if no scenario files are given
+            return
+
+        if path_scenarios is None:
+            msg = "Path for the scenarios must be defined when supplying scenario files."
+            raise TypeError(msg)
+
+        if self.scenario_time_begin is None or self.scenario_time_end is None:
+            msg = "Scenario_time_begin and scenario_time_end are necessary when supplying scenario files"
+            raise TypeError(msg)
+
+        if self.scenario_time_begin > self.scenario_time_end:
+            msg = "Start time of the scenario should be smaller than or equal to end time."
+            raise ValueError(msg)
+
+        # When prediction horizon is defined the duration will include it
+        if prediction_horizon := self.environment.get("prediction_horizon"):
+            try:
+                prediction_horizon = float(prediction_horizon)
+            except ValueError:
+                log.exception("Prediction horizon needs to be defined as a number.")
+                raise
+            duration = self.episode_duration + prediction_horizon
+        else:
+            duration = self.episode_duration + self.sampling_time
+        scenario_configs = [
+            ConfigCsvScenario(**raw_config, path_scenarios=path_scenarios) for raw_config in raw_configs
+        ]
+        self.environment["scenario_manager"] = CsvScenarioManager(
+            scenario_configs=scenario_configs,
+            start_time=self.scenario_time_begin,
+            end_time=self.scenario_time_end,
+            total_time=duration,
+            resample_time=self.sampling_time,
+            seed=self.seed if self.use_random_time_slice else None,
         )
 
     def __getitem__(self, name: str) -> Any:

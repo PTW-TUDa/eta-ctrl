@@ -7,23 +7,27 @@ relpath_results = "results"
 relpath_scenarios = "scenarios"
 
 [settings]
-sampling_time = 10  # seconds
-episode_duration = 600  # seconds
+sampling_time = 10  # time in seconds
+episode_duration = 600  # time in seconds
 n_episodes_play = 1
 verbose = 2
 seed = 123
 interact_with_env = false
-
-[environment_specific]
 scenario_time_begin = "2022-03-18 00:00"
 scenario_time_end = "2022-03-18 00:10"
+
+[environment_specific]
 sim_steps_per_sample = 1
-prediction_horizon = 900  # seconds, optimization horizon K
+prediction_horizon = 900  # time in seconds, optimization horizon K, is constant
 
 [[environment_specific.scenario_files]]  # accessible via the scenario_files parameter
 path = "electricity_price_test.csv"
 interpolation_method = "interpolate"
 time_conversion_str = "%d.%m.%Y %H:%M"
+# Convert electricity cost from   € / MW h   to   €/kW min
+scale_factors = {"Electrical_Energy_Price_MWh" = 0.277777}  # 1000/3600
+rename_cols = {"Electrical_Energy_Price_MWh" = "energy_price"}
+
 
 [environment_specific.model_parameters]
 p_heat = 10  # kW, heating power consumption

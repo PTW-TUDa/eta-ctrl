@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import abc
 from collections.abc import Mapping, MutableMapping, Sequence
-from datetime import datetime, timedelta
+from datetime import timedelta
 from logging import getLogger
 from typing import TYPE_CHECKING
 
@@ -13,6 +13,7 @@ from pyomo.core import base as pyo_base
 
 from eta_ctrl.common.export_pyomo import export_pyomo_state
 from eta_ctrl.envs import BaseEnv
+from eta_ctrl.timeseries.scenario_manager import CsvScenarioManager
 
 if TYPE_CHECKING:
     import pathlib
@@ -36,9 +37,6 @@ class PyomoEnv(BaseEnv, abc.ABC):
     :param config_run: Configuration of the optimization run.
     :param verbose: Verbosity to use for logging.
     :param callback: callback which should be called after each episode.
-    :param scenario_time_begin: Beginning time of the scenario.
-    :param scenario_time_end: Ending time of the scenario.
-    :param episode_duration: Duration of the episode in seconds.
     :param sampling_time: Duration of a single time sample / time step in seconds.
     :param model_parameters: Parameters for the mathematical model.
     :param prediction_horizon: Duration of the prediction (usually a subsample of the episode duration).
@@ -54,8 +52,6 @@ class PyomoEnv(BaseEnv, abc.ABC):
         verbose: int = 2,
         callback: Callable | None = None,
         *,
-        scenario_time_begin: datetime | str,
-        scenario_time_end: datetime | str,
         episode_duration: TimeStep | str,
         sampling_time: TimeStep | str,
         model_parameters: Mapping[str, Any],
@@ -68,8 +64,6 @@ class PyomoEnv(BaseEnv, abc.ABC):
             config_run=config_run,
             verbose=verbose,
             callback=callback,
-            scenario_time_begin=scenario_time_begin,
-            scenario_time_end=scenario_time_end,
             episode_duration=episode_duration,
             sampling_time=sampling_time,
             render_mode=render_mode,
@@ -98,8 +92,6 @@ class PyomoEnv(BaseEnv, abc.ABC):
         # Make some more settings easily accessible
         #: Number of steps in the prediction (prediction_horizon/sampling_time).
         self.n_prediction_steps: int = int(self.prediction_horizon // self.sampling_time)
-        #: Duration of the scenario for each episode (for total time imported from csv).
-        self.scenario_duration: float = self.episode_duration + self.prediction_horizon
 
         #: Configuration for the MILP model parameters.
         self.model_parameters = model_parameters
@@ -127,6 +119,11 @@ class PyomoEnv(BaseEnv, abc.ABC):
         #:   as the time increment. Note: This is only relevant for the first model time increment, later increments
         #:   may differ.
         self.use_model_time_increments: bool = False
+
+        if not isinstance(self.scenario_manager, CsvScenarioManager):
+            msg = "The PyomoEnv needs a CsvScenarioManager, please provide the experiment with scenario files"  # type: ignore[unreachable]
+            raise TypeError(msg)
+        self.scenario_manager: CsvScenarioManager
 
     def __str__(self) -> str:
         """Human-readable string representation of PyomoEnv."""
@@ -226,7 +223,6 @@ class PyomoEnv(BaseEnv, abc.ABC):
 
         :param observations: Observations from another environment.
         """
-
         # The timeseries data must be updated for the next time step. The index depends on whether time itself is being
         # shifted. If time is being shifted, the respective variable should be set as "time_var".
         step = int(1 if self.use_model_time_increments else self.sampling_time)
@@ -235,11 +231,13 @@ class PyomoEnv(BaseEnv, abc.ABC):
             if self.use_model_time_increments
             else self.prediction_horizon
         )
-
+        ts = self.scenario_manager.get_scenario_state_with_duration(
+            n_step=self.n_steps, duration=self.n_prediction_steps + 1
+        )
         if self.time_var is not None:
             index = range(self.n_steps * step, duration + (self.n_steps * step), step)
             ts_current = self.pyo_convert_timeseries(
-                self.timeseries.iloc[self.n_steps : self.n_prediction_steps + self.n_steps + 1],
+                ts=ts,
                 index=tuple(index),
                 _add_wrapping_none=False,
             )
@@ -251,38 +249,35 @@ class PyomoEnv(BaseEnv, abc.ABC):
         else:
             index = range(0, duration, step)
             ts_current = self.pyo_convert_timeseries(
-                self.timeseries.iloc[self.n_steps : self.n_prediction_steps + self.n_steps + 1],
+                ts=ts,
                 index=tuple(index),
                 _add_wrapping_none=False,
             )
+        updated_params = ts_current
 
-        # Log current time shift
-        if self.n_steps + self.n_prediction_steps + 1 < len(self.timeseries.index):
-            log.info(
-                f"Current optimization time shift: {self.n_steps} of {self.n_episode_steps} | "
-                f"Current scope: {self.timeseries.index[self.n_steps]} "
-                f"to {self.timeseries.index[self.n_steps + self.n_prediction_steps + 1]}"
-            )
+        # Log current optimization window
+        log.info(f"Optimization at time step {self.n_steps} of {self.n_episode_steps}.")
+        if self.n_steps < self.n_episode_steps:
+            time_index = self.scenario_manager.scenarios.index
+            time_start = time_index[self.n_steps]
+            time_end = time_index[self.n_steps + self.n_prediction_steps + 1]
+            log.info(f"Optimization Horizon: {time_start} to {time_end}.")
         else:
-            log.info(
-                f"Current optimization time shift: {self.n_steps} of {self.n_episode_steps}."
-                " Last optimization step reached."
-            )
+            log.info("Last time step reached.")
 
         self._reset_state()
-        updated_params = ts_current
         for var_name in self.state_config.observations:
-            settings = self.state_config.vars[var_name]
-            if not isinstance(settings.interact_id, int):
+            statevar = self.state_config.vars[var_name]
+            if not isinstance(statevar.interact_id, int):
                 msg = "The interact_id value for observations must be an integer."
                 raise TypeError(msg)
             value = None
 
             # Read values from external environment (for example simulation)
-            if observations is not None and settings.from_interact is True:
+            if observations is not None and statevar.from_interact is True:
                 value = round(
-                    (observations[0][settings.interact_id] + settings.interact_scale_add)
-                    * settings.interact_scale_mult,
+                    (observations[0][statevar.interact_id] + statevar.interact_scale_add)
+                    * statevar.interact_scale_mult,
                     5,
                 )
                 self.state[var_name] = np.array([value])
@@ -291,12 +286,12 @@ class PyomoEnv(BaseEnv, abc.ABC):
                 for component in self.model[0].component_objects():
                     if component.name == var_name:
                         # Get value for the component from specified index
-                        value = round(pyo.value(component[list(component.keys())[int(settings.index)]]), 5)
+                        value = round(pyo.value(component[list(component.keys())[int(statevar.index)]]), 5)
                         new_value = value if value is not None else np.nan
                         self.state[var_name] = np.array([new_value])
                         break
                 else:
-                    log.error(f"Specified observation value {var_name} could not be found")
+                    log.error(f"Specified observation value {var_name} could not be found.")
             updated_params[var_name] = value
             new_value = value if value is not None else float("nan")
             self.state[var_name] = np.array([new_value])
@@ -397,7 +392,6 @@ class PyomoEnv(BaseEnv, abc.ABC):
         else:
             params = {}
             log.warning(f"No parameters specified for requested component {component_name}")
-
         out: PyoParams
         out = {
             param: {None: float(value) if isinstance(value, str) and value in {"inf", "-inf"} else value}
@@ -432,14 +426,10 @@ class PyomoEnv(BaseEnv, abc.ABC):
         if index is not None and not isinstance(index, list):
             index = list(index)
 
-        _ts: pd.DataFrame | pd.Series | dict[str, Any] | Sequence
         # If part of the timeseries was converted before, make sure that everything is on the same level again.
-        if isinstance(ts, dict) and None in ts and isinstance(ts[None], Mapping):
-            _ts = {}
-            _ts.update(ts[None])
-
-        else:
-            _ts = ts
+        _ts: pd.DataFrame | pd.Series | dict[str, Any] | Sequence = (
+            ts[None] if isinstance(ts, dict) and None in ts and isinstance(ts[None], Mapping) else ts
+        )
 
         def convert_index(cts: pd.Series | Sequence | Mapping, _index: Sequence[int] | None) -> dict[int, Any]:
             """Take the timeseries and change the index to correspond to _index.
@@ -565,13 +555,13 @@ class PyomoEnv(BaseEnv, abc.ABC):
                 if self.use_model_time_increments:
                     for ind, val in com.items():
                         solution[com.name][
-                            self.timeseries.index[self.n_steps].to_pydatetime()
+                            self.scenario_manager.scenarios.index[self.n_steps].to_pydatetime()
                             + timedelta(seconds=ind * self.sampling_time)
                         ] = pyo.value(val)
                 else:
                     for ind, val in com.items():
                         solution[com.name][
-                            self.timeseries.index[self.n_steps].to_pydatetime() + timedelta(seconds=ind)
+                            self.scenario_manager.scenarios.index[self.n_steps].to_pydatetime() + timedelta(seconds=ind)
                         ] = pyo.value(val)
 
         return solution

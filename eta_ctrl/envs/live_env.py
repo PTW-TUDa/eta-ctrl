@@ -10,7 +10,6 @@ from eta_ctrl.envs import BaseEnv
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
-    from datetime import datetime
     from typing import Any
 
     from eta_ctrl.config import ConfigRun
@@ -34,8 +33,6 @@ class LiveEnv(BaseEnv, abc.ABC):
     :param config_run: Configuration of the optimization run.
     :param verbose: Verbosity to use for logging.
     :param callback: callback which should be called after each episode.
-    :param scenario_time_begin: Beginning time of the scenario.
-    :param scenario_time_end: Ending time of the scenario.
     :param episode_duration: Duration of the episode in seconds.
     :param sampling_time: Duration of a single time sample / time step in seconds.
     :param max_errors: Maximum number of connection errors before interrupting the optimization process.
@@ -60,8 +57,6 @@ class LiveEnv(BaseEnv, abc.ABC):
         verbose: int = 2,
         callback: Callable | None = None,
         *,
-        scenario_time_begin: datetime | str,
-        scenario_time_end: datetime | str,
         episode_duration: TimeStep | str,
         sampling_time: TimeStep | str,
         max_errors: int = 10,
@@ -73,8 +68,6 @@ class LiveEnv(BaseEnv, abc.ABC):
             config_run=config_run,
             verbose=verbose,
             callback=callback,
-            scenario_time_begin=scenario_time_begin,
-            scenario_time_end=scenario_time_end,
             episode_duration=episode_duration,
             sampling_time=sampling_time,
             render_mode=render_mode,
@@ -164,11 +157,6 @@ class LiveEnv(BaseEnv, abc.ABC):
         # Set the external inputs in the live connector and read out the external outputs
         results = self.connection_manager.step(value=self.get_external_inputs())
 
-        # Update scenario data, do one time step in the live connector and store the results.
-        self.state.update(
-            self.get_scenario_state()
-        )  # TODO: change in MR https://git.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/-/merge_requests/22
-
         self.set_external_outputs(external_outputs=results)
 
         return 0, False, self._truncated(), {}
@@ -213,9 +201,6 @@ class LiveEnv(BaseEnv, abc.ABC):
         results = self.connection_manager.read(*start_obs_names)
 
         self.set_external_outputs(external_outputs=results)
-
-        # Update scenario data
-        self.state.update(self.get_scenario_state())
 
         return {}
 

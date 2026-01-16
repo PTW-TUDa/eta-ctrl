@@ -27,18 +27,6 @@ class TestStateVar:
         assert state_var_default.abort_condition_min == -np.inf
         assert state_var_default.abort_condition_max == np.inf
 
-    @pytest.mark.parametrize(
-        ("name"),
-        [
-            pytest.param("interact", id="interact"),
-            pytest.param("scenario", id="scenario"),
-        ],
-    )
-    def test_missing_params(self, name):
-        msg = f"Variable {name} is either missing `{name}_id` or `from_{name}`"
-        with pytest.raises(KeyError, match=msg):
-            StateVar(name=name, **{f"from_{name}": True})
-
     @pytest.fixture(scope="class")
     def state_var_scenario(self):
         return StateVar(
@@ -64,8 +52,19 @@ class TestStateVar:
         assert state_var_scenario.scenario_scale_add == 1.0
         assert state_var_scenario.scenario_scale_mult == 2.0
 
-    def test_state_var_ext_id_should_be_name_by_default(self, state_var_scenario):
-        assert state_var_scenario.ext_id == state_var_scenario.name
+    @pytest.mark.parametrize(
+        ("name"),
+        [
+            pytest.param(["is_ext_input", "ext_id"], id="ext_input"),
+            pytest.param(["is_ext_output", "ext_id"], id="ext_output"),
+            pytest.param(["from_scenario", "scenario_id"], id="scenario"),
+        ],
+    )
+    def test_state_var_ext_id_should_be_name_by_default(self, caplog, name):
+        """New default: when ext id is missing but variable is external, a log message is emitted."""
+        sv = StateVar(name="foo", **{name[0]: True})
+        expected = f"Using name as {name[1]} for variable {sv.name}"
+        assert expected in caplog.messages
 
     @pytest.fixture(scope="class")
     def state_var_interact(self):
