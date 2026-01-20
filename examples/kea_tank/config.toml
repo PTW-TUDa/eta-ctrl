@@ -2,10 +2,6 @@
 environment_import = "examples.kea_tank.environment.kea_model_env.DrKea"
 agent_import = "eta_ctrl.agents.MathSolver"
 
-[paths]
-relpath_results = "results"
-relpath_scenarios = "scenarios"
-
 [settings]
 sampling_time = 10  # time in seconds
 episode_duration = 600  # time in seconds
@@ -15,6 +11,9 @@ seed = 123
 interact_with_env = false
 scenario_time_begin = "2022-03-18 00:00"
 scenario_time_end = "2022-03-18 00:10"
+
+[paths]
+state_relpath = "."
 
 [environment_specific]
 sim_steps_per_sample = 1

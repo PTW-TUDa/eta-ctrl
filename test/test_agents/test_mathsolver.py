@@ -29,8 +29,9 @@ class TestMathSolver:
             series="MPC_Basic_test_2023",
             name="test_mpc_basic",
             description="",
-            path_root=temp_dir / "root",
-            path_results=temp_dir / "results",
+            root_path=temp_dir,
+            results_path=temp_dir,
+            scenarios_path=temp_dir,
         )
 
         # Create the environment

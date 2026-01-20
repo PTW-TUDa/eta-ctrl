@@ -22,7 +22,7 @@ def experiment(overwrite: dict[str, Any] | None = None) -> None:
     :param overwrite: Additional config values to overwrite values from JSON.
     """
     root_path = pathlib.Path(__file__).parent
-    experiment = EtaCtrl(root_path=root_path, config_overwrite=overwrite, relpath_config=".", config_name="config")
+    experiment = EtaCtrl(root_path=root_path, config_overwrite=overwrite, config_relpath=".", config_name="config")
     experiment.play(series_name="cleaning_machine", run_name="test_run")
 
 

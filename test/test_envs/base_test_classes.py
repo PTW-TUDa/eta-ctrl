@@ -46,9 +46,9 @@ def config_run_factory(temp_directory_factory):
             series=series,
             name=name,
             description=description,
-            path_root=temp_path,
-            path_results=temp_path / "results" if create_subdirs else temp_path,
-            path_scenarios=temp_path / "scenarios" if create_subdirs else temp_path,
+            root_path=temp_path,
+            results_path=temp_path / "results" if create_subdirs else temp_path,
+            scenarios_path=temp_path / "scenarios" if create_subdirs else temp_path,
         )
         return config, temp_path
 

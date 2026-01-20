@@ -14,7 +14,7 @@
         "norm_wrapper_reward": true
     },
     "paths": {
-        "relpath_results": "results/"
+        "state_relpath": "."
     },
     "settings": {
         "sampling_time": 0.5,

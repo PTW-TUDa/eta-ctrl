@@ -17,10 +17,10 @@ def config_dict() -> dict:
 class TestConfig:
     @pytest.fixture(autouse=True)
     def prevent_state_config_loading(self, monkeypatch):
-        monkeypatch.setattr(StateConfig, "from_file", lambda _: None)
+        monkeypatch.setattr(StateConfig, "from_file", lambda file: None)
 
     def test_from_dict(self, config_dict, config_resources_path):
-        Config.from_dict(config=config_dict, config_name="test", path_root=config_resources_path)
+        Config._from_dict(config=config_dict, config_name="test", root_path=config_resources_path)
 
     def test_from_dict_overwrite(self, config_dict, config_resources_path):
         overwrite = {
@@ -28,8 +28,8 @@ class TestConfig:
             "environment_specific": {"foo": [{"bar": "quux"}]},
         }
 
-        config_opt = Config.from_dict(
-            config=config_dict, config_name="test", path_root=config_resources_path, overwrite=overwrite
+        config_opt = Config._from_dict(
+            config=config_dict, config_name="test", root_path=config_resources_path, overwrite=overwrite
         )
 
         assert config_opt.settings.agent["solver_name"] == "foobar"
@@ -39,7 +39,7 @@ class TestConfig:
         config_dict.pop("settings")
         error_msg = re.escape("The section 'settings' is not present in configuration file foobar.")
         with pytest.raises(ValueError, match=error_msg):
-            Config.from_dict(config=config_dict, config_name="foobar", path_root=config_resources_path)
+            Config._from_dict(config=config_dict, config_name="foobar", root_path=config_resources_path)
 
     def test_build_config_dictfail(self, config_dict: dict, config_resources_path, caplog):
         caplog.set_level(10)  # Set log level to debug
@@ -48,7 +48,7 @@ class TestConfig:
         config_dict.pop("environment_specific")
         error_msg = re.escape("'setup' section must be a dictionary of settings.")
         with pytest.raises(TypeError, match=error_msg):
-            Config.from_dict(config_dict, config_name="", path_root=config_resources_path)
+            Config._from_dict(config_dict, config_name="", root_path=config_resources_path)
         log_msg = "Section 'environment_specific' not present in configuration, assuming it is empty."
         assert log_msg in caplog.messages
 
@@ -56,7 +56,7 @@ class TestConfig:
         config_dict["interaction_environment_specific"] = {"foo": "bar"}
         config_dict.pop("interaction_env_specific", None)
         config_dict["agentspecific"] = {"solver_name": "foobar"}
-        config = Config.from_dict(config_dict, config_name="", path_root=config_resources_path)
+        config = Config._from_dict(config_dict, config_name="", root_path=config_resources_path)
         assert config.settings.interaction_env["foo"] == "bar"
         log_msg = (
             "Specified configuration value 'agentspecific' in the setup section of the configuration "
@@ -65,16 +65,20 @@ class TestConfig:
         assert log_msg in caplog.messages
 
     def test_build_config_pathfail(self, config_dict: dict, config_resources_path):
-        config_dict["paths"].pop("relpath_results")
+        config_dict["setup"].pop("environment_import")
         error_msg = re.escape(
             "Not all required values were found in setup section (see log). Could not load config file."
         )
         with pytest.raises(ValueError, match=error_msg):
-            Config.from_dict(config_dict, config_name="", path_root=config_resources_path)
+            Config._from_dict(config_dict, config_name="", root_path=config_resources_path)
+
+    def test_build_config_default_path(self, config_dict: dict, config_resources_path):
+        config = Config._from_dict(config_dict, config_name="", root_path=config_resources_path)
+        assert config.results_path == config_resources_path / "results"
+        assert config.scenarios_path == config_resources_path / "scenarios"
 
     def test_from_file(self, config_dict: dict, config_resources_path: Path):
-        path = config_resources_path / "config1.toml"
-        config = Config.from_file(path, path_root=config_resources_path)
+        config = Config.from_file(root_path=config_resources_path, config_relpath=Path(), config_name="config1")
         assert config.config_name == "config1"
 
 

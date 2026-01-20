@@ -50,7 +50,7 @@ class ConfigCsvScenario(BaseModel):
 
     #: Directory for the scenarios.
     #: Not included in config declaration, passed by main Config object
-    path_scenarios: Path = Field(exclude=True)
+    scenarios_path: Path = Field(exclude=True)
 
     def model_post_init(self, _: Any) -> None:
         """Ensure that the CSV file exists.
@@ -64,7 +64,7 @@ class ConfigCsvScenario(BaseModel):
     @property
     def abs_path(self) -> Path:
         """Absolute file path of the scenario."""
-        return (self.path_scenarios / self.path).resolve()
+        return (self.scenarios_path / self.path).resolve()
 
 
 class ScenarioManager(ABC):

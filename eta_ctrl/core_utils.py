@@ -79,12 +79,12 @@ def vectorize_environment(
     if norm_wrapper_obs or norm_wrapper_reward:
         # check if normalization data is available and load it if possible, otherwise
         # create a new normalization wrapper.
-        if config_run.path_vec_normalize.is_file():
+        if config_run.vec_normalize_path.is_file():
             log.info(
                 f"Normalization data detected. Loading running averages into normalization wrapper: \n"
-                f"\t {config_run.path_vec_normalize}"
+                f"\t {config_run.vec_normalize_path}"
             )
-            envs = VecNormalize.load(str(config_run.path_vec_normalize), envs)
+            envs = VecNormalize.load(str(config_run.vec_normalize_path), envs)
             envs.training = training
             envs.norm_obs = norm_wrapper_obs
             envs.norm_reward = norm_wrapper_reward
@@ -160,7 +160,7 @@ def load_model(
     algo: type[BaseAlgorithm],
     envs: VecEnv | VecNormalize,
     algo_settings: AlgoSettings,
-    path_model: Path,
+    model_path: Path,
     *,
     tensorboard_log: bool = False,
     log_path: Path | None = None,
@@ -170,23 +170,23 @@ def load_model(
     :param algo: Algorithm type of the model to be loaded.
     :param envs: The environment which the algorithm operates on.
     :param algo_settings: Additional settings for the algorithm.
-    :param path_model: Path to load the model from.
+    :param model_path: Path to load the model from.
     :param tensorboard_log: Flag to enable logging to tensorboard.
     :param log_path: Path for tensorboard log. Online required if logging is true
     :return: Initialized model.
     """
-    log.debug(f"Trying to load existing model: {path_model}")
-    _path_model = path_model if isinstance(path_model, pathlib.Path) else pathlib.Path(path_model)
+    log.debug(f"Trying to load existing model: {model_path}")
+    _model_path = model_path if isinstance(model_path, pathlib.Path) else pathlib.Path(model_path)
 
-    if not _path_model.exists():
-        msg = f"Model couldn't be loaded. Path not found: {_path_model}"
+    if not _model_path.exists():
+        msg = f"Model couldn't be loaded. Path not found: {_model_path}"
         raise OSError(msg)
 
     # tensorboard logging
     algo_kwargs = _check_tensorboard_log(tensorboard_log, log_path)
 
     try:
-        model = algo.load(_path_model, envs, **algo_settings, **algo_kwargs)  # type: ignore[arg-type]
+        model = algo.load(_model_path, envs, **algo_settings, **algo_kwargs)  # type: ignore[arg-type]
         log.debug("Model loaded successfully.")
     except OSError as e:
         msg = f"Model couldn't be loaded: {e.strerror}. Filename: {e.filename}"

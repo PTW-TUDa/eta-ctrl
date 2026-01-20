@@ -112,7 +112,7 @@ class BaseEnv(Env, abc.ABC):
 
         # Set some standard path settings
         #: Information about the optimization run and information about the paths.
-        #: For example, it defines path_results and path_scenarios.
+        #: For example, it defines results_path and scenarios_path.
         self.config_run: ConfigRun = config_run
 
         #: Callback can be used for logging and plotting.
@@ -185,19 +185,19 @@ class BaseEnv(Env, abc.ABC):
         return self.config_run.name
 
     @property
-    def path_results(self) -> pathlib.Path:
+    def results_path(self) -> pathlib.Path:
         #: Path for storing results.
-        return self.config_run.path_results
+        return self.config_run.results_path
 
     @property
-    def path_scenarios(self) -> pathlib.Path | None:
+    def scenarios_path(self) -> pathlib.Path | None:
         #: Path for the scenario data.
-        return self.config_run.path_scenarios
+        return self.config_run.scenarios_path
 
     @property
-    def path_series_results(self) -> pathlib.Path:
+    def series_results_path(self) -> pathlib.Path:
         #: Path for storing results of series of runs.
-        return self.config_run.path_series_results
+        return self.config_run.series_results_path
 
     @abc.abstractmethod
     def _step(self) -> tuple[float, bool, bool, dict]:
