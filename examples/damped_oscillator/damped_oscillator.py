@@ -103,7 +103,7 @@ class DampedOscillatorEnv(SimEnv):
 
     def render(self, mode: str = "human") -> None:
         self.export_state_log(
-            path=episode_results_path(self.config_run.path_series_results, self.run_name, 1, self.env_id)
+            path=episode_results_path(self.config_run.series_results_path, self.run_name, 1, self.env_id)
         )
 
         mpl.rcParams["font.family"] = "Times New Roman"

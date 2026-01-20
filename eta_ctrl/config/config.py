@@ -4,8 +4,9 @@ import pathlib
 from logging import getLogger
 from typing import TYPE_CHECKING
 
-from attrs import converters, define, field, validators
+from attrs import define, field, validators
 
+import __main__
 from eta_ctrl.envs.state import StateConfig
 from eta_ctrl.util import deep_mapping_update
 from eta_ctrl.util.io_utils import load_config
@@ -21,6 +22,52 @@ if TYPE_CHECKING:
     from eta_ctrl.util.type_annotations import Path
 
 
+# Helper extracted to reduce branching in _from_dict
+def _pop_dict(dikt: dict, key: str) -> dict:
+    val = dikt.pop(key)
+    if not isinstance(val, dict):
+        # Prefer TypeError for invalid types
+        msg = f"'{key}' section must be a dictionary of settings."
+        raise TypeError(msg)
+    return val
+
+
+def _derive_state_config(root_path: pathlib.Path, paths: dict, setup: ConfigSetup) -> tuple[str, StateConfig]:
+    state_relpath = paths.pop("state_relpath", None)
+    state_file = camel_to_snake_case(setup.environment_class.__name__) + "_state_config"
+    if state_relpath is None:
+        state_relpath = "environments/"
+        log.info(f"Using default state_relpath 'environments/{state_file}'")
+    state_path = root_path / state_relpath
+
+    if state_path.is_dir():
+        state_path = state_path / state_file
+        state_relpath = str(pathlib.Path(state_relpath) / state_file)
+
+    log.info(f"Loading StateConfig from file at {state_path}).")
+    state_config = StateConfig.from_file(file=state_path)
+    return state_relpath, state_config
+
+
+def _path_or_default(value: str | pathlib.Path | None, default: str) -> pathlib.Path:
+    """Convert a possibly-None value into a pathlib.Path using a default.
+
+    This helper ensures attrs converters never receive ``None`` which would make
+    ``pathlib.Path(None)`` raise a TypeError.
+    """
+    if value is None:
+        return pathlib.Path(default)
+    return pathlib.Path(value)
+
+
+def _convert_results_relpath(value: str | pathlib.Path | None) -> pathlib.Path:
+    return _path_or_default(value, "results")
+
+
+def _convert_scenarios_relpath(value: str | pathlib.Path | None) -> pathlib.Path:
+    return _path_or_default(value, "scenarios")
+
+
 log = getLogger(__name__)
 
 
@@ -31,18 +78,18 @@ class Config:
     #: Name of the configuration used for the series of run.
     config_name: str = field(validator=validators.instance_of(str))
 
-    #: Root path for the optimization run (scenarios and results are relative to this).
-    path_root: pathlib.Path = field(converter=pathlib.Path)
-    #: Relative path to the state config.
-    relpath_state: pathlib.Path = field(converter=pathlib.Path)
-    #: Relative path to the results folder.
-    relpath_results: pathlib.Path = field(converter=pathlib.Path)
-    #: relative path to the scenarios folder (default: None).
-    relpath_scenarios: pathlib.Path | None = field(converter=converters.optional(pathlib.Path), default=None)
-    #: Path to the results folder.
-    path_results: pathlib.Path = field(init=False, converter=pathlib.Path)
-    #: Path to the scenarios folder (default: None).
-    path_scenarios: pathlib.Path | None = field(init=False, converter=converters.optional(pathlib.Path), default=None)
+    #: Root folder path for the optimization run (default: parent folder of invoking script).
+    root_path: pathlib.Path = field(converter=pathlib.Path)
+    #: Relative path to the state config file (default: environments/[environment_classname]_state_config).
+    state_relpath: pathlib.Path = field(converter=pathlib.Path)
+    #: Relative path to the results folder (default: results).
+    results_relpath: pathlib.Path = field(converter=_convert_results_relpath, default=pathlib.Path("results"))
+    #: relative path to the scenarios folder (default: scenarios).
+    scenarios_relpath: pathlib.Path = field(converter=_convert_scenarios_relpath, default=pathlib.Path("scenarios"))
+    #: Path to the results folder (default: root_path/results).
+    results_path: pathlib.Path = field(init=False, converter=pathlib.Path)
+    #: Path to the scenarios folder (default: root_path/scenarios).
+    scenarios_path: pathlib.Path = field(init=False, converter=pathlib.Path)
 
     #: Optimization run setup.
     setup: ConfigSetup = field()
@@ -50,18 +97,24 @@ class Config:
     settings: ConfigSettings = field()
 
     def __attrs_post_init__(self) -> None:
-        if not self.path_root.exists():
-            msg = f"Root path {self.path_root} in config {self.config_name} does not exist"
+        if not self.root_path.exists():
+            msg = f"Root path {self.root_path} in config {self.config_name} does not exist"
             raise ValueError(msg)
-        object.__setattr__(self, "path_results", self.path_root / self.relpath_results)
 
-        if self.relpath_scenarios is not None:
-            self.path_scenarios = self.path_root / self.relpath_scenarios
+        # compute and assign resolved paths
+        self.results_path = self.root_path / self.results_relpath
+        self.scenarios_path = self.root_path / self.scenarios_relpath
 
-        self.settings.create_scenario_manager(self.path_scenarios)
+        self.settings.create_scenario_manager(self.scenarios_path)
 
     @classmethod
-    def from_file(cls, file: Path, path_root: Path, overwrite: Mapping[str, Any] | None = None) -> Config:
+    def from_file(
+        cls,
+        root_path: Path | None,
+        config_relpath: Path | None,
+        config_name: str,
+        overwrite: Mapping[str, Any] | None = None,
+    ) -> Config:
         """Load configuration from JSON/TOML/YAML file, which consists of the following sections:
 
         - **paths**: In this section, the (relative) file paths for results and scenarios are specified. The paths
@@ -77,82 +130,77 @@ class Config:
           This section must contain values for the arguments of the agent, the expected values are therefore
           different depending on the agent and not fully documented here.
 
-        :param file: Path to the configuration file.
+        :param root_path: Path to the experiment root.
+        :param config_relpath: Path to the configuration directory, relative to root_path.
+        :param config_name: Name of the configuration file, without extension.
         :param overwrite: Config parameters to overwrite.
         :return: Config object.
         """
-        config = load_config(file)
-        config_name = pathlib.Path(file).stem
+        if root_path is None:
+            # Use parent folder of invoking script when root_path is not provided
+            root_path = pathlib.Path(__main__.__file__).parent.resolve()
+        elif not isinstance(root_path, pathlib.Path):
+            root_path = pathlib.Path(root_path)
 
-        return Config.from_dict(config, config_name, path_root, overwrite)
+        if config_relpath is None:
+            config_relpath = pathlib.Path("config")
+
+        if not root_path.exists():
+            msg = f"Root path {root_path} does not exist"
+            raise ValueError(msg)
+
+        file_path = root_path / config_relpath / f"{config_name}"
+        config = load_config(file_path)
+
+        return Config._from_dict(config=config, root_path=root_path, config_name=config_name, overwrite=overwrite)
 
     @classmethod
-    def from_dict(
-        cls, config: dict[str, Any], config_name: str, path_root: Path, overwrite: Mapping[str, Any] | None = None
+    def _from_dict(
+        cls,
+        config: dict[str, Any],
+        config_name: str,
+        root_path: pathlib.Path,
+        overwrite: Mapping[str, Any] | None = None,
     ) -> Config:
         """Build a Config object from a dictionary of configuration options.
 
         :param config: Dictionary of configuration options.
         :param file: Path to the configuration file.
-        :param path_root: Root path for the optimization configuration run.
+        :param root_path: Root path for the optimization configuration run.
         :return: Config object.
         """
+
         if overwrite is not None:
             config = dict(deep_mapping_update(config, overwrite))
 
-        # Ensure all required sections are present in configuration
-        for section in ("setup", "settings", "paths"):
+        # Ensure required sections are present
+        for section in ("setup", "settings"):
             if section not in config:
                 msg = f"The section '{section}' is not present in configuration file {config_name}."
                 raise ValueError(msg)
 
-        def _pop_dict(dikt: dict[str, Any], key: str) -> dict[str, Any]:
-            val = dikt.pop(key)
-            if not isinstance(val, dict):
-                msg = f"'{key}' section must be a dictionary of settings."
-                raise TypeError(msg)
-            return val
+        # Provide empty dicts for optional sections if missing
+        for section in ("environment_specific", "agent_specific", "paths"):
+            if section not in config:
+                config[section] = {}
+                log.info(f"Section '{section}' not present in configuration, assuming it is empty.")
 
-        if "environment_specific" not in config:
-            config["environment_specific"] = {}
-            log.info("Section 'environment_specific' not present in configuration, assuming it is empty.")
-
-        if "agent_specific" not in config:
-            config["agent_specific"] = {}
-            log.info("Section 'agent_specific' not present in configuration, assuming it is empty.")
-
-        # Load values from paths section
-        errors = False
+        # Load paths section
         paths = _pop_dict(config, "paths")
+        results_relpath = paths.pop("results_relpath", None)
+        scenarios_relpath = paths.pop("scenarios_relpath", None)
 
-        if "relpath_results" not in paths:
-            log.error("'relpath_results' is required and could not be found in section 'paths' of the configuration.")
-            errors = True
-        relpath_results = paths.pop("relpath_results", None)
-        relpath_scenarios = paths.pop("relpath_scenarios", None)
-
-        # Setup section
-        _setup = _pop_dict(config, "setup")
-        try:
-            setup = ConfigSetup.from_dict(_setup)
-        except ValueError:
-            log.exception("Failed creating ConfigSetup object")
-            errors = True
-
-        # Settings section
+        # Load settings section
         settings_raw: dict[str, dict[str, Any]] = {}
         settings_raw["settings"] = _pop_dict(config, "settings")
         settings_raw["environment_specific"] = _pop_dict(config, "environment_specific")
 
-        relpath_state = paths.pop("relpath_state", None)
-        if relpath_state is None:
-            # Retrieve environment name and look for associated StateConfig file
-            snake_case_name = camel_to_snake_case(setup.environment_class.__name__)
-            relpath_state = f"{snake_case_name}_state_config"
-            log.info(f"Loading StateConfig from default path at {relpath_state}.")
-        path_state = path_root / relpath_state
+        # Create ConfigSetup
+        _setup = _pop_dict(config, "setup")
+        setup = ConfigSetup.from_dict(_setup)
 
-        state_config = StateConfig.from_file(path_state)
+        # Create StateConfig (moved to helper to lower function complexity)
+        state_relpath, state_config = _derive_state_config(root_path, paths, setup)
         settings_raw["environment_specific"]["state_config"] = state_config
 
         if "interaction_env_specific" in config:
@@ -162,30 +210,21 @@ class Config:
 
         settings_raw["agent_specific"] = _pop_dict(config, "agent_specific")
 
-        try:
-            settings = ConfigSettings.from_dict(settings_raw)
-        except ValueError:
-            log.exception("Failed creating ConfigSettings object")
-            errors = True
-        # Log configuration values which were not recognized.
+        # Log unrecognized values
         for name in config:
             log.warning(
                 f"Specified configuration value '{name}' in the setup section of the configuration was not "
                 f"recognized and is ignored."
             )
 
-        if errors:
-            msg = "Not all required values were found in setup section (see log). Could not load config file."
-            raise ValueError(msg)
-
         return cls(
             config_name=config_name,
-            path_root=path_root,
-            relpath_results=relpath_results,
-            relpath_scenarios=relpath_scenarios,
-            relpath_state=relpath_state,
+            root_path=root_path,
+            results_relpath=results_relpath,
+            scenarios_relpath=scenarios_relpath,
+            state_relpath=state_relpath,
             setup=setup,
-            settings=settings,
+            settings=ConfigSettings.from_dict(settings_raw),
         )
 
     def __getitem__(self, name: str) -> Any:

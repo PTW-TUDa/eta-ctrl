@@ -135,10 +135,11 @@ The settings configured in the setup section are the following:
 
 Config section 'paths'
 ^^^^^^^^^^^^^^^^^^^^^^^^
-The paths section can contain the following relative paths:
+The optional paths section can contain the following optional relative paths:
 
-.. autoattribute:: eta_ctrl.config::Config.relpath_results
-.. autoattribute:: eta_ctrl.config::Config.relpath_scenarios
+.. autoattribute:: eta_ctrl.config::Config.results_relpath
+.. autoattribute:: eta_ctrl.config::Config.scenarios_relpath
+.. autoattribute:: eta_ctrl.config::Config.state_relpath
 
 Config section 'settings'
 ^^^^^^^^^^^^^^^^^^^^^^^^^^

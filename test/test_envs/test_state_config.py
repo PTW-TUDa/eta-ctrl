@@ -364,25 +364,25 @@ class TestStateConfig:
         # Check that at least some observation names are present (first 3)
         assert "observations=[" in repr_result
 
-    def test_manual_creation_no_source_path(self):
+    def test_manual_creation_no_source_file(self):
         """Test that manually created StateConfig has no source path."""
         config = StateConfig(
             StateVar(name="test_action", is_agent_action=True), StateVar(name="test_obs", is_agent_observation=True)
         )
-        assert config._source_path is None
+        assert config._source_file is None
 
-    def test_from_dict_no_source_path(self):
-        """Test that from_dict without source path sets _source_path to None."""
+    def test_from_dict_no_source_file(self):
+        """Test that from_dict without source path sets _source_file to None."""
         state_vars = [{"name": "action1", "is_agent_action": True}, {"name": "obs1", "is_agent_observation": True}]
         config = StateConfig.from_dict(state_vars)
-        assert config._source_path is None
+        assert config._source_file is None
 
-    def test_from_file_sets_source_path(self, config_resources_path, config_from_test_env_file):
-        """Test that from_file sets _source_path to the file path."""
+    def test_from_file_sets_source_file(self, config_resources_path, config_from_test_env_file):
+        """Test that from_file sets _source_file to the file path."""
         path = config_resources_path / "test_env_state_config.toml"
-        assert config_from_test_env_file._source_path == path
+        assert config_from_test_env_file._source_file == path
 
-    def test_str_representation_without_source_path(self):
+    def test_str_representation_without_source_file(self):
         """Test __str__ method when no source path is available."""
         config = StateConfig(
             StateVar(name="action1", is_agent_action=True), StateVar(name="obs1", is_agent_observation=True)
@@ -392,30 +392,30 @@ class TestStateConfig:
         assert str_result == expected
         assert "from" not in str_result
 
-    def test_str_representation_with_file_source_path(self, config_from_test_env_file):
+    def test_str_representation_with_file_source_file(self, config_from_test_env_file):
         """Test __str__ method with real file path from from_file."""
         str_result = str(config_from_test_env_file)
         assert "StateConfig with 1 actions, 4 observations (5 total variables) from" in str_result
-        assert str(config_from_test_env_file._source_path) in str_result
+        assert str(config_from_test_env_file._source_file) in str_result
 
-    def test_repr_representation_unchanged_with_source_path(self, config_from_test_env_file):
+    def test_repr_representation_unchanged_with_source_file(self, config_from_test_env_file):
         """Test that __repr__ method doesn't include source path (developer format)."""
         repr_result = repr(config_from_test_env_file)
         expected = "StateConfig(actions=['torque'], observations=['cos_th', 'sin_th', 'th', ...])"
         assert repr_result == expected
         # Ensure path is not in repr (it's for developers, not end users)
-        assert str(config_from_test_env_file._source_path) not in repr_result
+        assert str(config_from_test_env_file._source_file) not in repr_result
         assert "from" not in repr_result
 
-    def test_source_path_attribute_access(self, config_resources_path):
-        """Test that _source_path attribute can be accessed directly."""
+    def test_source_file_attribute_access(self, config_resources_path):
+        """Test that _source_file attribute can be accessed directly."""
         # Test manual creation
         manual_config = StateConfig(StateVar(name="test", is_agent_action=True))
-        assert hasattr(manual_config, "_source_path")
-        assert manual_config._source_path is None
+        assert hasattr(manual_config, "_source_file")
+        assert manual_config._source_file is None
 
         # Test file creation
         path = config_resources_path / "test_env_state_config.toml"
         file_config = StateConfig.from_file(path)
-        assert hasattr(file_config, "_source_path")
-        assert file_config._source_path == path
+        assert hasattr(file_config, "_source_file")
+        assert file_config._source_file == path

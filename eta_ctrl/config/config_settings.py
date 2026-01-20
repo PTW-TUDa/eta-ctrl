@@ -63,7 +63,6 @@ class ConfigSettings:
         default=1,
         converter=converters.pipe(converters.default_if_none(1), int),  # type: ignore[misc]
     )  # mypy currently does not recognize converters.default_if_none
-
     #: Number of episodes to execute when the agent is playing (default: None).
     n_episodes_play: int | None = field(default=None, converter=converters.optional(int))
     #: Number of episodes to execute when the agent is learning (default: None).
@@ -83,12 +82,12 @@ class ConfigSettings:
         default=10,
         converter=converters.pipe(converters.default_if_none(1), int),  # type: ignore[misc]
     )  # mypy currently does not recognize converters.default_if_none
-    #: Beginning time of the scenario(must be in the format %Y-%m-%d %H:%M)..
+    #: Beginning time of the scenario (must be in the format %Y-%m-%d %H:%M)..
     scenario_time_begin: datetime | None = field(default=None, converter=converters.optional(convert_datetime))
     #: Ending time of the scenario (must be in the format %Y-%m-%d %H:%M).
     scenario_time_end: datetime | None = field(default=None, converter=converters.optional(convert_datetime))
     #: Boolean flag whether to use a random time slice when the difference of
-    #: scenario_time_end and scenario_time_begin is greater than the episode duration
+    #: scenario_time_end and scenario_time_begin is greater than the episode duration (default: False).
     use_random_time_slice: bool = field(default=False)
     #: Duration of an episode in seconds (can be a float value).
     episode_duration: float = field(converter=float)
@@ -245,18 +244,18 @@ class ConfigSettings:
             log_to_file=log_to_file,
         )
 
-    def create_scenario_manager(self, path_scenarios: Path | None = None) -> None:
+    def create_scenario_manager(self, scenarios_path: Path | None = None) -> None:
         """Create a ScenarioManager for the environment.
 
-        :param path_scenarios: Path to the scenario files, default None.
-        :type path_scenarios: Path
+        :param scenarios_path: Path to the scenario files, default None.
+        :type scenarios_path: Path
         """
         raw_configs: list[dict[str, Any]] | None = self.environment.get("scenario_files")
         if raw_configs is None:
             # Don't create a scenario manager if no scenario files are given
             return
 
-        if path_scenarios is None:
+        if scenarios_path is None:
             msg = "Path for the scenarios must be defined when supplying scenario files."
             raise TypeError(msg)
 
@@ -279,7 +278,7 @@ class ConfigSettings:
         else:
             duration = self.episode_duration + self.sampling_time
         scenario_configs = [
-            ConfigCsvScenario(**raw_config, path_scenarios=path_scenarios) for raw_config in raw_configs
+            ConfigCsvScenario(**raw_config, scenarios_path=scenarios_path) for raw_config in raw_configs
         ]
         self.environment["scenario_manager"] = CsvScenarioManager(
             scenario_configs=scenario_configs,

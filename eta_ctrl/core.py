@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pathlib
 from contextlib import contextmanager
 from datetime import datetime
 from logging import getLogger
@@ -27,7 +26,6 @@ from .core_utils import (
 )
 
 if TYPE_CHECKING:
-    import os
     from collections.abc import Generator, Mapping
     from typing import Any
 
@@ -36,32 +34,31 @@ if TYPE_CHECKING:
     from stable_baselines3.common.vec_env import VecEnv
     from stable_baselines3.common.vec_env.base_vec_env import VecEnvObs
 
+    from eta_ctrl.util.type_annotations import Path
+
 log = getLogger(__name__)
 
 
 class EtaCtrl:
     """Initialize an optimization model and provide interfaces for optimization, learning and execution (play).
 
+    :param config_name: Name of configuration file in configuration directory (should be JSON format).
     :param root_path: Root path of the application (the configuration will be interpreted relative to this).
-    :param config_name: Name of configuration .ini file in configuration directory (should be JSON format).
     :param config_overwrite: Dictionary to overwrite selected configurations.
-    :param relpath_config: Relative path to configuration file, starting from root path.
+    :param config_relpath: Path to configuration file, relative to root path.
     """
 
     def __init__(
         self,
-        root_path: str | os.PathLike,
         config_name: str,
+        root_path: Path | None = None,
         config_overwrite: Mapping[str, Any] | None = None,
-        relpath_config: str | os.PathLike = "config/",
+        config_relpath: Path | None = None,
     ) -> None:
-        # Load configuration for the optimization
-        _root_path = root_path if isinstance(root_path, pathlib.Path) else pathlib.Path(root_path)
-        _relpath_config = relpath_config if isinstance(relpath_config, pathlib.Path) else pathlib.Path(relpath_config)
-        #: Path to the configuration file.
-        self.path_config = _root_path / _relpath_config / f"{config_name}"
-        #: Config object for the optimization run.
-        self.config: Config = Config.from_file(self.path_config, root_path, config_overwrite)
+        #: Create Config object for the optimization run.
+        self.config: Config = Config.from_file(
+            root_path=root_path, config_relpath=config_relpath, config_name=config_name, overwrite=config_overwrite
+        )
         log.setLevel(int(self.config.settings.verbose * 10))
 
         #: Configuration for an optimization run.
@@ -126,9 +123,9 @@ class EtaCtrl:
             series=series_name,
             name=run_name,
             description=run_description,
-            path_root=self.config.path_root,
-            path_results=self.config.path_results,
-            path_scenarios=self.config.path_scenarios,
+            root_path=self.config.root_path,
+            results_path=self.config.results_path,
+            scenarios_path=self.config.scenarios_path,
         )
         self.config_run.create_results_folders()
 
@@ -153,23 +150,23 @@ class EtaCtrl:
             msg = "Set the config_run attribute before trying to initialize the model (e.g. by calling prepare_run)."
             raise ValueError(msg)
 
-        path_model = self.config_run.path_run_model
-        if path_model.is_file() and reset:
-            log.info(f"Existing model detected: {path_model}")
+        model_path = self.config_run.run_model_path
+        if model_path.is_file() and reset:
+            log.info(f"Existing model detected: {model_path}")
 
-            bak_name = path_model / f"_{datetime.fromtimestamp(path_model.stat().st_mtime).strftime('%Y%m%d_%H%M')}.bak"
-            path_model.rename(bak_name)
+            bak_name = model_path / f"_{datetime.fromtimestamp(model_path.stat().st_mtime).strftime('%Y%m%d_%H%M')}.bak"
+            model_path.rename(bak_name)
             log.info(f"Reset is active. Existing model will be backed up. Backup file name: {bak_name}")
-        elif path_model.is_file():
-            log.info(f"Existing model detected: {path_model}. Loading model.")
+        elif model_path.is_file():
+            log.info(f"Existing model detected: {model_path}. Loading model.")
 
             self.model = load_model(
                 self.config.setup.agent_class,
                 self.environments,
                 self.config.settings.agent,
-                self.config_run.path_run_model,
+                self.config_run.run_model_path,
                 tensorboard_log=self.config.setup.tensorboard_log,
-                log_path=self.config_run.path_series_results,
+                log_path=self.config_run.series_results_path,
             )
             return
 
@@ -181,7 +178,7 @@ class EtaCtrl:
             self.config.settings.agent,
             self.config.settings.seed,
             tensorboard_log=self.config.setup.tensorboard_log,
-            log_path=self.config_run.path_series_results,
+            log_path=self.config_run.series_results_path,
         )
 
     @contextmanager
@@ -330,7 +327,7 @@ class EtaCtrl:
             callback_learn = merge_callbacks(
                 CheckpointCallback(
                     save_freq=save_freq,
-                    save_path=str(self.config_run.path_series_results / "models"),
+                    save_path=str(self.config_run.series_results_path / "models"),
                     name_prefix=self.config_run.name,
                 ),
                 callbacks,
@@ -345,7 +342,7 @@ class EtaCtrl:
                     tb_log_name=self.config_run.name,
                 )
             except OSError:
-                filename = str(self.config_run.path_series_results / f"{self.config_run.name}_model_before_error.pkl")
+                filename = str(self.config_run.series_results_path / f"{self.config_run.name}_model_before_error.pkl")
                 log.info(f"Saving model to file: {filename}.")
                 self.model.save(filename)
                 raise
@@ -358,11 +355,11 @@ class EtaCtrl:
                 raise ValueError(msg) from e
 
             # Save model
-            log.debug(f"Saving model to file: {self.config_run.path_run_model}.")
-            self.model.save(self.config_run.path_run_model)
+            log.debug(f"Saving model to file: {self.config_run.run_model_path}.")
+            self.model.save(self.config_run.run_model_path)
             if isinstance(self.environments, VecNormalize):
-                log.debug(f"Saving environment normalization data to file: {self.config_run.path_vec_normalize}.")
-                self.environments.save(str(self.config_run.path_vec_normalize))
+                log.debug(f"Saving environment normalization data to file: {self.config_run.vec_normalize_path}.")
+                self.environments.save(str(self.config_run.vec_normalize_path))
 
         log.info(f"Learning finished: {series_name} / {run_name}")
 

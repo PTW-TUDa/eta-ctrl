@@ -13,9 +13,6 @@
         "norm_wrapper_obs": true,
         "norm_wrapper_reward": true
     },
-    "paths": {
-        "relpath_results": "results/"
-    },
     "settings": {
         "sampling_time": 0.5,
         "episode_duration": 100,

@@ -152,11 +152,11 @@ class StateConfig:
     is very important for the functionality of EtaCtrl.
     """
 
-    def __init__(self, *state_vars: StateVar, _source_path: Path | None = None) -> None:
+    def __init__(self, *state_vars: StateVar, _source_file: Path | None = None) -> None:
         #: Mapping of the variables names to their StateVar instance with all associated information.
         self.vars = {var.name: var for var in state_vars}
         #: Private attribute to store the source file path (if loaded from file).
-        self._source_path: Path | None = _source_path
+        self._source_file: Path | None = _source_file
         # Additional Dataframe for easier access
         if state_vars:
             self.df_vars: pd.DataFrame = pd.DataFrame([var.model_dump() for var in state_vars]).set_index("name")
@@ -200,13 +200,13 @@ class StateConfig:
         self.abort_conditions_max: list[str] = self.df_vars["abort_condition_max"].index.tolist()
 
     @classmethod
-    def from_file(cls, path: Path) -> Self:
+    def from_file(cls, file: Path) -> Self:
         """Load a StateConfig from a config file.
 
-        :param path: Path of the config file.
+        :param file: Path of the config file.
         :return: StateConfig object.
         """
-        raw_dict = load_config(path)
+        raw_dict = load_config(file=file)
 
         actions: list[dict[str, Any]] = raw_dict.get("actions") or []
         observations: list[dict[str, Any]] = raw_dict.get("observations") or []
@@ -217,18 +217,18 @@ class StateConfig:
         all_states = actions + observations
 
         if len(all_states) == 0:
-            msg = f"Invalid StateConfig at {path} with no StateVar's"
+            msg = f"Invalid StateConfig at {file} with no StateVar's"
             raise ValueError(msg)
 
         # Defined by user in *structure.toml
         state_params = raw_dict.get("state_parameters")
         if isinstance(state_params, dict):
-            log.debug(f"Using State parameters {state_params} from {path} for StateConfig.")
+            log.debug(f"Using State parameters {state_params} from {file} for StateConfig.")
         else:
-            log.warning(f"State parameters in {path} need to be a dict!")
-            return cls.from_dict(mapping=all_states, _source_path=path)
+            log.warning(f"State parameters in {file} need to be a dict!")
+            return cls.from_dict(mapping=all_states, _source_file=file)
 
-        return cls.from_dict(mapping=all_states, state_params=state_params, _source_path=path)
+        return cls.from_dict(mapping=all_states, state_params=state_params, _source_file=file)
 
     @classmethod
     def from_dict(
@@ -338,8 +338,8 @@ class StateConfig:
 
         base_str = f"StateConfig with {n_actions} actions, {n_observations} observations ({n_total} total variables)"
 
-        if self._source_path is not None:
-            return f"{base_str} from '{self._source_path}'"
+        if self._source_file is not None:
+            return f"{base_str} from '{self._source_file}'"
 
         return base_str
 

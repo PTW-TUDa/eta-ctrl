@@ -8,10 +8,6 @@ vectorizer_package = "stable_baselines3.common.vec_env.dummy_vec_env"
 policy_class = "NoPolicy"
 policy_package = "eta_ctrl.common"
 
-[paths]
-relpath_results = "results"
-relpath_scenarios = "scenarios"
-
 [settings]
 sampling_time = 10 # time in seconds
 episode_duration = 1800 # time in seconds

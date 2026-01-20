@@ -224,8 +224,9 @@ class TestActionValidation:
                 series="test_series",
                 name="validation_test",
                 description="Validation test",
-                path_root=temp_path,
-                path_results=temp_path / "results",
+                root_path=temp_path,
+                results_path=temp_path,
+                scenarios_path=temp_path,
             )
 
             # Use provided state_config or default

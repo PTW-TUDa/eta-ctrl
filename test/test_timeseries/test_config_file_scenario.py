@@ -32,9 +32,9 @@ def raw_scenarios():
 
 
 def test_multiple(raw_scenarios, config_resources_path):
-    path_scenarios = config_resources_path / "scenarios"
+    scenarios_path = config_resources_path / "scenarios"
     scenario_configs = [
-        ConfigCsvScenario(**raw_scenario, path_scenarios=path_scenarios) for raw_scenario in raw_scenarios
+        ConfigCsvScenario(**raw_scenario, scenarios_path=scenarios_path) for raw_scenario in raw_scenarios
     ]
     start_time = pd.Timestamp("2022/03/18 0:00")
     data_manager = CsvScenarioManager(
@@ -66,14 +66,14 @@ def test_multiple(raw_scenarios, config_resources_path):
 def test_wrong_arguments(monkeypatch, argument):
     monkeypatch.setattr(ConfigCsvScenario, "model_post_init", lambda *_: ...)
 
-    default_args = {"path": "", "path_scenarios": Path()}
+    default_args = {"path": "", "scenarios_path": Path()}
     with pytest.raises(ValidationError):
         ConfigCsvScenario(**default_args, **argument)
 
 
 def test_path_not_found():
     with pytest.raises(FileNotFoundError):
-        ConfigCsvScenario(path="foo", path_scenarios=Path())
+        ConfigCsvScenario(path="foo", scenarios_path=Path())
 
 
 #############
@@ -81,18 +81,18 @@ def test_path_not_found():
 
 @pytest.fixture(autouse=True)
 def prevent_state_config_loading(monkeypatch):
-    monkeypatch.setattr(StateConfig, "from_file", lambda _: None)
+    monkeypatch.setattr(StateConfig, "from_file", lambda file: None)
 
 
 @pytest.fixture
 def config(config_resources_path):
-    return Config.from_dict(config=copy.deepcopy(python_dict), config_name="test", path_root=config_resources_path)
+    return Config._from_dict(config=copy.deepcopy(python_dict), config_name="test", root_path=config_resources_path)
 
 
 def test_init_from_config(config: Config):
     scenario_manager = config.settings.environment["scenario_manager"]
     config_scenario = scenario_manager.scenario_configs
     electricity_price = config_scenario[0]
-    assert electricity_price.abs_path == config.path_scenarios / electricity_price.path
+    assert electricity_price.abs_path == config.scenarios_path / electricity_price.path
     assert electricity_price.interpolation_method == "ffill"
     assert electricity_price.time_conversion_str == "%d.%m.%Y %H:%M"

@@ -121,7 +121,7 @@ def load_config(file: Path) -> dict[str, Any]:
     """Load configuration from JSON, TOML, or YAML file.
     The read file is expected to contain a dictionary of configuration options.
 
-    :param file: Path to the configuration file.
+    :param file: Path to the configuration file, without extension.
     :return: Dictionary of configuration options.
     """
     possible_extensions: dict[str, Callable] = {
