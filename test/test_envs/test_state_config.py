@@ -33,7 +33,7 @@ class TestStateVar:
     def state_var_scenario(self):
         return StateVar(
             name="foo",
-            is_agent_action=True,
+            is_agent_observation=True,
             low_value=0,
             high_value=1,
             from_scenario=True,
@@ -45,7 +45,7 @@ class TestStateVar:
 
     def test_scenario_var(self, state_var_scenario):
         assert state_var_scenario.name == "foo"
-        assert state_var_scenario.is_agent_action is True
+        assert state_var_scenario.is_agent_observation is True
         assert state_var_scenario.low_value == 0
         assert state_var_scenario.high_value == 1
         assert state_var_scenario.from_scenario is True

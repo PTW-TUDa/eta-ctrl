@@ -88,8 +88,21 @@ class StateVar(BaseModel):
             (self.from_scenario, self.scenario_id, "scenario_id"),
         ]:
             if flag and id_value is None:
-                object.__setattr__(self, "ext_id", self.name)
+                # set the correct id attribute (ext_id or scenario_id) when missing
+                object.__setattr__(self, id_name, self.name)
                 log.info(f"Using name as {id_name} for variable {self.name}")
+
+        # Validate mutual exclusivity of from_scenario, is_ext_output and is_agent_action
+        data_sources = {
+            "from_scenario": self.from_scenario,
+            "is_ext_output": self.is_ext_output,
+            "is_agent_action": self.is_agent_action,
+        }
+        if sum(data_sources.values()) > 1:
+            # Find out which flags are set and include their names in the error message
+            sources_set = [name for name, flag in data_sources.items() if flag]
+            msg = f"Variable {self.name} cannot be {', '.join(sources_set)} at the same time."
+            raise ValueError(msg)
 
     @classmethod
     def from_dict(cls, mapping: Mapping[str, Any] | pd.Series) -> StateVar:
