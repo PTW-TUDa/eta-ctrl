@@ -54,6 +54,7 @@ default:
 # Job to update pip cache
 update-cache:
   stage: setup
+  allow_failure: true
   before_script: []
   script:
     # Remove torch and add torch+cpu because nvidia packages (cuda) are not needed
