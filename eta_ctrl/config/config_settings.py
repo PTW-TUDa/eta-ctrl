@@ -256,15 +256,15 @@ class ConfigSettings:
             return
 
         if scenarios_path is None:
-            msg = "Path for the scenarios must be defined when supplying scenario files."
+            msg = "Define scenarios_path in config [settings] section when using scenarios."
             raise TypeError(msg)
 
         if self.scenario_time_begin is None or self.scenario_time_end is None:
-            msg = "Scenario_time_begin and scenario_time_end are necessary when supplying scenario files"
+            msg = "Define scenario_time_begin and scenario_time_end in config [settings] section when using scenarios."
             raise TypeError(msg)
 
         if self.scenario_time_begin > self.scenario_time_end:
-            msg = "Start time of the scenario should be smaller than or equal to end time."
+            msg = "scenario_time_begin must be smaller than or equal to scenario_time_end."
             raise ValueError(msg)
 
         # When prediction horizon is defined the duration will include it

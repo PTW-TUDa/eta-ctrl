@@ -223,11 +223,12 @@ class StateConfig:
 
         actions: list[dict[str, Any]] = raw_dict.get("actions") or []
         observations: list[dict[str, Any]] = raw_dict.get("observations") or []
+        state_vars: list[dict[str, Any]] = raw_dict.get("state_vars") or []
 
         actions = [{**act, "is_agent_action": True} for act in actions]
         observations = [{**obs, "is_agent_observation": True} for obs in observations]
 
-        all_states = actions + observations
+        all_states = actions + observations + state_vars
 
         if len(all_states) == 0:
             msg = f"Invalid StateConfig at {file} with no StateVar's"
@@ -235,13 +236,14 @@ class StateConfig:
 
         # Defined by user in *structure.toml
         state_params = raw_dict.get("state_parameters")
+
         if isinstance(state_params, dict):
             log.debug(f"Using State parameters {state_params} from {file} for StateConfig.")
-        else:
-            log.warning(f"State parameters in {file} need to be a dict!")
-            return cls.from_dict(mapping=all_states, _source_file=file)
+            return cls.from_dict(mapping=all_states, state_params=state_params, _source_file=file)
 
-        return cls.from_dict(mapping=all_states, state_params=state_params, _source_file=file)
+        if state_params is not None:
+            log.warning(f"State parameters in {file} need to be a dict!")
+        return cls.from_dict(mapping=all_states, _source_file=file)
 
     @classmethod
     def from_dict(
@@ -258,9 +260,15 @@ class StateConfig:
         :param state_params: State parameter values for parameters supplied in mapping (e.g. {min_temp: 20})
         :return: StateConfig object.
         """
-        _mapping = mapping.to_dict("records") if isinstance(mapping, pd.DataFrame) else mapping
         if not state_params:
             state_params = {}
+
+        # cast to list of dicts
+        _mapping: Sequence[dict[str, Any]] = (
+            mapping.to_dict("records") if isinstance(mapping, pd.DataFrame) else mapping
+        )
+        # build a new list with NaN entries removed
+        _mapping = [{k: v for k, v in statevar.items() if not pd.isna(v)} for statevar in _mapping]
 
         for statevar in _mapping:
             for field_name, value in statevar.items():
