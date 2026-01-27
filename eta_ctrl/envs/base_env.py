@@ -717,6 +717,9 @@ class BaseEnv(Env, abc.ABC):
     def set_scenario_state(self) -> None:
         """Set scenario output values for the current timestep in the state."""
         if self.scenario_manager is not None:
-            scenario_data = self.scenario_manager.get_scenario_state(n_steps=self.n_steps)
+            # Only request the columns specified in state_config to avoid loading unnecessary data
+            scenario_data = self.scenario_manager.get_scenario_state(
+                n_steps=self.n_steps, columns=self.state_config.scenario_outputs
+            )
             for scenario_id in self.state_config.scenario_outputs:
                 self.state[scenario_id] = scenario_data[scenario_id]
