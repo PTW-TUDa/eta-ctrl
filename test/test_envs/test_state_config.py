@@ -194,6 +194,11 @@ class TestStateConfig:
         path = config_resources_path / "test_env_state_config.toml"
         return StateConfig.from_file(path)
 
+    @pytest.fixture(scope="class")
+    def config_from_test_env_csv_file(self, config_resources_path):
+        path = config_resources_path / "test_env_state_config.csv"
+        return StateConfig.from_file(path)
+
     def test_continuous_action_space_should_include_all_and_only_agent_actions(self, state_config):
         # also tests: continuous_action_space_should_span_from_low_to_high_value_for_every_statevar
         action_space = state_config.continuous_action_space()
@@ -226,6 +231,13 @@ class TestStateConfig:
         ]
         StateConfig.from_dict(state_vars)
 
+    def test_from_dict_with_dataframe(self):
+        import pandas as pd
+
+        state_vars = pd.DataFrame([{"name": "foo", "is_agent_action": True}])
+        stateconfig = StateConfig.from_dict(state_vars)
+        assert stateconfig.actions == ["foo"]
+
     @pytest.mark.parametrize(
         ("vals", "truth"),
         [
@@ -248,8 +260,16 @@ class TestStateConfig:
         for name in state_config.actions + state_config.observations:
             assert state_config.loc[name] == state_config.vars[name]
 
-    def test_from_file(self, config_from_test_env_file):
+    def test_from_toml_file(self, config_from_test_env_file):
         assert config_from_test_env_file is not None
+
+    def test_from_csv_file(self, config_from_test_env_csv_file):
+        assert config_from_test_env_csv_file is not None
+
+    def test_from_file_respects_suffix(self, config_from_test_env_csv_file, config_from_test_env_file):
+        """Loading from CSV should include `additional_param`, TOML should not."""
+        assert "additional_param" in config_from_test_env_csv_file.observations
+        assert "additional_param" not in config_from_test_env_file.observations
 
     def test_state_params(self):
         state_params = {"extra_param": True}

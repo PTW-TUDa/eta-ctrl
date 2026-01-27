@@ -117,32 +117,71 @@ def yaml_import(path: Path) -> dict[str, Any]:
     return result
 
 
-def load_config(file: Path) -> dict[str, Any]:
-    """Load configuration from JSON, TOML, or YAML file.
-    The read file is expected to contain a dictionary of configuration options.
+def csv_import(path: Path) -> dict[str, Any]:
+    """Import a csv file and return the parsed dictionary.
 
-    :param file: Path to the configuration file, without extension.
+    :param path: Path to csv file.
+    :return: Parsed dictionary.
+    """
+    path = pathlib.Path(path)
+
+    try:
+        dataframe = pd.read_csv(
+            path,
+            index_col=False,
+            sep=";",
+            decimal=".",
+        )
+        result = dataframe.to_dict(orient="records")
+        result = {"state_vars": result}
+        log.info(f"csv file {path} loaded successfully.")
+    except OSError as e:
+        log.exception(f"csv file couldn't be loaded: {e.strerror}. Filename: {e.filename}")
+        raise
+    return result
+
+
+def load_config(file: Path) -> dict[str, Any]:
+    """Load configuration from JSON, TOML, YAML or CSV file.
+    The read file is expected to contain a dictionary of configuration options.
+    CSV files are converted to a list of dictionaries under the key 'state_vars'.
+
+    If `file` contains a suffix (e.g. `.csv` or `.toml`) that suffix is used
+    directly. If no suffix is present the function will try all supported extensions
+    (json, toml, yml, yaml, csv) in this order and pick the first matching file.
+
+    :param file: Path to the configuration file, with or without extension.
     :return: Dictionary of configuration options.
     """
-    possible_extensions: dict[str, Callable] = {
+    available_importers: dict[str, Callable] = {
         ".json": json_import,
         ".toml": toml_import,
         ".yml": yaml_import,
         ".yaml": yaml_import,
+        ".csv": csv_import,
     }
+    config: dict[str, Any] | None = None
     file_path = pathlib.Path(file)
+    suffix = file_path.suffix.lower()
 
-    for extension, import_method in possible_extensions.items():
-        _file_path: pathlib.Path = file_path.with_suffix(extension)
-        if _file_path.exists():
-            config = import_method(_file_path)
-            break
+    # If a suffix is provided explicitly, prefer that import method
+    if suffix and suffix in available_importers:
+        if file_path.exists():
+            config = available_importers[suffix](file_path)
     else:
+        # Try common extensions in order when no explicit suffix was provided
+        for extension, import_method in available_importers.items():
+            _file_path: pathlib.Path = file_path.with_suffix(extension)
+            if _file_path.exists():
+                config = import_method(_file_path)
+                break
+
+    if config is None:
         msg = f"Config file not found: {file}"
         raise FileNotFoundError(msg)
 
     if not isinstance(config, dict):
-        msg = f"Config file {file} must define a dictionary of options."
+        msg = f"Config file {file} must define a dictionary of options."  # type: ignore[unreachable]
         raise TypeError(msg)
 
     return config
