@@ -69,21 +69,25 @@ class ConfigCsvScenario(BaseModel):
 
 class ScenarioManager(ABC):
     @abstractmethod
-    def get_scenario_state(self, n_steps: int) -> dict[str, np.ndarray]:
-        """Get all scenario values for the current time step.
+    def get_scenario_state(self, n_steps: int, columns: list[str] | None = None) -> dict[str, np.ndarray]:
+        """Get scenario values for the current time step.
 
         :param n_steps: Current time step.
-        :return: Dictionary with new scenario data.
+        :param columns: Optional list of column names to return. If None, returns all columns.
+        :return: Dictionary with scenario data for the requested columns.
         """
         raise NotImplementedError
 
     @abstractmethod
-    def get_scenario_state_with_duration(self, n_step: int, duration: int) -> dict[str, np.ndarray]:
-        """Get all scenario values for the interval [n_step, n_step+duration].
+    def get_scenario_state_with_duration(
+        self, n_step: int, duration: int, columns: list[str] | None = None
+    ) -> dict[str, np.ndarray]:
+        """Get scenario values for the interval [n_step, n_step+duration].
 
-        :param n_steps: Current time step.
+        :param n_step: Current time step.
         :param duration: Additional amount of steps in interval.
-        :return: Dictionary with new scenario data.
+        :param columns: Optional list of column names to return. If None, returns all columns.
+        :return: Dictionary with scenario data for the requested columns.
         """
         raise NotImplementedError
 
@@ -126,15 +130,42 @@ class CsvScenarioManager(ScenarioManager):
         )
         self.total_length = len(self.scenarios)
 
-    def get_scenario_state(self, n_steps: int) -> dict[str, np.ndarray]:
+    def _validate_columns(self, columns: list[str] | None) -> list[str]:
+        """Validate and return the list of columns to retrieve.
+
+        :param columns: Requested column names, or None for all columns.
+        :return: List of valid column names to retrieve.
+        :raises KeyError: If any requested column is not found in the scenario data.
+        """
+        if columns is None:
+            return list(self.scenarios.columns)
+
+        missing_cols = set(columns) - set(self.scenarios.columns)
+        if missing_cols:
+            available_cols = list(self.scenarios.columns)
+            msg = (
+                f"Requested scenario columns {sorted(missing_cols)} not found in loaded scenario data. "
+                f"Available columns: {available_cols}"
+            )
+            raise KeyError(msg)
+
+        return columns
+
+    def get_scenario_state(self, n_steps: int, columns: list[str] | None = None) -> dict[str, np.ndarray]:
         if n_steps >= self.total_length:
             msg = f"n_steps {n_steps} is out of bounds for scenarios with length {len(self.scenarios)}"
             raise IndexError(msg)
 
-        vals = self.scenarios.iloc[n_steps].to_dict()
-        return {name: np.array([val]) for name, val in vals.items()}
+        valid_columns = self._validate_columns(columns)
+        vals = self.scenarios.loc[self.scenarios.index[n_steps], valid_columns]
+        if isinstance(vals, (int, float)):
+            # Single column case - vals is a scalar
+            return {valid_columns[0]: np.array([vals])}
+        return {name: np.array([val]) for name, val in vals.to_dict().items()}
 
-    def get_scenario_state_with_duration(self, n_step: int, duration: int) -> dict[str, np.ndarray]:
+    def get_scenario_state_with_duration(
+        self, n_step: int, duration: int, columns: list[str] | None = None
+    ) -> dict[str, np.ndarray]:
         end_index = n_step + duration
 
         if end_index > self.total_length:
@@ -144,4 +175,6 @@ class CsvScenarioManager(ScenarioManager):
                 f"Shortfall: {end_index - self.total_length} steps."
             )
             raise IndexError(msg)
-        return self.scenarios.iloc[n_step:end_index].to_dict()
+
+        valid_columns = self._validate_columns(columns)
+        return self.scenarios.loc[self.scenarios.index[n_step:end_index], valid_columns].to_dict()
