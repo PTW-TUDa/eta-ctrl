@@ -35,7 +35,7 @@ class ConfigCsvScenario(BaseModel):
     #: when set to 'dates' it will use pandas to determine the datetime.
     #: If a two-tuple (row, col) is given, data from the specified field in the data files
     #: will be used to determine the date format
-    infer_datetime_cols: InferDatetimeType | tuple[int, int] = "string"
+    infer_datetime_cols: InferDatetimeType | tuple[int, int] = "dates"
     #: Time conversion string used when ``infer_datetime_cols`` is set to 'string'
     #: Should specify the format for Python ``strptime``
     time_conversion_str: str = "%Y-%m-%d %H:%M"

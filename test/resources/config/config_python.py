@@ -25,7 +25,6 @@ config = {  # noqa: INP001
             {
                 "path": "electricity_price_test.csv",
                 "interpolation_method": "ffill",
-                "time_conversion_str": "%d.%m.%Y %H:%M",
             }
         ],
         "prediction_horizon": 1200,

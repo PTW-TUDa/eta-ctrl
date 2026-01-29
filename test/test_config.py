@@ -1,5 +1,6 @@
 import copy
 import re
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -146,3 +147,17 @@ class TestConfigSettings:
         error_msg = re.escape("Not all required values were found in settings (see log). Could not load config file.")
         with pytest.raises(ValueError, match=error_msg):
             ConfigSettings.from_dict(config_dict)
+
+    def test_scenario_time_begin_end_with_seconds(self, config_dict: dict):
+        config_dict["settings"]["scenario_time_begin"] = "2022-03-18 00:00:00"
+        config_dict["settings"]["scenario_time_end"] = "2022-03-18 00:10:00"
+        settings = ConfigSettings.from_dict(config_dict)
+        assert settings.scenario_time_begin == datetime(2022, 3, 18, 0, 0, 0)
+        assert settings.scenario_time_end == datetime(2022, 3, 18, 0, 10, 0)
+
+    def test_scenario_time_begin_end_without_seconds(self, config_dict: dict):
+        config_dict["settings"]["scenario_time_begin"] = "2022-03-18 00:00"
+        config_dict["settings"]["scenario_time_end"] = "2022-03-18 00:10"
+        settings = ConfigSettings.from_dict(config_dict)
+        assert settings.scenario_time_begin == datetime(2022, 3, 18, 0, 0, 0)
+        assert settings.scenario_time_end == datetime(2022, 3, 18, 0, 10, 0)
