@@ -17,7 +17,6 @@ def raw_scenarios():
         {
             "path": "electricity_price_test.csv",
             "interpolation_method": "ffill",
-            "time_conversion_str": "%d.%m.%Y %H:%M",
             "prefix": "ep",
             "scale_factors": {"Electrical_Energy_Price_MWh": 0.001},
         },
@@ -95,4 +94,3 @@ def test_init_from_config(config: Config):
     electricity_price = config_scenario[0]
     assert electricity_price.abs_path == config.scenarios_path / electricity_price.path
     assert electricity_price.interpolation_method == "ffill"
-    assert electricity_price.time_conversion_str == "%d.%m.%Y %H:%M"

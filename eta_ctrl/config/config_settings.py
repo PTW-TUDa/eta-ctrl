@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import itertools
-from datetime import datetime
 from logging import getLogger
 from typing import TYPE_CHECKING
 
 from attrs import Factory, converters, define, field, fields
+from pandas.core.tools.datetimes import to_datetime
 
 from eta_ctrl.timeseries.scenario_manager import ConfigCsvScenario, CsvScenarioManager
 from eta_ctrl.util import dict_pop_any
 
 if TYPE_CHECKING:
+    from datetime import datetime
     from pathlib import Path
     from typing import Any
 
@@ -21,8 +22,8 @@ log = getLogger(__name__)
 
 
 def convert_datetime(datetime_: str) -> datetime:
-    """Convert a string to a datetime object with format '%Y-%m-%d %H:%M'"""
-    return datetime.strptime(datetime_, "%Y-%m-%d %H:%M")
+    """Convert a string to a datetime object using pandas."""
+    return to_datetime(datetime_).to_pydatetime()
 
 
 def _env_defaults(instance: ConfigSettings, attrib: Attribute, new_value: dict[str, Any] | None) -> dict[str, Any]:
@@ -82,9 +83,9 @@ class ConfigSettings:
         default=10,
         converter=converters.pipe(converters.default_if_none(1), int),  # type: ignore[misc]
     )  # mypy currently does not recognize converters.default_if_none
-    #: Beginning time of the scenario (must be in the format %Y-%m-%d %H:%M)..
+    #: Beginning time of the scenario.
     scenario_time_begin: datetime | None = field(default=None, converter=converters.optional(convert_datetime))
-    #: Ending time of the scenario (must be in the format %Y-%m-%d %H:%M).
+    #: Ending time of the scenario.
     scenario_time_end: datetime | None = field(default=None, converter=converters.optional(convert_datetime))
     #: Boolean flag whether to use a random time slice when the difference of
     #: scenario_time_end and scenario_time_begin is greater than the episode duration (default: False).
