@@ -87,6 +87,9 @@ class RuleBased(BaseAlgorithm, abc.ABC):
         for idx, env_obs in enumerate(iterate(self.observation_space, observation)):
             actions.append(self.control_rules(env_obs))
             log.debug(f"Action vector for environment {idx}: {actions[idx]}")
+        if not actions:
+            msg = "The control_rules method must NOT return None."
+            raise ValueError(msg)
 
         action_array = create_empty_array(self.action_space, n=self.get_env().num_envs)
         result = concatenate(self.action_space, actions, action_array)

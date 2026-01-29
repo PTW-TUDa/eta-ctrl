@@ -699,17 +699,13 @@ class BaseEnv(Env, abc.ABC):
         :type external_outputs: dict[str, float]
         :raises KeyError: Received an unknown external id
         """
-        for ext_id, unscaled_value in external_outputs.items():
-            name = self.state_config.rev_ext_ids.get(ext_id)
-
-            # Check if name exists and if it is an output
-            if name is None or name not in self.state_config.ext_outputs:
-                if name is None:
-                    msg = "Received unknown name for external outputs"
-                else:
-                    msg = f"{name} is not configured as an external output."
-                raise KeyError(msg)
+        for name in self.state_config.ext_outputs:
             state_var = self.state_config.vars[name]
+            try:
+                unscaled_value = external_outputs[state_var.ext_id]  # type: ignore[index]
+            except KeyError as e:
+                msg = f"Missing value for external output: {name}"
+                raise KeyError(msg) from e
             scaled_value = (unscaled_value + state_var.ext_scale_add) * state_var.ext_scale_mult
 
             self.state[name] = np.array([scaled_value])
