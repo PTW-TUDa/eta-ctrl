@@ -66,6 +66,8 @@ class BaseEnv(Env, abc.ABC):
     :param sampling_time: Duration of a single time sample / time step in seconds.
     :param render_mode: Renders the environments to help visualise what the agent see, examples
         modes are "human", "rgb_array", "ansi" for text.
+    :param path_env: Explicit path to the environment directory. If not provided, the path will be
+        automatically detected from the call stack. If detection fails, falls back to current working directory.
     :param kwargs: Other keyword arguments (for subclasses).
     """
 
@@ -102,6 +104,7 @@ class BaseEnv(Env, abc.ABC):
         sim_steps_per_sample: int | str = 1,
         scenario_manager: ScenarioManager | None = None,
         render_mode: str | None = None,
+        path_env: Path | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__()
@@ -142,6 +145,9 @@ class BaseEnv(Env, abc.ABC):
         #: Manager to load scenario data into the state
         self.scenario_manager = scenario_manager
 
+        #: Explicit path override for environment directory (used if auto-detection fails)
+        self._path_env_override: pathlib.Path | None = pathlib.Path(path_env) if path_env is not None else None
+
         if seed is not None:
             # Initialize random generator
             # Explicitly use Env class from gymnasium since super() doesn't work with multiple inheritance
@@ -154,11 +160,31 @@ class BaseEnv(Env, abc.ABC):
     def _init_attributes(self) -> None:
         """Initialize environment attributes that don't depend on constructor arguments."""
 
+        # Determine path of the environment file
+        # 1. Explicit override if provided, 2. Auto-detect from call stack, 3. Fallback to cwd
+        detected_path: pathlib.Path | None = None
+
+        # Use explicit override if provided
+        if self._path_env_override is not None:
+            detected_path = self._path_env_override
+        else:
+            # Try to detect path from call stack
+            for f in inspect.stack():
+                if "__class__" in f.frame.f_locals and f.frame.f_locals["__class__"] is self.__class__:
+                    detected_path = pathlib.Path(f.filename).parent
+                    break
+
+        # Fallback if detection failed
+        if detected_path is None:
+            detected_path = pathlib.Path.cwd()
+            log.warning(
+                f"Could not automatically detect environment path for {self.__class__.__name__}. "
+                f"Falling back to current working directory: {detected_path}. "
+                "Consider passing 'path_env' explicitly to the constructor if this is incorrect."
+            )
+
         #: Path of the environment file.
-        self.path_env: pathlib.Path
-        for f in inspect.stack():
-            if "__class__" in f.frame.f_locals and f.frame.f_locals["__class__"] is self.__class__:
-                self.path_env = pathlib.Path(f.filename).parent
+        self.path_env: pathlib.Path = detected_path
 
         # Store data logs and log other information
         #: Episode timer (stores the start time of the episode).
