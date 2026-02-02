@@ -121,6 +121,7 @@ def unified_env_factory(config_run_factory, state_config_factory):
         scenario_time_end=datetime(2023, 6, 15, 20, 0),
         episode_duration=7200,
         sampling_time=300,
+        path_env=None,
         **env_specific_params,
     ):
         # Use default config_run_params if not provided
@@ -143,6 +144,7 @@ def unified_env_factory(config_run_factory, state_config_factory):
             "scenario_time_end": scenario_time_end,
             "episode_duration": episode_duration,
             "sampling_time": sampling_time,
+            "path_env": path_env,
         }
 
         if env_type == "base":
