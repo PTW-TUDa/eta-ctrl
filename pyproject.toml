@@ -1,6 +1,6 @@
 [project]
 name = "eta-ctrl"
-version = "v0.1.0"
+version = "0.2.0"
 description = "A framework for researching energy optimization of factory operations."
 license = "BSD-2-Clause"
 readme = "README.rst"
