@@ -1,18 +1,34 @@
 #!/bin/bash
 
 # This script updates the description of the open merge request from development to main
+# Remember to update the project version in pyproject.toml
 
-## Optional variables for manual execution
-PROJECT_ID=120
+# CI_DEPLOY_TOKEN needs to be supplied in .env
+
+## Project specific variables
 CI_API_V4_URL=https://git.ptw.maschinenbau.tu-darmstadt.de/api/v4
 CI_PROJECT_PATH=eta-fabrik/public/eta-ctrl
-CI_DEPLOY_TOKEN=insert_token_here
+PROJECT_ID=120
 
-# Go to main branch and copy the SHA of the last release commit
-LAST_VERSION_RELEASE_SHA=insert_sha_here
+# Get the commit SHA from the latest tag on main
+LAST_VERSION_RELEASE_SHA=$(git rev-list -n 1 $(git describe --tags --abbrev=0 origin/main))
 
+# Escape slashes for correct url
 CI_PROJECT_PATH_ESCAPED=$(echo "${CI_PROJECT_PATH}" | sed 's/\//\\\//g')
 
+
+# Source the .env file if it exists
+if [ -f .env ]; then
+    source .env
+fi
+
+# Check if variable was set
+if [ -z "$CI_DEPLOY_TOKEN" ]; then
+    echo "CI_DEPLOY_TOKEN not found in .env file"
+    exit 1
+fi
+
+# Helper function for api requests
 api_request() {
     local method=$1
     local endpoint=$2
@@ -32,6 +48,7 @@ if [ -z "$MR_IID" ]; then
   exit 0
 fi
 
+# Generate the Changelog from the Gitlab API
 CHANGELOG_RESPONSE=$(api_request GET "/repository/changelog?from=${LAST_VERSION_RELEASE_SHA}&version=$(poetry version -s)")
 
 if [[ "$response" == *"Failed to generate the changelog"* ]]; then

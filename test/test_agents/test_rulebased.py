@@ -1,13 +1,11 @@
 import gymnasium
+import numpy as np
 import pytest
+from gymnasium.vector.utils import concatenate, create_empty_array
 from stable_baselines3.common.vec_env import DummyVecEnv
 
 from eta_ctrl.common import NoPolicy
-from eta_ctrl.util.julia_utils import julia_extensions_available
 from test.resources.agents.rule_based import RuleBasedController
-
-if julia_extensions_available():
-    pass
 
 
 class TestRuleBased:
@@ -41,3 +39,13 @@ class TestRuleBased:
     def test_rb_learn(self, rb_agent):
         assert rb_agent.learn(total_timesteps=5) is not None
         assert isinstance(rb_agent, RuleBasedController)
+
+    def create_samples(self, space: gymnasium.spaces.Space, n: int = 1) -> np.ndarray | dict[str, np.ndarray]:
+        samples = [space.sample() for _ in range(n)]
+        empty_array = create_empty_array(space, n=n)
+        return concatenate(space, samples, empty_array)
+
+    def test_predict(self, rb_agent: RuleBasedController):
+        obs = self.create_samples(rb_agent.env.observation_space, n=1)
+        actions = rb_agent.predict(obs)
+        assert actions[0] in (0, 1)

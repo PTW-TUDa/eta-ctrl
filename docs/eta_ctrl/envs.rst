@@ -13,6 +13,9 @@ documentation <https://stable-baselines3.readthedocs.io/en/master/guide/custom_e
 the functions available to simplify implementation of specific functionality in custom environments. You can look
 at the :ref:`examples` for some inspiration what custom environments can look like.
 
+For simulation environments using FMU files, see the :doc:`FMU Workflow <./environments/sim_env_creation_from_fmu>` documentation
+for a streamlined approach to initially create FMU-based environments.
+
 The custom environments created with the utilities described here can be used directly with *stable_baselines3* or
 *gymnasium*. However, using the :class:`~eta_ctrl.EtaCtrl` class is recommended (see :ref:`intro-eta-ctrl`).
 When using the *EtaCtrl* class for your optimization runs, the parameters required for environment instantiation must
@@ -23,19 +26,41 @@ section will be used for both environments.
 
 Environment State Configuration
 --------------------------------
-
 The most important concept to understand when working with the environment utilities provided by *ETA Ctrl* is
-is the handling and configuration of the environment state. The state is represented by
-:py:class:`eta_ctrl.envs::StateVar` objects which each correspond to one variable of the environment. All
-StateVar objects of an environment are combined into the StateConfig object. From the StateConfig object we can
+is the handling and configuration of the environment state. The state is represented by a
+:class:`eta_ctrl.envs.StateConfig <eta_ctrl.envs.state.StateConfig>` object. Each StateConfig contains :class:`eta_ctrl.envs.StateVar <eta_ctrl.envs.state.StateVar>` objects which
+each correspond to one variable of the environment. From the StateConfig object we can
 determine most other aspects of the environment, such as for example the observation space and action space. The
 *gymnasium* documentation provides more information about `Spaces <https://gymnasium.farama.org/api/spaces/>`_.
+
+ETA Ctrl supports simple definition of StateConfigs in .toml, .yaml, or .json files. By default a config file is
+expected in the same folder as the environment with the name *environment_class*_state_config.*suffix*.
+See the examples for details.
+
+A minimal `state` TOML structure might look like this:
+
+.. code-block:: toml
+
+    [[actions]]
+    name = "heater_power"
+    low_value = 0.0
+    high_value = 1.0
+    is_agent_action = true
+    ext_id = "heater_u"
+
+    [[observations]]
+    name = "room_temp"
+    low_value = -50.0
+    high_value = 80.0
+    is_agent_observation = true
+    ext_id = "temp"
+
 
 Each state variable is represented by a *StateVar* object:
 
 .. autoclass:: eta_ctrl.envs::StateVar
     :members:
-    :noindex:
+    :no-index:
     :exclude-members: from_dict
 
     For example, the variable "tank_temperature" might be part of the environment's state. Let's assume it
@@ -93,7 +118,7 @@ All state variables are combined into the *StateConfig* object:
 
 .. autoclass:: eta_ctrl.envs::StateConfig
     :members:
-    :noindex:
+    :no-index:
     :exclude-members: loc, from_dict,
 
     Using the examples above, we could create the *StateConfig* object by passing our three state variables to
@@ -114,24 +139,19 @@ Base Environment
 
 .. autoclass:: eta_ctrl.envs::BaseEnv
     :members:
-    :private-members:
-    :inherited-members: abc.ABC
+    :inherited-members:
     :show-inheritance:
-    :exclude-members: reward_range, metadata, spec, _seed, _abc_impl
-    :noindex:
+    :exclude-members: reward_range, metadata, spec
+    :no-index:
 
 Model Predictive Control (MPC) Environment
 ------------------------------------------------
 PyomoEnv is a class for using Pyomo modelling language for environment representation.
 
 .. autoclass:: eta_ctrl.envs::PyomoEnv
-
     :members:
-    :private-members:
-    :inherited-members: abc.ABC
     :show-inheritance:
-    :exclude-members: reward_range, metadata, spec, _seed, _init_legacy, _init_state_space, _abc_impl
-    :noindex:
+    :no-index:
 
 Simulation (FMU) Environment
 -----------------------------
@@ -139,13 +159,9 @@ The SimEnv supports the control of environments represented as FMU simulation mo
 subclassing this environment. The FMU file will be loaded from the same directory as the environment itself.
 
 .. autoclass:: eta_ctrl.envs::SimEnv
-
     :members:
-    :private-members:
-    :inherited-members: abc.ABC
     :show-inheritance:
-    :exclude-members: reward_range, metadata, spec, _seed, _init_legacy, _init_state_space, _abc_impl
-    :noindex:
+    :no-index:
 
 Live Connection Environment
 -----------------------------
@@ -154,26 +170,7 @@ The LiveEnv is an environment which creates direct (live) connections to actual 
 because ConnectionManager needs additional configuration.
 
 .. autoclass:: eta_ctrl.envs::LiveEnv
-
     :members:
-    :private-members:
-    :inherited-members: abc.ABC
     :show-inheritance:
     :exclude-members: reward_range, metadata, spec, _seed, _init_legacy, _init_state_space, _abc_impl
-    :noindex:
-
-
-Julia Environment
------------------------------
-The JuliaEnv is an environment that supports the connection to a julia file. Make sure to set the *julia_env_file*
-where your julia file is located. In contrast to the other environments, the Julia class, written in Python, must be
-imported in the setup file for the parameter *environment_import*. The parameter *julia_env_file* is located in the
-*settings* section of the configuration file. See also :ref:`eta_experiment_config`.
-
-.. autoclass:: eta_ctrl.envs::JuliaEnv
-    :members:
-    :private-members:
-    :inherited-members: abc.ABC
-    :show-inheritance:
-    :exclude-members: reward_range, metadata, spec, _seed, _init_legacy, _init_state_space, _abc_impl
-    :noindex:
+    :no-index:

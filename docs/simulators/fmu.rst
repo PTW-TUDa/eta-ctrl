@@ -15,11 +15,11 @@ simulation models with direct connections to actual devices.
 
 .. autoclass:: eta_ctrl.simulators::FMUSimulator
     :members:
-    :noindex:
+    :no-index:
 
 The *FMU2MESlave* is a wrapper for ModelExchange FMUs which provides similar functionality to Co-Simulation FMUs
 while using the Cvode solver from *fmpy*.
 
 .. autoclass:: eta_ctrl.simulators::FMU2MESlave
     :members:
-    :noindex:
+    :no-index:

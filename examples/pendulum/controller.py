@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from eta_ctrl.agents import RuleBased
-from eta_ctrl.common import is_vectorized_env
+from eta_ctrl.common import is_vectorized
 
 if TYPE_CHECKING:
     from typing import Any
@@ -31,23 +31,24 @@ class PendulumControl(RuleBased):
         # set initial state
         self.initial_state = np.zeros(self.action_space.shape)  # type: ignore[type-var]
 
-    def control_rules(self, observation: np.ndarray) -> np.ndarray:
+        # Handle vectorized environments
+        # correct type ensured by is_vectorized
+        if is_vectorized(self.env) and self.get_env().num_envs > 1:
+            msg = "The PendulumController can only work on a single environment at once"
+            raise ValueError(msg)
+
+    def control_rules(self, observation: np.ndarray | dict[str, np.ndarray]) -> np.ndarray:
         """This function is abstract and should be used to implement control rules which determine actions from
         the received observations.
 
         :param observation: Observations as provided by a single, non vectorized environment.
         :return: Action values, as determined by the control rules.
         """
-        # Handle vectorized environments
-        # correct type ensured by is_vectorized_env
-        if is_vectorized_env(self.env) and self.get_env().num_envs > 1:
-            msg = "The PendulumController can only work on a single environment at once"
-            raise ValueError(msg)
 
-        # Calculate actions according to the observations (manually extracting observation values
-        cos_th = observation[0]
-        # observation[1] (sin_th) not needed here
-        th_dot = observation[2]
+        # Calculate actions according to the observations (manually extracting observation values)
+        cos_th = observation["cos_th"][0]
+        # observation sin_th not needed here
+        th_dot = observation["th_dot"][0]
 
         # Control rules, can you find a better one? :)
         torque = abs(cos_th) * th_dot
@@ -56,6 +57,6 @@ class PendulumControl(RuleBased):
         else:
             torque *= -1.5
 
-        action: np.ndarray = np.fromiter([torque], dtype=np.float64)
+        action: np.ndarray = np.array([torque], dtype=np.float32)
 
         return action

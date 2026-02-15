@@ -8,9 +8,6 @@ from .util import (
     dict_pop_any as dict_pop_any,
     dict_search as dict_search,
     get_logger as get_logger,
-    install_julia as install_julia,
     json_import as json_import,
-    julia_extensions_available as julia_extensions_available,
     log_add_filehandler as log_add_filehandler,
-    update_agent as update_agent,
 )

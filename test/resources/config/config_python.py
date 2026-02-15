@@ -9,7 +9,7 @@ config = {  # noqa: INP001
         "policy_class": "NoPolicy",
         "policy_package": "eta_ctrl.common",
     },
-    "paths": {"relpath_results": "results", "relpath_scenarios": "scenarios"},
+    "paths": {"state_relpath": "."},
     "settings": {
         "sampling_time": 10,
         "episode_duration": 1800,
@@ -17,20 +17,18 @@ config = {  # noqa: INP001
         "n_environments": 1,
         "verbose": 2,
         "seed": 123,
-    },
-    "environment_specific": {
         "scenario_time_begin": "2022-03-18 00:00",
         "scenario_time_end": "2022-03-18 00:30",
+    },
+    "environment_specific": {
         "sim_steps_per_sample": 1,
         "scenario_files": [
             {
                 "path": "electricity_price_test.csv",
                 "interpolation_method": "ffill",
-                "resample_method": "asfreq",
-                "time_conversion_str": "%d.%m.%Y %H:%M",
             }
         ],
-        "prediction_scope": 1200,
+        "prediction_horizon": 1200,
         "model_parameters": {
             "N": 5,
             "n_start": 1,
@@ -50,6 +48,5 @@ config = {  # noqa: INP001
             "temperatureChangeCleaningValue": -0.025,
         },
     },
-    "interaction_env_specific": {"scenario_time_begin": "2022-03-18 06:00", "scenario_time_end": "2022-03-18 10:00"},
     "agent_specific": {"action_index": 1, "solver_name": "cplex_direct"},
 }

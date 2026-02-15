@@ -16,12 +16,13 @@ import numpy as np
 import pandas as pd
 
 from eta_ctrl.util.type_annotations import FillMethod
+from eta_ctrl.util.utils import timestep_to_seconds, timestep_to_timedelta
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from typing import Literal
 
-    from eta_ctrl.util.type_annotations import Path, TimeStep
+    from eta_ctrl.util.type_annotations import InferDatetimeType, Path, TimeStep
 
 log = getLogger(__name__)
 
@@ -30,7 +31,7 @@ def df_from_csv(
     path: Path,
     *,
     delimiter: str = ";",
-    infer_datetime_from: str | Sequence[int] | tuple[int, int] = "dates",
+    infer_datetime_from: InferDatetimeType | Sequence[int] | tuple[int, int] = "dates",
     time_conversion_str: str = "%Y-%m-%d %H:%M",
 ) -> pd.DataFrame:
     """Take data from a csv file, process it and return a Timeseries (pandas Data Frame) object.
@@ -56,7 +57,7 @@ def df_from_csv(
 
     :param time_conversion_str: Time conversion string according to the python (strptime) format.
     """
-    path = pathlib.Path(path) if not isinstance(path, pathlib.Path) else path
+    path = pathlib.Path(path)
 
     conversion_string = None
     infer_datetime_format = False
@@ -99,7 +100,7 @@ def df_from_csv(
         # Find number of fields, names of fields and a conversion string for time
         length = len(first_line)
         splitter = re.compile("[^A-Za-z0-9 _-]")
-        names = [splitter.split(s.strip(), 1)[0].lower().strip().replace(" ", "_") for s in first_line]
+        names = [splitter.sub("", s.strip()).strip().replace(" ", "_") for s in first_line]
 
     # Load the CSV file
     if infer_datetime_format:
@@ -149,7 +150,7 @@ def find_time_slice(
     if time_end is not None and total_time is None:
         total_time = time_end - time_begin
     elif total_time is not None:
-        total_time = timedelta(seconds=total_time) if not isinstance(total_time, timedelta) else total_time
+        total_time = timestep_to_timedelta(total_time)
         time_end = time_begin + total_time if time_end is None else time_end
     else:
         msg = "At least one of time_end and total_time must be specified to fully constrain the interval."
@@ -158,6 +159,9 @@ def find_time_slice(
     round_to_interval = (
         round_to_interval.total_seconds() if isinstance(round_to_interval, timedelta) else round_to_interval
     )
+    # pandas Timestamp returns a different timestamp than python datetime objects!
+    if isinstance(time_begin, pd.Timestamp):
+        time_begin = time_begin.to_pydatetime()
 
     # Determine the (possibly random) beginning time of the time slice and round it if necessary
     if random:
@@ -175,12 +179,15 @@ def find_time_slice(
         slice_begin = time_begin + timedelta(seconds=random.uniform() * time_gap)
     else:
         slice_begin = time_begin
-    if round_to_interval is not None and round_to_interval > 0:
+
+    round_to_interval = timestep_to_seconds(round_to_interval) if round_to_interval is not None else 0
+
+    if round_to_interval > 0:
         slice_begin = datetime.fromtimestamp((slice_begin.timestamp() // round_to_interval) * round_to_interval)
 
     # Determine the ending time of the time slice and round it if necessary
     slice_end = slice_begin + total_time
-    if round_to_interval is not None and round_to_interval > 0:
+    if round_to_interval > 0:
         slice_end = datetime.fromtimestamp((slice_end.timestamp() // round_to_interval) * round_to_interval)
 
     return slice_begin, slice_end
@@ -246,7 +253,7 @@ def df_resample(
         log.warning(f"Index has non-unique values. Dropping duplicates: {dataframe.index[duplicates].to_list()}.")
         dataframe = dataframe[~duplicates]
 
-    _periods_deltas: list[int] = [int(t.total_seconds() if isinstance(t, timedelta) else t) for t in periods_deltas]
+    _periods_deltas: list[int] = [int(timestep_to_seconds(t)) for t in periods_deltas]
 
     if len(_periods_deltas) == 1:
         delta = _periods_deltas[0]
@@ -284,14 +291,12 @@ def df_interpolate(
     """Interpolate missing values in a DataFrame with a specified frequency.
     Is able to handle unevenly spaced time series data.
 
-    Args:
-        dataframe (pd.DataFrame): DataFrame for interpolation.
-        freq (TimeStep): Frequency of the resulting DataFrame.
-        limit_direction (Literal["both", "forward", "backward"], optional): Direction in which to limit the
+    :param dataframe: DataFrame for interpolation.
+    :param freq: Frequency of the resulting DataFrame.
+    :param limit_direction: Direction in which to limit the
             interpolation. Defaults to "both".
 
-    Returns:
-        pd.DataFrame: Interpolated DataFrame.
+    :return: Interpolated DataFrame.
     """
     if not dataframe.index.is_unique:
         log.warning(
@@ -300,7 +305,7 @@ def df_interpolate(
         )
         dataframe = dataframe[~dataframe.index.duplicated(keep="first")]
 
-    freq_seconds: float | int = freq.total_seconds() if isinstance(freq, timedelta) else freq
+    freq_seconds: float = timestep_to_seconds(freq)
     freq_str: str = str(int(freq_seconds)) + "s"
 
     old_index: pd.Index = dataframe.index

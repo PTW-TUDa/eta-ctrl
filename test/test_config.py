@@ -1,17 +1,13 @@
 import copy
 import re
+from datetime import datetime
 from pathlib import Path
 
 import pytest
-import toml
 
 from eta_ctrl.config import Config, ConfigSettings, ConfigSetup
+from eta_ctrl.envs.state import StateConfig
 from test.resources.config.config_python import config as python_dict
-
-
-@pytest.fixture
-def base_path() -> Path:
-    return Path("test/resources/config")
 
 
 @pytest.fixture
@@ -20,69 +16,48 @@ def config_dict() -> dict:
 
 
 class TestConfig:
-    @pytest.fixture
-    def _load_config_mp(self, monkeypatch, config_dict) -> None:
-        monkeypatch.setattr(Config, "_load_config_file", lambda _: config_dict)
+    @pytest.fixture(autouse=True)
+    def prevent_state_config_loading(self, monkeypatch):
+        monkeypatch.setattr(StateConfig, "from_file", lambda file: None)
 
-    @pytest.mark.usefixtures("_load_config_mp")
-    def test_from_config_file(self):
-        Config.from_config_file(file="", path_root="")
+    def test_from_dict(self, config_dict, config_resources_path):
+        Config._from_dict(config=config_dict, config_name="test", root_path=config_resources_path)
 
-    @pytest.mark.usefixtures("_load_config_mp")
-    def test_from_config_file_overwrite(self):
+    def test_from_dict_overwrite(self, config_dict, config_resources_path):
         overwrite = {
             "agent_specific": {"solver_name": "foobar"},
-            "environment_specific": {"scenario_files": [{"path": "foobar.csv"}]},
+            "environment_specific": {"foo": [{"bar": "quux"}]},
         }
-        config_opt = Config.from_config_file(file="", path_root="", overwrite=overwrite)
+
+        config_opt = Config._from_dict(
+            config=config_dict, config_name="test", root_path=config_resources_path, overwrite=overwrite
+        )
 
         assert config_opt.settings.agent["solver_name"] == "foobar"
-        assert config_opt.settings.environment["scenario_files"][0]["path"] == "foobar.csv"
+        assert config_opt.settings.environment["foo"][0]["bar"] == "quux"
 
-    def test_from_config_file_fail(self, config_dict, monkeypatch):
+    def test_from_dict_fail(self, config_dict, config_resources_path):
         config_dict.pop("settings")
-        monkeypatch.setattr(Config, "_load_config_file", lambda _: config_dict)
         error_msg = re.escape("The section 'settings' is not present in configuration file foobar.")
         with pytest.raises(ValueError, match=error_msg):
-            Config.from_config_file(file="foobar", path_root="")
+            Config._from_dict(config=config_dict, config_name="foobar", root_path=config_resources_path)
 
-    config_names = ["config1", "config2", "config3", "config1.json", "config2.toml", "config3.yaml"]
-
-    @pytest.mark.parametrize("config_name", config_names)
-    def test_load_config_file(self, config_name: str, base_path: Path):
-        file_path = base_path / f"{config_name}"
-        read_dict = Config._load_config_file(file_path)
-        assert read_dict == python_dict
-
-    def test_load_config_file_fail(self, base_path: Path):
-        file_path = base_path / "no_configfile"
-        error_msg = re.escape(f"Config file not found: {file_path}")
-        with pytest.raises(FileNotFoundError, match=error_msg):
-            Config._load_config_file(file_path)
-
-    def test_load_config_file_fail2(self, base_path: Path, monkeypatch):
-        file_path = base_path / "config2"
-        monkeypatch.setattr(toml, "load", lambda _: ["settings"])
-        error_msg = re.escape(f"Config file {file_path} must define a dictionary of options.")
-        with pytest.raises(TypeError, match=error_msg):
-            Config._load_config_file(file_path)
-
-    def test_build_config_opt_dictfail(self, config_dict: dict, caplog):
+    def test_build_config_dictfail(self, config_dict: dict, config_resources_path, caplog):
         caplog.set_level(10)  # Set log level to debug
 
         config_dict["setup"] = ["foobar"]
         config_dict.pop("environment_specific")
         error_msg = re.escape("'setup' section must be a dictionary of settings.")
         with pytest.raises(TypeError, match=error_msg):
-            Config.from_dict(config_dict, file="", path_root=Path())
+            Config._from_dict(config_dict, config_name="", root_path=config_resources_path)
         log_msg = "Section 'environment_specific' not present in configuration, assuming it is empty."
         assert log_msg in caplog.messages
 
-    def test_build_config_opt_altname(self, config_dict: dict, caplog):
+    def test_build_config_altname(self, config_dict: dict, caplog, config_resources_path):
         config_dict["interaction_environment_specific"] = {"foo": "bar"}
-        config_dict.pop("interaction_env_specific")
+        config_dict.pop("interaction_env_specific", None)
         config_dict["agentspecific"] = {"solver_name": "foobar"}
-        config = Config.from_dict(config_dict, file="", path_root=Path())
+        config = Config._from_dict(config_dict, config_name="", root_path=config_resources_path)
         assert config.settings.interaction_env["foo"] == "bar"
         log_msg = (
             "Specified configuration value 'agentspecific' in the setup section of the configuration "
@@ -90,13 +65,22 @@ class TestConfig:
         )
         assert log_msg in caplog.messages
 
-    def test_build_config_opt_pathfail(self, config_dict: dict):
-        config_dict["paths"].pop("relpath_results")
+    def test_build_config_pathfail(self, config_dict: dict, config_resources_path):
+        config_dict["setup"].pop("environment_import")
         error_msg = re.escape(
             "Not all required values were found in setup section (see log). Could not load config file."
         )
         with pytest.raises(ValueError, match=error_msg):
-            Config.from_dict(config_dict, file="", path_root=Path())
+            Config._from_dict(config_dict, config_name="", root_path=config_resources_path)
+
+    def test_build_config_default_path(self, config_dict: dict, config_resources_path):
+        config = Config._from_dict(config_dict, config_name="", root_path=config_resources_path)
+        assert config.results_path == config_resources_path / "results"
+        assert config.scenarios_path == config_resources_path / "scenarios"
+
+    def test_from_file(self, config_dict: dict, config_resources_path: Path):
+        config = Config.from_file(root_path=config_resources_path, config_relpath=Path(), config_name="config1")
+        assert config.config_name == "config1"
 
 
 class TestConfigSetup:
@@ -149,14 +133,6 @@ class TestConfigSetup:
         with pytest.raises(AttributeError, match=error_msg):
             ConfigSetup.from_dict(config_dict["setup"])
 
-    def test_from_config_opt_fail(self, config_dict: dict):
-        config_dict["setup"].pop("environment_import")
-        error_msg = re.escape(
-            "Not all required values were found in setup section (see log). Could not load config file."
-        )
-        with pytest.raises(ValueError, match=error_msg):
-            Config.from_dict(config_dict, file="", path_root=Path())
-
     def test_unrecognized_keys(self, config_dict: dict, caplog):
         config_dict["setup"]["foobar"] = "barfoo"
         ConfigSetup.from_dict(config_dict["setup"])
@@ -172,10 +148,16 @@ class TestConfigSettings:
         with pytest.raises(ValueError, match=error_msg):
             ConfigSettings.from_dict(config_dict)
 
-    def test_fail_from_config_opt(self, config_dict: dict):
-        config_dict["settings"].pop("n_episodes_play")
-        error_msg = re.escape(
-            "Not all required values were found in setup section (see log). Could not load config file."
-        )
-        with pytest.raises(ValueError, match=error_msg):
-            Config.from_dict(config_dict, file="", path_root=Path())
+    def test_scenario_time_begin_end_with_seconds(self, config_dict: dict):
+        config_dict["settings"]["scenario_time_begin"] = "2022-03-18 00:00:00"
+        config_dict["settings"]["scenario_time_end"] = "2022-03-18 00:10:00"
+        settings = ConfigSettings.from_dict(config_dict)
+        assert settings.scenario_time_begin == datetime(2022, 3, 18, 0, 0, 0)
+        assert settings.scenario_time_end == datetime(2022, 3, 18, 0, 10, 0)
+
+    def test_scenario_time_begin_end_without_seconds(self, config_dict: dict):
+        config_dict["settings"]["scenario_time_begin"] = "2022-03-18 00:00"
+        config_dict["settings"]["scenario_time_end"] = "2022-03-18 00:10"
+        settings = ConfigSettings.from_dict(config_dict)
+        assert settings.scenario_time_begin == datetime(2022, 3, 18, 0, 0, 0)
+        assert settings.scenario_time_end == datetime(2022, 3, 18, 0, 10, 0)

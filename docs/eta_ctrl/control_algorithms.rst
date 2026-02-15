@@ -23,7 +23,7 @@ the base class and then for the solver. Meaning that arguments which are passed 
 by *BaseAlgorithm* will be passed on to the solver. This allows free configuration of all solver options.
 
 .. autoclass:: eta_ctrl.agents::MathSolver
-    :noindex:
+    :no-index:
 
 Rule Based Agent (Base Class)
 ---------------------------------------
@@ -33,18 +33,4 @@ takes the array of observations from the environment and determines an array of 
 
 .. autoclass:: eta_ctrl.agents::RuleBased
     :members: control_rules
-    :noindex:
-
-Non-dominated Sorting Genetic Algorithm (NSGA-II)
------------------------------------------------------
-The genetic optimiser implements a genetic algorithm based on the NSGA-II. The NSGA-II was first developed
-and implemented by Kalyanmoy Deb, Amrit Pratap, Sameer Agarwal and T. Meyarivan in their collaborative paper
-'A Fast and Elitist Multiobjective Genetic Algorithm: NSGA-II' in 2002.
-
-The NSGA2 agent is a class that will operate according to the algorithm. To use it, you need
-to instantiate the :py:class:`eta_ctrl.agents.Nsga2` class and use the *learn* function
-combined with an environment to solve your optimization problem. The algorithm will find the
-optimal actions based on interactions with the environment.
-
-.. autoclass:: eta_ctrl.agents::Nsga2
-    :noindex:
+    :no-index:

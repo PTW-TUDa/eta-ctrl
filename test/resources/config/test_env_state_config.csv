@@ -1,0 +1,7 @@
+name;is_agent_action;is_agent_observation;scenario_scale_mult;low_value;high_value;abort_condition_min;abort_condition_max
+torque;True;;;"-5";"5";;
+th;;True;;-3.141;3.141;;
+cos_th;;True;;-1.0;1.0;;
+sin_th;;True;;-1.0;1.0;;
+th_dot;;True;;-1.0;1.0;;
+additional_param;;True;;0.0;10.0;;

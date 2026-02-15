@@ -1,9 +1,25 @@
+import numpy as np
+import pandas as pd
 import pytest
 
 from eta_ctrl.agents.math_solver import MathSolver
 from eta_ctrl.common import NoPolicy
 from eta_ctrl.config import ConfigRun
+from eta_ctrl.timeseries.scenario_manager import CsvScenarioManager
 from test.resources.agents.mpc_basic_env import MPCBasicEnv
+
+
+class DummyScenarioManager(CsvScenarioManager):
+    """Dummy class for testing purposes"""
+
+    def __init__(self) -> None:
+        self.scenarios = pd.DataFrame()
+
+    def get_scenario_state(self, n_steps: int) -> dict[str, np.ndarray]:
+        return {}
+
+    def get_scenario_state_with_duration(self, n_step: int, duration: int) -> dict[str, np.ndarray]:
+        return {}
 
 
 class TestMathSolver:
@@ -13,8 +29,9 @@ class TestMathSolver:
             series="MPC_Basic_test_2023",
             name="test_mpc_basic",
             description="",
-            path_root=temp_dir / "root",
-            path_results=temp_dir / "results",
+            root_path=temp_dir,
+            results_path=temp_dir,
+            scenarios_path=temp_dir,
         )
 
         # Create the environment
@@ -22,11 +39,10 @@ class TestMathSolver:
             env_id=1,
             config_run=config_run,
             prediction_horizon=10,
-            scenario_time_begin="2021-12-01 06:00",
-            scenario_time_end="2021-12-01 07:00",
             episode_duration=1800,
             sampling_time=1,
             model_parameters={},
+            scenario_manager=DummyScenarioManager(),
         )
         yield env
         env.close()

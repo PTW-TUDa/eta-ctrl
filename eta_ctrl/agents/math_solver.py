@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pyomo.environ as pyo
+from gymnasium import spaces
 from pyomo import opt
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.vec_env import VecEnv, VecNormalize
@@ -71,7 +72,6 @@ class MathSolver(BaseAlgorithm):
                 "seed",
                 "use_sde",
                 "sde_sample_freq",
-                "supported_action_spaces",
             }:
                 super_args[key] = value
             elif key == "tensorboard_log":
@@ -81,6 +81,7 @@ class MathSolver(BaseAlgorithm):
             else:
                 solver_args[key] = value
 
+        super_args["supported_action_spaces"] = (spaces.Box,)
         super().__init__(policy=policy, env=env, verbose=verbose, **super_args)
         log.setLevel(int(verbose * 10))  # Set logging verbosity
 
@@ -215,7 +216,7 @@ class MathSolver(BaseAlgorithm):
                 log.exception("Couldn't fetch the value for action {}")
 
         # Make sure that actions are returned to the correct order and as a numpy array.
-        actions: np.ndarray = np.ndarray((1, len(self.actions_order)))
+        actions: np.ndarray = np.ndarray((1, len(self.actions_order)), dtype=np.float32)
         for i, action in enumerate(self.actions_order):
             log.debug(f"Action '{action}' value: {solution[action]}")
             actions[0][i] = solution[action]
@@ -224,7 +225,7 @@ class MathSolver(BaseAlgorithm):
 
     def action_probability(
         self,
-        observation: np.ndarray,
+        observation: dict[str, np.ndarray],
         state: np.ndarray | None = None,
         mask: np.ndarray | None = None,
         actions: np.ndarray | None = None,

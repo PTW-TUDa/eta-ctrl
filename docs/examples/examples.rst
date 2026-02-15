@@ -7,7 +7,7 @@ This page gives a short overview of the examples.
 
 
 ETA Ctrl Optimization
---------------------
+----------------------
 Examples for the optimization part of the framework are also provided. The *pendulum* example is the
 simplest one of them. It implements an inverse pendulum, similar to
 the `equivalent example in Farama gymnasium <https://gymnasium.farama.org/environments/classic_control/pendulum/>`_.

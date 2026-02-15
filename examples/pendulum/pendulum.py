@@ -22,15 +22,14 @@ else:
         angle_normalize,
     )
 
-from eta_ctrl.envs import BaseEnv, StateConfig, StateVar
+from eta_ctrl.envs import BaseEnv, StateConfig
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from datetime import datetime
     from typing import Any
 
     from eta_ctrl.config import ConfigRun
-    from eta_ctrl.util.type_annotations import ObservationType, StepResult, TimeStep
+    from eta_ctrl.util.type_annotations import TimeStep
 
 log = getLogger(__name__)
 
@@ -44,8 +43,6 @@ class PendulumEnv(BaseEnv, GymPendulum):
     :param config_run: Configuration of the optimization run
     :param verbose: Verbosity to use for logging (default: 2)
     :param callback: callback which should be called after each episode
-    :param scenario_time_begin: Beginning time of the scenario
-    :param scenario_time_end: Ending time of the scenario
     :param episode_duration: Duration of the episode in seconds
     :param sampling_time: Duration of a single time sample / time step in seconds
     :param max_speed: Maximum speed of the pendulum
@@ -68,9 +65,9 @@ class PendulumEnv(BaseEnv, GymPendulum):
         config_run: ConfigRun,
         verbose: int = 2,
         callback: Callable | None = None,
+        seed: int | None = None,
         *,
-        scenario_time_begin: datetime | str,
-        scenario_time_end: datetime | str,
+        state_config: StateConfig,
         episode_duration: TimeStep | str,
         sampling_time: TimeStep | str,
         max_speed: int,
@@ -81,17 +78,18 @@ class PendulumEnv(BaseEnv, GymPendulum):
         do_render: bool = True,
         screen_dim: int = 500,
         render_mode: str = "human",
+        **kwargs: Any,
     ) -> None:
         super().__init__(
-            env_id,
-            config_run,
-            verbose,
-            callback,
-            scenario_time_begin=scenario_time_begin,
-            scenario_time_end=scenario_time_end,
+            env_id=env_id,
+            config_run=config_run,
+            state_config=state_config,
+            verbose=verbose,
+            callback=callback,
             episode_duration=episode_duration,
             sampling_time=sampling_time,
             render_mode=render_mode,
+            **kwargs,
         )
 
         # Load environment dynamics specific settings
@@ -106,43 +104,24 @@ class PendulumEnv(BaseEnv, GymPendulum):
         self.do_render = do_render
 
         # Initialize counters
-        self.n_episodes = 0
-        self.n_steps = 0
         self.last_u: float | None = None
 
-        # Setup environment state and action / observation spaces
-        self.state_config = StateConfig(
-            StateVar(name="torque", is_agent_action=True, low_value=-self.max_torque, high_value=self.max_torque),
-            StateVar(name="th", low_value=-np.pi, high_value=np.pi),
-            StateVar(name="cos_th", is_agent_observation=True, low_value=-1.0, high_value=1.0),
-            StateVar(name="sin_th", is_agent_observation=True, low_value=-1.0, high_value=1.0),
-            StateVar(name="th_dot", is_agent_observation=True, low_value=-1.0, high_value=1.0),
-        )
-        self.action_space, self.observation_space = self.state_config.continuous_spaces()
-
-    def step(self, action: np.ndarray) -> StepResult:
+    def _step(self) -> tuple[float, bool, bool, dict]:
         """See base_env documentation"""
-        assert self.state_config is not None, "Set state_config before calling step function."
-
-        # Update counters
-        self.n_steps += 1
 
         # Get previous step values (th := theta)
-        th = self.state["th"]
-        thdot = self.state["th_dot"]
-
-        # Store actions
-        self.state = {}
-        for idx, act in enumerate(self.state_config.actions):
-            self.state[act] = action[idx]
+        th = self.state_log[-1]["th"]
+        thdot = self.state_log[-1]["th_dot"]
 
         # Clip input from agent by max values
         self.state["torque"] = np.clip(self.state["torque"], -self.max_torque, self.max_torque)
-        self.last_u = self.state["torque"]  # for rendering
+        self.last_u = self.state["torque"][0]  # for rendering
 
         # Calculate state of the pendulum
-        u, g, m, length, dt = self.state["torque"], self.g, self.mass, self.length, self.sampling_time
-
+        # Constants
+        g, m, length, dt = self.g, self.mass, self.length, self.sampling_time
+        # Variables
+        u = self.state["torque"]
         newthdot = thdot + (3 * g / (2 * length) * np.sin(th) + 3.0 / (m * length**2) * u) * dt
         newthdot = np.clip(newthdot, -self.max_speed, self.max_speed)
         newth = th + newthdot * dt
@@ -155,27 +134,14 @@ class PendulumEnv(BaseEnv, GymPendulum):
         # reward function
         costs = angle_normalize(th) ** 2 + 0.1 * thdot**2 + 0.001 * (u**2)
 
-        # Prepare observations
-        observations = np.empty(len(self.state_config.observations))
-        for idx, name in enumerate(self.state_config.observations):
-            observations[idx] = self.state[name]
+        return -costs[0], False, self._truncated(), {}
 
-        # Check if the episode is completed
-        terminated = self.n_steps >= self.n_episode_steps
-        truncated = False
-
-        # Render the environment at each step
-        if self.render_mode == "human":
-            self.render()
-
-        return observations, -costs, terminated, truncated, {}
-
-    def reset(
+    def _reset(
         self,
         *,
         seed: int | None = None,
         options: dict[str, Any] | None = None,
-    ) -> tuple[ObservationType, dict[str, Any]]:
+    ) -> dict[str, Any]:
         """Reset the environment. This is called after each episode is completed and should be used to reset the
         state of the environment such that simulation of a new episode can begin.
 
@@ -184,40 +150,17 @@ class PendulumEnv(BaseEnv, GymPendulum):
                 depending on the specific environment) (default: None)
         :return: Tuple of observation and info. Analogous to the ``info`` returned by :meth:`step`.
         """
-        assert self.state_config is not None, "Set state_config before calling reset function."
 
         # save episode's stats
-        super().reset(seed=seed, options=options)
-
         self.last_u = None
-        self.state = {}
-
-        # Reset actions and position
-        for name in self.state_config.vars:
-            if name in self.state_config.actions:
-                self.state[name] = 0
-            elif name in {"th", "th_dot"}:
-                var = self.state_config.vars[name]
-                assert var.low_value is not None, f"low_value for {name} must be set."
-                assert var.high_value is not None, f"high_value for {name} must be set."
-                self.state[name] = self.np_random.uniform(low=var.low_value, high=var.high_value)
+        random_obs = self.observation_space.sample()
+        self.state["th"] = random_obs["th"]
+        self.state["th_dot"] = random_obs["th_dot"]
         # Calculate sin and cos
         self.state["cos_th"] = np.cos(self.state["th"])
         self.state["sin_th"] = np.sin(self.state["th"])
 
-        # Log the state
-        self.state_log.append(self.state)
-
-        # Get the observations from environment state
-        observations = np.empty(len(self.state_config.observations))
-        for idx, name in enumerate(self.state_config.observations):
-            observations[idx] = self.state[name]
-
-        # Render the environment when calling the reset function
-        if self.render_mode == "human":
-            self.render()
-
-        return observations, {}
+        return {}
 
     def render(self) -> None:
         """Use the render function from the Farama gymnasium PendulumEnv environment.

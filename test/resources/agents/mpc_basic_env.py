@@ -3,6 +3,7 @@ import numpy as np
 import pyomo.environ as pyo
 
 from eta_ctrl.envs import PyomoEnv
+from eta_ctrl.envs.state import StateConfig, StateVar
 
 
 class MPCBasicEnv(PyomoEnv):
@@ -13,8 +14,6 @@ class MPCBasicEnv(PyomoEnv):
     :param env_id: Identification for the environment, useful when creating multiple environments.
     :param config_run: Configuration of the optimization run.
     :param prediction_horizon: time horizon over which the optimization problem is solved.
-    :param scenario_time_begin: Beginning time of the scenario.
-    :param scenario_time_end: Ending time of the scenario.
     :param episode_duration: Duration of the episode in seconds.
     :param sampling_time: Duration of a single time sample / time step in seconds.
     :param model_parameters: Parameters for the mathematical model.
@@ -30,31 +29,27 @@ class MPCBasicEnv(PyomoEnv):
         config_run,
         prediction_horizon: int = 10,
         *,
-        scenario_time_begin,
-        scenario_time_end,
         episode_duration,
         sampling_time,
         model_parameters,
         **kwargs,
     ):
-        self.prediction_horizon = prediction_horizon
-
-        # Observation Space and action space are not used in this specific case.'
-        self.observation_space = gymnasium.spaces.Box(low=-np.inf, high=np.inf, shape=(self.prediction_horizon,))
-        self.action_space = gymnasium.spaces.Box(low=-100_000, high=100_000, shape=(self.prediction_horizon,))
-
-        self.state = None
-
         super().__init__(
             env_id=env_id,
             config_run=config_run,
-            scenario_time_begin=scenario_time_begin,
-            scenario_time_end=scenario_time_end,
+            state_config=StateConfig(StateVar(name="foo")),
             episode_duration=episode_duration,
             sampling_time=sampling_time,
             model_parameters=model_parameters,
+            prediction_horizon=prediction_horizon,
             **kwargs,
         )
+
+        # Observation Space and action space are not used in this specific case.'
+        self.observation_space = gymnasium.spaces.Box(low=-np.inf, high=np.inf, shape=(int(self.prediction_horizon),))
+        self.action_space = gymnasium.spaces.Box(low=-100_000, high=100_000, shape=(int(self.prediction_horizon),))
+
+        self.state = None
 
     def _model(self):
         model = pyo.AbstractModel()

@@ -1,0 +1,4 @@
+[[actions]]
+name = "heating"
+low_value=0
+high_value=1
