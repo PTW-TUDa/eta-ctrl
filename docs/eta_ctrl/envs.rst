@@ -26,10 +26,9 @@ section will be used for both environments.
 
 Environment State Configuration
 --------------------------------
-
 The most important concept to understand when working with the environment utilities provided by *ETA Ctrl* is
 is the handling and configuration of the environment state. The state is represented by a
-:py:class:`eta_ctrl.envs::StateConfig` object. Each StateConfig contains :py:class:`eta_ctrl.envs::StateVar`s which
+:class:`eta_ctrl.envs.StateConfig <eta_ctrl.envs.state.StateConfig>` object. Each StateConfig contains :class:`eta_ctrl.envs.StateVar <eta_ctrl.envs.state.StateVar>` objects which
 each correspond to one variable of the environment. From the StateConfig object we can
 determine most other aspects of the environment, such as for example the observation space and action space. The
 *gymnasium* documentation provides more information about `Spaces <https://gymnasium.farama.org/api/spaces/>`_.
@@ -41,6 +40,7 @@ See the examples for details.
 A minimal `state` TOML structure might look like this:
 
 .. code-block:: toml
+
     [[actions]]
     name = "heater_power"
     low_value = 0.0

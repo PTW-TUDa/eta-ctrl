@@ -64,7 +64,7 @@ It's recommended to install the package in a virtual environment. See :ref:`crea
 
 .. note::
 
-   ETA Ctrl supports Python versions between 3.9 and 3.11 (inclusive).
+   ETA Ctrl supports Python versions between 3.10 and 3.12 (inclusive).
 
 There are multiple classes of optional requirements. If you would like to use some of the optional components, please install one or more of the following:
 

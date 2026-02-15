@@ -3,14 +3,14 @@
 Set up Python and Git
 ======================
 
-This section explains how to set up Python and Git. Additional information can be found in the `Beginner's Guide to Python (external link) <https://wiki.python.org/moin/BeginnersGuide>`_.
+This section explains how to set up Python and Git.
 If you have already set this up, you can go to the :ref:`install` or :ref:`development` sections.
 
 Installation of Python
 ------------------------
 
 If you do not already have it, install Python (64 Bit) on your device. ETA Ctrl supports Python versions between
-**3.9** and **3.11**.
+**3.10** and **3.12**.
 
 Below, the installation is illustrated using Python 3.10.10, 64 Bit. You can install Python for
 Windows from `python.org <https://www.python.org/downloads/windows/>`_
