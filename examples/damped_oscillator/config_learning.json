@@ -7,14 +7,14 @@
         "vectorizer_package": "stable_baselines3.common.vec_env",
         "vectorizer_class": "SubprocVecEnv",
         "policy_package": "stable_baselines3.ppo",
-        "policy_class": "MlpPolicy",
+        "policy_class": "MultiInputPolicy",
         "tensorboard_log": true,
         "monitor_wrapper": true,
         "norm_wrapper_obs": true,
         "norm_wrapper_reward": true
     },
     "paths": {
-        "relpath_results": "results/"
+        "state_relpath": "."
     },
     "settings": {
         "sampling_time": 0.5,
@@ -28,8 +28,6 @@
         "plot_interval": 50
     },
     "environment_specific": {
-        "scenario_time_begin": "2022-01-04 12:12",
-        "scenario_time_end": "2022-01-04 12:13",
         "scale_actions": true
     },
     "agent_specific": {     // Parameters for PPO Algorithm

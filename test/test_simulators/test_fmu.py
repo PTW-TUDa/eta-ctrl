@@ -7,9 +7,8 @@ from eta_ctrl.simulators import FMUSimulator
 
 class TestFMUSimulator:
     @pytest.fixture
-    def seq_simulator(self, config_fmu):
-        """Legacy initialization required all values and would expect the simulator to return lists. A simulator
-        which does this is initialized here."""
+    def name_simulator(self, config_fmu):
+        """Simulator where names_inputs and names_outputs is provided."""
         init_values = {"u": 0}
 
         return FMUSimulator(
@@ -29,24 +28,25 @@ class TestFMUSimulator:
 
         return FMUSimulator(0, fmu_path=config_fmu["file"])
 
-    def test_attributes(self, seq_simulator):
+    def test_attributes(self, name_simulator):
         """Check whether most important attributes are present"""
-        assert pathlib.Path(seq_simulator._unzipdir).is_dir()
+        assert pathlib.Path(name_simulator._unzipdir).is_dir()
 
-        assert hasattr(seq_simulator, "step")
-        assert hasattr(seq_simulator, "reset")
-        assert hasattr(seq_simulator, "close")
+        assert hasattr(name_simulator, "step")
+        assert hasattr(name_simulator, "reset")
+        assert hasattr(name_simulator, "close")
 
-    def test_step_sequence_input(self, seq_simulator):
+    def test_step_named_simulator(self, name_simulator):
         """Test stepping function with the sequence input and output formats"""
-        input_values = [0.5]
-        s, v, a = seq_simulator.step(input_values)
+        input_values = {"u": 0.5}
+        # Result values will have the same order as in names_outputs
+        s, v, a = name_simulator.step(input_values).values()
 
         assert s == pytest.approx(0.768, 0.01)
         assert v == pytest.approx(0.569, 0.01)
         assert a == pytest.approx(-1.627, 0.01)
 
-        s, v, a = seq_simulator.step(input_values)
+        s, v, a = name_simulator.step(input_values).values()
         assert s == pytest.approx(0.550, 0.01)
         assert v == pytest.approx(-0.682, 0.01)
         assert a == pytest.approx(0.089, 0.01)
@@ -85,14 +85,14 @@ class TestFMUSimulator:
         assert v == pytest.approx(-0.682, 0.01)
         assert a == pytest.approx(0.089, 0.01)
 
-    def test_fmu_simulator_reset(self, seq_simulator):
+    def test_fmu_simulator_reset(self, name_simulator):
         """Test resetting the simulator"""
-        seq_simulator.reset({"u": 0})
+        name_simulator.reset({"u": 0})
 
-        assert seq_simulator.time == 0
+        assert name_simulator.time == 0
 
-    def test_fmu_simulator_close(self, seq_simulator):
+    def test_fmu_simulator_close(self, name_simulator):
         """Test closing the simulator object"""
-        seq_simulator.close()
+        name_simulator.close()
 
-        assert not pathlib.Path(seq_simulator._unzipdir).is_dir()
+        assert not pathlib.Path(name_simulator._unzipdir).is_dir()

@@ -1,0 +1,48 @@
+[setup]
+environment_import = "examples.kea_tank.environment.kea_model_env.DrKea"
+agent_import = "eta_ctrl.agents.MathSolver"
+
+[settings]
+sampling_time = 10  # time in seconds
+episode_duration = 600  # time in seconds
+n_episodes_play = 1
+verbose = 2
+seed = 123
+interact_with_env = false
+scenario_time_begin = "2022-03-18 00:00"
+scenario_time_end = "2022-03-18 00:10"
+
+[paths]
+state_relpath = "."
+
+[environment_specific]
+sim_steps_per_sample = 1
+prediction_horizon = 900  # time in seconds, optimization horizon K, is constant
+
+[[environment_specific.scenario_files]]  # accessible via the scenario_files parameter
+path = "electricity_price_test.csv"
+interpolation_method = "interpolate"
+# Convert electricity cost from   € / MW h   to   €/kW min
+scale_factors = {"Electrical_Energy_Price_MWh" = 0.277777}  # 1000/3600
+rename_cols = {"Electrical_Energy_Price_MWh" = "energy_price"}
+
+
+[environment_specific.model_parameters]
+p_heat = 10  # kW, heating power consumption
+tank_temperature_start = 60  # °C
+tank_temperature_min = 55  # °C
+tank_temperature_max = 65  # °C
+temperature_change_heating = 0.02  # Kelvin per second
+temperature_change_cleaning = -0.01  # Kelvin per second
+
+[interaction_env_specific]
+scenario_time_begin = "2022-03-18 00:00"
+scenario_time_end = "2022-03-18 00:30"
+
+[interaction_env_specific.parameters]
+tank_temperature_start = 60  # in °C
+temperature_change_heating = 0.02  # Kelvin per second
+temperature_change_cleaning = -0.01  # Kelvin per second
+
+[agent_specific]
+solver_name = "cplex_direct"

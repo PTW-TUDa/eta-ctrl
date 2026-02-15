@@ -34,7 +34,7 @@ learning but can be employed in generalized rolling horizon optimization setting
 The functions available in eta_ctrl.envs make it easy to create new, custom environments
 (see `stable_baselines3 custom environments <https://stable-baselines3.readthedocs.io/en/master/guide/custom_env.html>`_).
 For example, they provide functionality for integrating FMU simulation models,
-communicating with real machinery in factories, or even integrating environments written in Julia.
+communicating with real assets in factories, or integrating Pyomo models as environments.
 
 The *EtaCtrl* class is built on top of this functionality and extends the general Markov Decision Process by the option to
 introduce interactions between multiple environments. This enables the creation of digital twins, which could for
@@ -112,16 +112,16 @@ dataclass and its subsidiaries *ConfigSetup* and *ConfigSettings*.
 
 When you are using EtaCtrl (the class) the configuration will be read automatically.
 
-Use :func:`eta_ctrl.config::from_config_file` to read the configuration from a JSON, TOML or YAML file:
+Use :func:`eta_ctrl.config::from_file` to read the configuration from a JSON, TOML or YAML file:
 
-.. autofunction:: eta_ctrl.config::Config.from_config_file
+.. autofunction:: eta_ctrl.config::Config.from_file
 
 Configuration example
 ^^^^^^^^^^^^^^^^^^^^^^^^
 The following is the configuration for the pendulum example in this repository. It is relatively
 minimal in that it makes extensive use of the defaults defined in the *Config* classes.
 
-.. literalinclude:: /../examples/pendulum/pendulum_learning.json
+.. literalinclude:: /../examples/pendulum/config_learning.json
     :language: json
 
 Config section 'setup'
@@ -130,15 +130,16 @@ The settings configured in the setup section are the following:
 
 .. autoclass:: eta_ctrl.config::ConfigSetup
     :members:
-    :noindex:
+    :no-index:
     :exclude-members: from_dict
 
 Config section 'paths'
 ^^^^^^^^^^^^^^^^^^^^^^^^
-The paths section can contain the following relative paths:
+The optional paths section can contain the following optional relative paths:
 
-.. autoattribute:: eta_ctrl.config::Config.relpath_results
-.. autoattribute:: eta_ctrl.config::Config.relpath_scenarios
+.. autoattribute:: eta_ctrl.config::Config.results_relpath
+.. autoattribute:: eta_ctrl.config::Config.scenarios_relpath
+.. autoattribute:: eta_ctrl.config::Config.state_relpath
 
 Config section 'settings'
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -153,7 +154,7 @@ The configuration options in the settings section are the following.
 
 .. autoclass:: eta_ctrl.config::ConfigSettings
     :members:
-    :noindex:
+    :no-index:
     :exclude-members: from_dict
 
 Configuration for optimization runs
@@ -171,5 +172,5 @@ docs: :py:class:`eta_ctrl.config.ConfigRun`.
 
 .. autoclass:: eta_ctrl.config::ConfigRun
     :members:
-    :noindex:
+    :no-index:
     :exclude-members: from_dict, set_env_info, set_interaction_env_info, create_results_folders

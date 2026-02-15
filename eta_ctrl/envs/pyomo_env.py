@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import abc
 from collections.abc import Mapping, MutableMapping, Sequence
-from datetime import datetime, timedelta
+from datetime import timedelta
 from logging import getLogger
 from typing import TYPE_CHECKING
 
@@ -11,17 +11,19 @@ import pandas as pd
 from pyomo import environ as pyo
 from pyomo.core import base as pyo_base
 
+from eta_ctrl.common.export_pyomo import export_pyomo_state
 from eta_ctrl.envs import BaseEnv
-from eta_ctrl.envs.state import StateConfig, StateVar
+from eta_ctrl.timeseries.scenario_manager import CsvScenarioManager
 
 if TYPE_CHECKING:
+    import pathlib
     from collections.abc import Callable
     from typing import Any
 
     from pyomo.opt import SolverResults
 
     from eta_ctrl.config import ConfigRun
-    from eta_ctrl.util.type_annotations import PyoParams, StepResult, TimeStep
+    from eta_ctrl.util.type_annotations import PyoParams, TimeStep
 
 
 log = getLogger(__name__)
@@ -35,12 +37,9 @@ class PyomoEnv(BaseEnv, abc.ABC):
     :param config_run: Configuration of the optimization run.
     :param verbose: Verbosity to use for logging.
     :param callback: callback which should be called after each episode.
-    :param scenario_time_begin: Beginning time of the scenario.
-    :param scenario_time_end: Ending time of the scenario.
-    :param episode_duration: Duration of the episode in seconds.
     :param sampling_time: Duration of a single time sample / time step in seconds.
     :param model_parameters: Parameters for the mathematical model.
-    :param prediction_scope: Duration of the prediction (usually a subsample of the episode duration).
+    :param prediction_horizon: Duration of the prediction (usually a subsample of the episode duration).
     :param render_mode: Renders the environments to help visualise what the agent see, examples
         modes are "human", "rgb_array", "ansi" for text.
     :param kwargs: Other keyword arguments (for subclasses).
@@ -53,12 +52,10 @@ class PyomoEnv(BaseEnv, abc.ABC):
         verbose: int = 2,
         callback: Callable | None = None,
         *,
-        scenario_time_begin: datetime | str,
-        scenario_time_end: datetime | str,
         episode_duration: TimeStep | str,
         sampling_time: TimeStep | str,
         model_parameters: Mapping[str, Any],
-        prediction_scope: TimeStep | str | None = None,
+        prediction_horizon: TimeStep | str | None = None,
         render_mode: str | None = None,
         **kwargs: Any,
     ) -> None:
@@ -67,38 +64,34 @@ class PyomoEnv(BaseEnv, abc.ABC):
             config_run=config_run,
             verbose=verbose,
             callback=callback,
-            scenario_time_begin=scenario_time_begin,
-            scenario_time_end=scenario_time_end,
             episode_duration=episode_duration,
             sampling_time=sampling_time,
             render_mode=render_mode,
             **kwargs,
         )
-        # Check configuration for MILP compatibility
-        #: Total duration of one prediction/optimization run when used with the MPC agent.
-        #: This is automatically set to the value of episode_duration if it is not supplied
-        #: separately.
-        self.prediction_scope: float
-        if prediction_scope is None:
-            log.info("prediction_scope parameter is not present. Setting prediction_scope to episode_duration.")
-            self.prediction_scope = self.episode_duration
-        else:
-            self.prediction_scope = float(
-                prediction_scope if not isinstance(prediction_scope, timedelta) else prediction_scope.total_seconds()
-            )
 
-        if self.prediction_scope % self.sampling_time != 0:
+        # Check configuration for MILP compatibility
+        # Total duration of one prediction/optimization run when used with the MPC agent.
+        # Necessary parameter for the PyomoEnv. If not supplied, raises an error.
+        self.prediction_horizon: float
+        if prediction_horizon is None:
+            msg = "Parameter prediction_horizon is not present in config, but is required for the `PyomoEnv`"
+            raise ValueError(msg)
+
+        self.prediction_horizon = float(
+            prediction_horizon if not isinstance(prediction_horizon, timedelta) else prediction_horizon.total_seconds()
+        )
+
+        if self.prediction_horizon % self.sampling_time != 0:
             msg = (
-                "The sampling_time must fit evenly into the prediction_scope "
-                "(prediction_scope % sampling_time must equal 0)."
+                "The sampling_time must be a divisor of the prediction_horizon"
+                "(prediction_horizon % sampling_time must equal 0)."
             )
             raise ValueError(msg)
 
         # Make some more settings easily accessible
-        #: Number of steps in the prediction (prediction_scope/sampling_time).
-        self.n_prediction_steps: int = int(self.prediction_scope // self.sampling_time)
-        #: Duration of the scenario for each episode (for total time imported from csv).
-        self.scenario_duration: float = self.episode_duration + self.prediction_scope
+        #: Number of steps in the prediction (prediction_horizon/sampling_time).
+        self.n_prediction_steps: int = int(self.prediction_horizon // self.sampling_time)
 
         #: Configuration for the MILP model parameters.
         self.model_parameters = model_parameters
@@ -125,7 +118,27 @@ class PyomoEnv(BaseEnv, abc.ABC):
         #:   Set this to true, if model time increments (1, 2, 3, ...) are used. Otherwise, sampling_time will be used
         #:   as the time increment. Note: This is only relevant for the first model time increment, later increments
         #:   may differ.
-        self._use_model_time_increments: bool = False
+        self.use_model_time_increments: bool = False
+
+        if not isinstance(self.scenario_manager, CsvScenarioManager):
+            msg = "The PyomoEnv needs a CsvScenarioManager, please provide the experiment with scenario files"  # type: ignore[unreachable]
+            raise TypeError(msg)
+        self.scenario_manager: CsvScenarioManager
+
+    def __str__(self) -> str:
+        """Human-readable string representation of PyomoEnv."""
+        base_str = super().__str__()
+        pred_steps = self.n_prediction_steps
+        return f"{base_str}, Prediction steps: {pred_steps}"
+
+    def __repr__(self) -> str:
+        """Developer-friendly string representation of PyomoEnv."""
+        base_repr = super().__repr__()
+        # Remove the closing parenthesis to add our info
+        base_repr = base_repr.rstrip(")")
+        return (
+            f"{base_repr}, prediction_horizon={self.prediction_horizon}, n_prediction_steps={self.n_prediction_steps})"
+        )
 
     @property
     def model(self) -> tuple[pyo.ConcreteModel, list]:
@@ -137,15 +150,6 @@ class PyomoEnv(BaseEnv, abc.ABC):
         """
         if self._concrete_model is None:
             self._concrete_model = self._model()
-
-        if self._state_config is None:
-            _vars = [
-                StateVar(com.name, is_agent_action=True)
-                for com in self._concrete_model.component_objects(pyo.Var)
-                if not isinstance(com, pyo.ScalarVar)
-            ]
-
-            self.state_config = StateConfig(*_vars)
 
         return self._concrete_model, self.state_config.actions
 
@@ -165,82 +169,75 @@ class PyomoEnv(BaseEnv, abc.ABC):
         """Create the abstract pyomo model. This is where the pyomo model description should be placed.
 
         :return: Abstract pyomo model.
+
+        :meta public:
         """
         msg = "The abstract MPC environment does not implement a model."
         raise NotImplementedError(msg)
 
-    def step(self, action: np.ndarray) -> StepResult:
-        """Perform one time step and return its results. This is called for every event or for every time step during
-        the simulation/optimization run. It should utilize the actions as supplied by the agent to determine the new
-        state of the environment. The method must return a five-tuple of observations, rewards, terminated, truncated,
-        info.
+    def _step(self) -> tuple[float, bool, bool, dict]:
+        """Perform one internal time step and return core step results.
 
-        This also updates self.state and self.state_log to store current state information.
+        This private method implements the actual environment transition logic. It works
+        with the internal self.state dictionary that already includes actions
+        and returns the core step results without observations (which are handled by the
+        public step method).
 
         .. note::
-            This function always returns 0 reward. Therefore, it must be extended if it is to be used with reinforcement
-            learning agents. If you need to manipulate actions (discretization, policy shaping, ...)
-            do this before calling this function.
-            If you need to manipulate observations and rewards, do this after calling this function.
+            This function always returns 0 reward. Therefore, it must be extended if it is
+            to be used with reinforcement learning agents.
+            If you need to work with modified actions (e.g., discretized or shaped actions),
+            ensure they are processed before reaching this method or handle them within this method
+            using the values in self.state.
+            If you need to manipulate observations afterwarads, you can do this using the state modification callback.
 
-        :param np.ndarray action: Actions to perform in the environment.
-        :return: The return value represents the state of the environment after the step was performed.
+        :return: A tuple containing:
 
-            * **observations**: A numpy array with new observation values as defined by the observation space.
-              Observations is a np.array() (numpy array) with floating point or integer values.
             * **reward**: The value of the reward function. This is just one floating point value.
-            * **terminated**: Boolean value specifying whether an episode has been completed. If this is set to true,
-              the reset function will automatically be called by the agent or by eta_i.
-            * **truncated**: Boolean, whether the truncation condition outside the scope is satisfied.
-            * **truncated**: Boolean, whether the truncation condition outside the scope is satisfied.
-              Typically, this is a timelimit, but could also be used to indicate an agent physically going out of
-              bounds. Can be used to end the episode prematurely before a terminal state is reached. If true, the
-              user needs to call the `reset` function.
+            * **terminated (bool)**: Whether the agent reaches the terminal state (as defined under the MDP of the task)
+                which can be positive or negative. An example is reaching the goal state or moving into the lava from
+                the Sutton and Barto Gridworld. If true, the Vectorizer will call :meth:`reset`.
+            * **truncated (bool)**: Whether the truncation condition outside the scope of the MDP is satisfied
+                (i.e. the episode ended). Typically, this is a timelimit, but could also be used to indicate an agent
+                physically going out of bounds. Can be used to end the episode prematurely before a terminal state is
+                reached. If true, the Vectorizer will call :meth:`reset`.
             * **info**: Provide some additional info about the state of the environment. The contents of this may
               be used for logging purposes in the future but typically do not currently serve a purpose.
+
+        .. note::
+            Stable Baselines3 combines terminated and truncated with a logical OR to trigger
+            the automatic environment reset. Implement both flags for compatibility.
+
+        :meta public:
         """
-        self._actions_valid(action)
-
-        observations = self.update()
-
+        self._reset_state()
         # Update and log current state
-        self._create_new_state(self.additional_state)
-        self._actions_to_state(action)
-
-        for idx, obs in enumerate(self.state_config.observations):
-            self.state[obs] = observations[idx]
+        self.update()
         self.state_log.append(self.state)
-
         reward = pyo.value(next(self.model[0].component_objects(pyo.Objective)))
+        return reward, False, self._truncated(), {}
 
-        # Render the environment at each step
-        if self.render_mode is not None:
-            self.render()
-
-        return observations, reward, self._done(), False, {}
-
-    def update(self, observations: Sequence[Sequence[float | int]] | None = None) -> np.ndarray:
+    def update(self, observations: Sequence[Sequence[float | int]] | None = None) -> None:
         """Update the optimization model with observations from another environment.
+        New observations are stored in self.state.
 
         :param observations: Observations from another environment.
-        :return: Full array of current observations.
         """
-        # Update shift counter for rolling MPC approach
-        self.n_steps += 1
-
         # The timeseries data must be updated for the next time step. The index depends on whether time itself is being
         # shifted. If time is being shifted, the respective variable should be set as "time_var".
-        step = int(1 if self._use_model_time_increments else self.sampling_time)
+        step = int(1 if self.use_model_time_increments else self.sampling_time)
         duration = int(
-            self.prediction_scope // self.sampling_time + 1
-            if self._use_model_time_increments
-            else self.prediction_scope
+            self.prediction_horizon // self.sampling_time + 1
+            if self.use_model_time_increments
+            else self.prediction_horizon
         )
-
+        ts = self.scenario_manager.get_scenario_state_with_duration(
+            n_step=self.n_steps, duration=self.n_prediction_steps + 1
+        )
         if self.time_var is not None:
             index = range(self.n_steps * step, duration + (self.n_steps * step), step)
             ts_current = self.pyo_convert_timeseries(
-                self.timeseries.iloc[self.n_steps : self.n_prediction_steps + self.n_steps + 1],
+                ts=ts,
                 index=tuple(index),
                 _add_wrapping_none=False,
             )
@@ -252,60 +249,57 @@ class PyomoEnv(BaseEnv, abc.ABC):
         else:
             index = range(0, duration, step)
             ts_current = self.pyo_convert_timeseries(
-                self.timeseries.iloc[self.n_steps : self.n_prediction_steps + self.n_steps + 1],
+                ts=ts,
                 index=tuple(index),
                 _add_wrapping_none=False,
             )
-
-        # Log current time shift
-        if self.n_steps + self.n_prediction_steps + 1 < len(self.timeseries.index):
-            log.info(
-                f"Current optimization time shift: {self.n_steps} of {self.n_episode_steps} | "
-                f"Current scope: {self.timeseries.index[self.n_steps]} "
-                f"to {self.timeseries.index[self.n_steps + self.n_prediction_steps + 1]}"
-            )
-        else:
-            log.info(
-                f"Current optimization time shift: {self.n_steps} of {self.n_episode_steps}."
-                " Last optimization step reached."
-            )
-
-        self._create_new_state(self.additional_state)
         updated_params = ts_current
-        return_obs = []  # Array for all current observations
+
+        # Log current optimization window
+        log.info(f"Optimization at time step {self.n_steps} of {self.n_episode_steps}.")
+        if self.n_steps < self.n_episode_steps:
+            time_index = self.scenario_manager.scenarios.index
+            time_start = time_index[self.n_steps]
+            time_end = time_index[self.n_steps + self.n_prediction_steps + 1]
+            log.info(f"Optimization Horizon: {time_start} to {time_end}.")
+        else:
+            log.info("Last time step reached.")
+
+        self._reset_state()
         for var_name in self.state_config.observations:
-            settings = self.state_config.vars[var_name]
-            if not isinstance(settings.interact_id, int):
+            statevar = self.state_config.vars[var_name]
+            if not isinstance(statevar.interact_id, int):
                 msg = "The interact_id value for observations must be an integer."
                 raise TypeError(msg)
             value = None
 
             # Read values from external environment (for example simulation)
-            if observations is not None and settings.from_interact is True:
+            if observations is not None and statevar.from_interact is True:
                 value = round(
-                    (observations[0][settings.interact_id] + settings.interact_scale_add)
-                    * settings.interact_scale_mult,
+                    (observations[0][statevar.interact_id] + statevar.interact_scale_add)
+                    * statevar.interact_scale_mult,
                     5,
                 )
-                return_obs.append(value)
+                self.state[var_name] = np.array([value])
             else:
                 # Read additional values from the mathematical model
                 for component in self.model[0].component_objects():
                     if component.name == var_name:
                         # Get value for the component from specified index
-                        value = round(pyo.value(component[list(component.keys())[int(settings.index)]]), 5)
-                        return_obs.append(value if value is not None else np.nan)
+                        value = round(pyo.value(component[list(component.keys())[int(statevar.index)]]), 5)
+                        new_value = value if value is not None else np.nan
+                        self.state[var_name] = np.array([new_value])
                         break
                 else:
-                    log.error(f"Specified observation value {var_name} could not be found")
+                    log.error(f"Specified observation value {var_name} could not be found.")
             updated_params[var_name] = value
-            self.state[var_name] = value if value is not None else float("nan")
+            new_value = value if value is not None else float("nan")
+            self.state[var_name] = np.array([new_value])
 
             log.debug(f"Observed value {var_name}: {value}")
 
         self.state_log.append(self.state)
         self.pyo_update_params(updated_params, self.nonindex_update_append_string)
-        return np.array(return_obs)
 
     def solve_failed(self, model: pyo.ConcreteModel, result: SolverResults) -> None:
         """This method will try to render the result in case the model could not be solved. It should automatically
@@ -321,65 +315,52 @@ class PyomoEnv(BaseEnv, abc.ABC):
             log.exception("Rendering partial results failed")
         self.reset()
 
-    def reset(
+    def _reset(
         self,
         *,
         seed: int | None = None,
         options: dict[str, Any] | None = None,
-    ) -> tuple[np.ndarray, dict[str, Any]]:
-        """Reset the environment to an initial internal state, returning an initial observation and info.
+    ) -> dict[str, Any]:
+        """Reset the internal state of the environment and return info dictionary.
 
-        This method generates a new starting state often with some randomness to ensure that the agent explores the
-        state space and learns a generalised policy about the environment. This randomness can be controlled
-        with the ``seed`` parameter otherwise if the environment already has a random number generator and
-        :meth:`reset` is called with ``seed=None``, the RNG is not reset. When using the environment in conjunction with
-        *stable_baselines3*, the vectorized environment will take care of seeding your custom environment automatically.
+        This private method initializes the internal self.state dictionary by reading initial
+        values directly from the FMU/simulator. It does not use the seed parameter since the
+        initial state is determined by the simulator configuration.
 
         For Custom environments, the first line of :meth:`reset` should be ``super().reset(seed=seed)`` which implements
         the seeding correctly.
 
-        .. note ::
-            Don't forget to store and reset the episode_timer.
+        The public reset method handles the Gymnasium interface including observation filtering
+        and proper seeding mechanism.
 
-        :param seed: The seed that is used to initialize the environment's PRNG (`np_random`).
-                If the environment does not already have a PRNG and ``seed=None`` (the default option) is passed,
-                a seed will be chosen from some source of entropy (e.g. timestamp or /dev/urandom).
-                However, if the environment already has a PRNG and ``seed=None`` is passed, the PRNG will *not* be
-                reset. If you pass an integer, the PRNG will be reset even if it already exists. (default: None)
-        :param options: Additional information to specify how the environment is reset (optional,
-                depending on the specific environment) (default: None)
+        :param seed: The seed for initializing any randomized components of the state.
+                     Subclasses should use this for reproducible randomness in their state init
+        :param options: Additional information to specify how the environment is reset
+                (optional, depending on the specific environment) (default: None)
 
-        :return: Tuple of observation and info. The observation of the initial state will be an element of
-                :attr:`observation_space` (typically a numpy array) and is analogous to the observation returned by
-                :meth:`step`. Info is a dictionary containing auxiliary information complementing ``observation``. It
-                should be analogous to the ``info`` returned by :meth:`step`.
+        :return: Info dictionary containing information about the initial state.
+                The initial observations are automatically filtered from the internal state
+                by the public reset method and must not be returned here.
+
+        .. note::
+            The base implementation initializes observations from the pyomo model without using the seed.
+            Subclasses should use the seed parameter for any additional
+            randomized state observations they implement.
+
+        :meta public:
         """
         if self.n_steps > 0:
             self.model = self._model()
 
-        super().reset(seed=seed, options=options)
-
         # Initialize state with the initial observation
-        self.state = {} if self.additional_state is None else self.additional_state
-        observations = []
         for var_name in self.state_config.observations:
             # Try getting the first value from initialized variables. Use the configured low_value from state_config
             # for all others.
             obs_val = self.pyo_get_component_value(self.model[0].component(var_name), allow_stale=True)
             obs_val = obs_val if obs_val is not None else 0
-            observations.append(obs_val)
-            self.state[var_name] = obs_val
+            self.state[var_name] = np.array([obs_val])
 
-        # Initialize state with zero actions
-        for act in self.state_config.actions:
-            self.state[act] = 0
-        self.state_log.append(self.state)
-
-        # Render the environment when calling the reset function
-        if self.render_mode is not None:
-            self.render()
-
-        return np.array(observations), {}
+        return {}
 
     def close(self) -> None:
         """Close the environment. This should always be called when an entire run is finished. It should be used to
@@ -411,7 +392,6 @@ class PyomoEnv(BaseEnv, abc.ABC):
         else:
             params = {}
             log.warning(f"No parameters specified for requested component {component_name}")
-
         out: PyoParams
         out = {
             param: {None: float(value) if isinstance(value, str) and value in {"inf", "-inf"} else value}
@@ -446,14 +426,10 @@ class PyomoEnv(BaseEnv, abc.ABC):
         if index is not None and not isinstance(index, list):
             index = list(index)
 
-        _ts: pd.DataFrame | pd.Series | dict[str, Any] | Sequence
         # If part of the timeseries was converted before, make sure that everything is on the same level again.
-        if isinstance(ts, dict) and None in ts and isinstance(ts[None], Mapping):
-            _ts = {}
-            _ts.update(ts[None])
-
-        else:
-            _ts = ts
+        _ts: pd.DataFrame | pd.Series | dict[str, Any] | Sequence = (
+            ts[None] if isinstance(ts, dict) and None in ts and isinstance(ts[None], Mapping) else ts
+        )
 
         def convert_index(cts: pd.Series | Sequence | Mapping, _index: Sequence[int] | None) -> dict[int, Any]:
             """Take the timeseries and change the index to correspond to _index.
@@ -576,16 +552,16 @@ class PyomoEnv(BaseEnv, abc.ABC):
                 solution[com.name] = pyo.value(com)
             else:
                 solution[com.name] = {}
-                if self._use_model_time_increments:
+                if self.use_model_time_increments:
                     for ind, val in com.items():
                         solution[com.name][
-                            self.timeseries.index[self.n_steps].to_pydatetime()
+                            self.scenario_manager.scenarios.index[self.n_steps].to_pydatetime()
                             + timedelta(seconds=ind * self.sampling_time)
                         ] = pyo.value(val)
                 else:
                     for ind, val in com.items():
                         solution[com.name][
-                            self.timeseries.index[self.n_steps].to_pydatetime() + timedelta(seconds=ind)
+                            self.scenario_manager.scenarios.index[self.n_steps].to_pydatetime() + timedelta(seconds=ind)
                         ] = pyo.value(val)
 
         return solution
@@ -608,3 +584,20 @@ class PyomoEnv(BaseEnv, abc.ABC):
             val = round(pyo.value(component), 5)
 
         return val
+
+    @classmethod
+    def create_state(
+        cls, model: pyo.ConcreteModel, model_name: str, output_dir: pathlib.Path | str | None = None
+    ) -> None:
+        """Create both state config and parameters files from a Pyomo model.
+
+        This method creates both a state configuration TOML file (containing variables/observations)
+        and a parameters TOML file from a Pyomo ConcreteModel, providing a complete setup for
+        Pyomo-based environments.
+
+        :param model: Pyomo ConcreteModel instance.
+        :param model_name: Name of the model for identification.
+        :param output_dir: Directory where files should be created. If None, uses current working directory.
+        """
+        # Delegate to the dedicated export function
+        export_pyomo_state(model, model_name, output_dir)

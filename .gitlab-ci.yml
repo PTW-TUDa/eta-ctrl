@@ -54,6 +54,7 @@ default:
 # Job to update pip cache
 update-cache:
   stage: setup
+  allow_failure: true
   before_script: []
   script:
     # Remove torch and add torch+cpu because nvidia packages (cuda) are not needed
@@ -98,34 +99,27 @@ secret_detection:
   stage: check
   before_script: []
 
-# linkcheck-docs:
-#   stage: check
-#   script:
-#     - rm -rf docs/_build docs/_stubs
-#     - cd docs
-#     - python -m sphinx -b linkcheck . _build/linkcheck
-#   retry:
-#     max: 2
-#     when: script_failure
-
-julia:
+docs:
   stage: check
-  image: julia:1.9
-  before_script: []
   script:
-    - julia -e '
-        using Pkg;
-        Pkg.add("JuliaFormatter");
-        using JuliaFormatter;
-        if !format("eta_ctrl/ju_extensions", verbose=true) & !format("test/resources/")
-        @error "Some files have not been formatted !!!";
-        exit(1);
-        end'
+    - cd docs
+    - make clean
+    - make ci-html
+
+linkcheck-docs:
+  stage: check
+  script:
+    - cd docs
+    - make clean
+    - make linkcheck
+  retry:
+    max: 2
+    when: script_failure
+
 
 .test:
   stage: test
   script:
-  - install-julia
   - pytest
   retry:
     max: 1
@@ -135,7 +129,6 @@ julia:
   extends: .test
   coverage: '/TOTAL.*\s+(\d+%)$/'
   script:
-  - install-julia
   - pytest --cov --junitxml=./junit.xml --cov-report term --cov-report xml:coverage.xml
   artifacts:
     paths:
@@ -159,22 +152,6 @@ test3.12:
   extends: .test
   image: ${REGISTRY_IMAGE}:py3.12
 
-
-
-test-julia:
-  stage: test
-  before_script: []
-  script:
-    - julia -e '
-      ENV["PYTHON"] = Sys.which("python");
-      ENV["PYCALL_JL_RUNTIME_PYTHON"] = Sys.which("python");
-      using Pkg;
-      Pkg.activate("eta_ctrl/ju_extensions");
-      Pkg.instantiate();
-      Pkg.test()'
-  retry:
-    max: 1
-    when: script_failure
 
 .deploy:
   stage: deploy

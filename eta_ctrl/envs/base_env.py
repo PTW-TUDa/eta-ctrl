@@ -6,21 +6,21 @@ import pathlib
 import time
 from datetime import datetime, timedelta
 from logging import getLogger
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
-import pandas as pd
-from gymnasium import Env
+from gymnasium import Env, spaces
 
-from eta_ctrl import timeseries
 from eta_ctrl.util import csv_export
+from eta_ctrl.util.utils import timestep_to_seconds
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping, Sequence
+    from collections.abc import Callable, Iterator, Sequence
     from typing import Any
 
     from eta_ctrl.config import ConfigRun
     from eta_ctrl.envs.state import StateConfig
+    from eta_ctrl.timeseries.scenario_manager import ScenarioManager
     from eta_ctrl.util.type_annotations import ObservationType, Path, StepResult, TimeStep
 
 
@@ -29,6 +29,7 @@ log = getLogger(__name__)
 
 class BaseEnv(Env, abc.ABC):
     """Abstract environment definition, providing some basic functionality for concrete environments to use.
+
     The class implements and adapts functions from gymnasium.Env. It provides additional functionality as required by
     the ETA Ctrl framework and should be used as the starting point for new environments.
 
@@ -36,14 +37,12 @@ class BaseEnv(Env, abc.ABC):
     environment. Read the documentation carefully to understand, how new environments can be developed, building on
     this starting point.
 
-    There are some attributes that must be set and some methods that must be implemented to satisfy the interface. This
-    is required to create concrete environments.
-    The required attributes are:
+    There are some class attributes that must be set and some methods that must be implemented to satisfy the interface.
+    This is required to create concrete environments.
+    The required class attributes are:
 
         - **version**: Version number of the environment.
         - **description**: Short description string of the environment.
-        - **action_space**: The action space of the environment (see also gymnasium.spaces for options).
-        - **observation_space**: The observation space of the environment (see also gymnasium.spaces for options).
 
     The gymnasium interface requires the following methods for the environment to work correctly within the framework.
     Consult the documentation of each method for more detail.
@@ -51,47 +50,61 @@ class BaseEnv(Env, abc.ABC):
         - **step()**
         - **reset()**
         - **close()**
+        - **render()**
+
+    .. note::
+        Subclasses should implement the private _step and _reset methods rather than
+        overriding the public step and reset methods. The public methods handle the
+        Gymnasium interface and state management automatically.
 
     :param env_id: Identification for the environment, useful when creating multiple environments.
     :param config_run: Configuration of the optimization run.
     :param verbose: Verbosity to use for logging.
     :param callback: callback that should be called after each episode.
     :param state_modification_callback: callback that should be called after state setup, before logging the state.
-    :param scenario_time_begin: Beginning time of the scenario.
-    :param scenario_time_end: Ending time of the scenario.
     :param episode_duration: Duration of the episode in seconds.
     :param sampling_time: Duration of a single time sample / time step in seconds.
     :param render_mode: Renders the environments to help visualise what the agent see, examples
         modes are "human", "rgb_array", "ansi" for text.
+    :param path_env: Explicit path to the environment directory. If not provided, the path will be
+        automatically detected from the call stack. If detection fails, falls back to current working directory.
     :param kwargs: Other keyword arguments (for subclasses).
     """
 
     @property
     @abc.abstractmethod
     def version(self) -> str:
-        """Version of the environment."""
-        return ""
+        """Version of the environment.
+
+        Needs to be implemented for each subclass as a class attribute.
+        """
+        raise NotImplementedError
 
     @property
     @abc.abstractmethod
     def description(self) -> str:
-        """Long description of the environment."""
-        return ""
+        """Long description of the environment.
+
+        Needs to be implemented for each subclass as a class attribute.
+        """
+        raise NotImplementedError
 
     def __init__(
         self,
         env_id: int,
         config_run: ConfigRun,
+        state_config: StateConfig,
         verbose: int = 2,
         callback: Callable | None = None,
         state_modification_callback: Callable | None = None,
+        seed: int | None = None,
         *,
-        scenario_time_begin: datetime | str,
-        scenario_time_end: datetime | str,
         episode_duration: TimeStep | str,
         sampling_time: TimeStep | str,
         sim_steps_per_sample: int | str = 1,
+        scenario_manager: ScenarioManager | None = None,
         render_mode: str | None = None,
+        path_env: Path | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__()
@@ -102,256 +115,404 @@ class BaseEnv(Env, abc.ABC):
 
         # Set some standard path settings
         #: Information about the optimization run and information about the paths.
-        #: For example, it defines path_results and path_scenarios.
+        #: For example, it defines results_path and scenarios_path.
         self.config_run: ConfigRun = config_run
-        #: Path for storing results.
-        self.path_results: pathlib.Path = self.config_run.path_series_results
-        #: Path for the scenario data.
-        self.path_scenarios: pathlib.Path | None = self.config_run.path_scenarios
-        #: Path of the environment file.
-        self.path_env: pathlib.Path
-        for f in inspect.stack():
-            if "__class__" in f.frame.f_locals and f.frame.f_locals["__class__"] is self.__class__:
-                self.path_env = pathlib.Path(f.filename).parent
+
         #: Callback can be used for logging and plotting.
         self.callback: Callable | None = callback
-
         #: Callback can be used for modifying the state at each time step.
         self.state_modification_callback: Callable | None = state_modification_callback
 
-        # Store some important settings
         #: ID of the environment (useful for vectorized environments).
         self.env_id: int = int(env_id)
-        #: Name of the current optimization run.
-        self.run_name: str = self.config_run.name
+        #: Render mode for rendering the environment
+        self.render_mode: str | None = render_mode
+
+        #: Duration of one episode in seconds.
+        self.episode_duration: float = timestep_to_seconds(episode_duration)
+        #: Sampling time (interval between optimization time steps) in seconds.
+        self.sampling_time: float = timestep_to_seconds(sampling_time)
+        #: Number of time steps (of width sampling_time) in each episode.
+        self.n_episode_steps: int = int(self.episode_duration // self.sampling_time)
+
+        #: Number of simulation steps to be taken for each sample. This must be a divisor of 'sampling_time'.
+        self.sim_steps_per_sample: int = int(sim_steps_per_sample)
+
+        #: State Configuration for defining State Variables.
+        self.state_config: StateConfig = state_config
+        self.action_space, self.observation_space = self.state_config.continuous_spaces()
+
+        #: Manager to load scenario data into the state
+        self.scenario_manager = scenario_manager
+
+        #: Explicit path override for environment directory (used if auto-detection fails)
+        self._path_env_override: pathlib.Path | None = pathlib.Path(path_env) if path_env is not None else None
+
+        if seed is not None:
+            # Initialize random generator
+            # Explicitly use Env class from gymnasium since super() doesn't work with multiple inheritance
+            Env.reset(self, seed=seed)
+            self.action_space.seed(seed=seed)
+            self.observation_space.seed(seed=seed)
+
+        self._init_attributes()
+
+    def _init_attributes(self) -> None:
+        """Initialize environment attributes that don't depend on constructor arguments."""
+
+        # Determine path of the environment file
+        # 1. Explicit override if provided, 2. Auto-detect from call stack, 3. Fallback to cwd
+        detected_path: pathlib.Path | None = None
+
+        # Use explicit override if provided
+        if self._path_env_override is not None:
+            detected_path = self._path_env_override
+        else:
+            # Try to detect path from call stack
+            for f in inspect.stack():
+                if "__class__" in f.frame.f_locals and f.frame.f_locals["__class__"] is self.__class__:
+                    detected_path = pathlib.Path(f.filename).parent
+                    break
+
+        # Fallback if detection failed
+        if detected_path is None:
+            detected_path = pathlib.Path.cwd()
+            log.warning(
+                f"Could not automatically detect environment path for {self.__class__.__name__}. "
+                f"Falling back to current working directory: {detected_path}. "
+                "Consider passing 'path_env' explicitly to the constructor if this is incorrect."
+            )
+
+        #: Path of the environment file.
+        self.path_env: pathlib.Path = detected_path
+
+        # Store data logs and log other information
+        #: Episode timer (stores the start time of the episode).
+        self.episode_timer: float = time.time()
+        #: Current state of the environment.
+        self.state: dict[str, np.ndarray]
+        #: Additional state information to append to the state during stepping and reset
+        self.additional_state: dict[str, float] | None = None
+        #: Log of the environment state.
+        self.state_log: list[dict[str, np.ndarray]] = []
+        #: Log of the environment state over multiple episodes.
+        self.state_log_longtime: list[list[dict[str, np.ndarray]]] = []
+
         #: Number of completed episodes.
         self.n_episodes: int = 0
         #: Current step of the model (number of completed steps) in the current episode.
         self.n_steps: int = 0
         #: Current step of the model (total over all episodes).
         self.n_steps_longtime: int = 0
-        #: Render mode for rendering the environment
-        self.render_mode: str | None = render_mode
-
-        # Set some standard environment settings
-        #: Duration of one episode in seconds.
-        self.episode_duration: float = float(
-            episode_duration if not isinstance(episode_duration, timedelta) else episode_duration.total_seconds()
-        )
-        #: Sampling time (interval between optimization time steps) in seconds.
-        self.sampling_time: float = float(
-            sampling_time if not isinstance(sampling_time, timedelta) else sampling_time.total_seconds()
-        )
-        #: Number of time steps (of width sampling_time) in each episode.
-        self.n_episode_steps: int = int(self.episode_duration // self.sampling_time)
-        #: Duration of the scenario for each episode (for total time imported from csv).
-        self.scenario_duration: float = self.episode_duration + self.sampling_time
-
-        #: Beginning time of the scenario.
-        self.scenario_time_begin: datetime
-        if isinstance(scenario_time_begin, datetime):
-            self.scenario_time_begin = scenario_time_begin
-        else:
-            self.scenario_time_begin = datetime.strptime(scenario_time_begin, "%Y-%m-%d %H:%M")
-        #: Ending time of the scenario (should be in the format %Y-%m-%d %H:%M).
-        self.scenario_time_end: datetime
-        if isinstance(scenario_time_end, datetime):
-            self.scenario_time_end = scenario_time_end
-        else:
-            self.scenario_time_end = datetime.strptime(scenario_time_end, "%Y-%m-%d %H:%M")
-        # Check if scenario begin and end times make sense
-        if self.scenario_time_begin > self.scenario_time_end:
-            msg = "Start time of the scenario should be smaller than or equal to end time."
-            raise ValueError(msg)
-
-        #: The time series DataFrame contains all time series scenario data. It can be filled by the
-        #: import_scenario method.
-        self.timeseries: pd.DataFrame = pd.DataFrame()
-        #: Data frame containing the currently valid range of time series data.
-        self.ts_current: pd.DataFrame = pd.DataFrame()
-
-        # Store data logs and log other information
-        #: Episode timer (stores the start time of the episode).
-        self.episode_timer: float = time.time()
-        #: Current state of the environment.
-        self.state: dict[str, float]
-        #: Additional state information to append to the state during stepping and reset
-        self.additional_state: dict[str, float] | None = None
-        #: Log of the environment state.
-        self.state_log: list[dict[str, float]] = []
-        #: Log of the environment state over multiple episodes.
-        self.state_log_longtime: list[list[dict[str, float]]] = []
-        #: Some specific current environment settings / other data, apart from state.
-        self.data: dict[str, Any]
-        #: Log of specific environment settings / other data, apart from state for the episode.
-        self.data_log: list[dict[str, Any]] = []
-        #: Log of specific environment settings / other data, apart from state, over multiple episodes.
-        self.data_log_longtime: list[list[dict[str, Any]]]
-        #: Number of simulation steps to be taken for each sample. This must be a divisor of 'sampling_time'.
-        self.sim_steps_per_sample: int = int(sim_steps_per_sample)
-
-        self._state_config: StateConfig | None = None
 
     @property
-    def state_config(self) -> StateConfig:
-        """Configuration to describe what the environment state looks like."""
-        if self._state_config is None:
-            msg = "StateConfig must be specified in the environment."
-            raise TypeError(msg)
-        return self._state_config
+    def run_name(self) -> str:
+        #: Name of the current optimization run.
+        return self.config_run.name
 
-    @state_config.setter
-    def state_config(self, state_config: StateConfig) -> None:
-        self._state_config = state_config
+    @property
+    def results_path(self) -> pathlib.Path:
+        #: Path for storing results.
+        return self.config_run.results_path
 
-    def import_scenario(self, *scenario_paths: Mapping[str, Any], prefix_renamed: bool = True) -> pd.DataFrame:
-        """Load data from csv into self.timeseries_data by using scenario_from_csv.
+    @property
+    def scenarios_path(self) -> pathlib.Path | None:
+        #: Path for the scenario data.
+        return self.config_run.scenarios_path
 
-        :param scenario_paths: One or more scenario configuration dictionaries (or a list of dicts), which each contain
-            a path for loading data from a scenario file. The dictionary should have the following structure, with <X>
-            denoting the variable value:
-
-            .. note ::
-                [{*path*: <X>, *prefix*: <X>, *interpolation_method*: <X>, *resample_method*: <X>,
-                *scale_factors*: {col_name: <X>}, *rename_cols*: {col_name: <X>}, *infer_datetime_cols*: <X>,
-                *time_conversion_str*: <X>}]
-
-            * **path**: Path to the scenario file (relative to scenario_path).
-            * **prefix**: Prefix for all columns in the file, useful if multiple imported files
-              have the same column names.
-            * **interpolation_method**: A pandas interpolation method, required if the frequency of
-              values must be increased in comparison to the files' data. (e.g.: 'linear' or 'pad').
-            * **scale_factors**: Scaling factors for specific columns. This can be useful for
-              example, if a column contains data in kilowatt and should be imported in watts.
-              In this case, the scaling factor for the column would be 1000.
-            * **rename_cols**: Mapping of column names from the file to new names for the imported
-              data.
-            * **infer_datetime_cols**: Number of the column which contains datetime data. If this
-              value is not present, the time_conversion_str variable will be used to determine
-              the datetime format.
-            * **time_conversion_str**: Time conversion string, determining the datetime format
-              used in the imported file (default: %Y-%m-%d %H:%M).
-        :param prefix_renamed: Determine whether the prefix is also applied to renamed columns.
-        :return: Data Frame of the imported and formatted scenario data.
-        """
-        paths = []
-        prefix = []
-        int_methods = []
-        scale_factors = []
-        rename_cols = {}
-        infer_datetime_from = []
-        time_conversion_str = []
-
-        for path in scenario_paths:
-            paths.append(self.path_scenarios / path["path"])
-            prefix.append(path.get("prefix", None))
-            int_methods.append(path.get("interpolation_method", None))
-            scale_factors.append(path.get("scale_factors", None))
-            (rename_cols.update(path.get("rename_cols", {})),)
-            infer_datetime_from.append(path.get("infer_datetime_cols", "string"))
-            time_conversion_str.append(path.get("time_conversion_str", "%Y-%m-%d %H:%M"))
-
-        self.ts_current = timeseries.scenario_from_csv(
-            paths=paths,
-            resample_time=self.sampling_time,
-            start_time=self.scenario_time_begin,
-            end_time=self.scenario_time_end,
-            total_time=self.scenario_duration,
-            random=self.np_random,
-            interpolation_method=int_methods,
-            scaling_factors=scale_factors,
-            rename_cols=rename_cols,
-            prefix_renamed=prefix_renamed,
-            infer_datetime_from=infer_datetime_from,
-            time_conversion_str=time_conversion_str,
-        )
-
-        return self.ts_current
-
-    def get_scenario_state(self) -> dict[str, Any]:
-        """Get scenario data for the current time step of the environment, as specified in state_config. This assumes
-        that scenario data in self.ts_current is available and scaled correctly.
-
-        :return: Scenario data for current time step.
-        """
-        scenario_state = {}
-        for scen in self.state_config.scenarios:
-            scenario_state[scen] = self.ts_current[self.state_config.map_scenario_ids[scen]].iloc[self.n_steps]
-
-        return scenario_state
+    @property
+    def series_results_path(self) -> pathlib.Path:
+        #: Path for storing results of series of runs.
+        return self.config_run.series_results_path
 
     @abc.abstractmethod
-    def step(self, action: np.ndarray) -> StepResult:
-        """Perform one time step and return its results. This is called for every event or for every time step during
-        the simulation/optimization run. It should utilize the actions as supplied by the agent to determine the new
-        state of the environment. The method must return a five-tuple of observations, rewards, terminated, truncated,
-        info.
+    def _step(self) -> tuple[float, bool, bool, dict]:
+        """Abstract method to perform one internal time step.
 
-        .. note ::
-            Do not forget to increment n_steps and n_steps_longtime.
+        This private method must be implemented by subclasses to update the internal
+        state dictionary and return step results. It should work with the internal
+        state rather than returning observations directly.
+
+        :return: Tuple of (reward, terminated, truncated, info)
+
+        :meta public:
+        """
+
+    def step(self, action: np.ndarray) -> StepResult:
+        """Perform one time step and return its results.
+
+        This method handles the public interface for the step operation. It validates actions,
+        calls the private _step method implemented by subclasses, manages state updates, and
+        returns the formatted results.
+
+        It also updates the state log and calls the state modification callback.
 
         :param action: Actions taken by the agent.
-        :return: The return value represents the state of the environment after the step was performed.
+        :return: The return value represents the state of the environment after the step was performed:
 
-            * **observations**: A numpy array with new observation values as defined by the observation space.
-              Observations is a np.array() (numpy array) with floating point or integer values.
+            * **observations**: A dictionary with new observation values as defined by the
+                observation space, automatically extracted from the internal state.
             * **reward**: The value of the reward function. This is just one floating point value.
-            * **terminated**: Boolean value specifying whether an episode has been completed. If this is set to true,
-              the reset function will automatically be called by the agent or by eta_i.
-            * **truncated**: Boolean, whether the truncation condition outside the scope is satisfied.
-              Typically, this is a timelimit, but could also be used to indicate an agent physically going out of
-              bounds. Can be used to end the episode prematurely before a terminal state is reached. If true, the user
-              needs to call the `reset` function.
+            * **terminated (bool)**: Whether the agent reaches the terminal state (as defined under the MDP of the task)
+                which can be positive or negative. An example is reaching the goal state or moving into the lava from
+                the Sutton and Barto Gridworld. If true, the Vectorizer will call :meth:`reset`.
+            * **truncated (bool)**: Whether the truncation condition outside the scope of the MDP is satisfied
+                (i.e. the episode ended). Typically, this is a timelimit, but could also be used to indicate an agent
+                physically going out of bounds. Can be used to end the episode prematurely before a terminal state is
+                reached. If true, the Vectorizer will call :meth:`reset`.
             * **info**: Provide some additional info about the state of the environment. The contents of this may be
               used for logging purposes in the future but typically do not currently serve a purpose.
-
         """
-        msg = "Cannot step an abstract Environment."
-        raise NotImplementedError(msg)
+        # Clear state
+        self._reset_state()
 
-    def _actions_valid(self, action: np.ndarray) -> None:
+        # Check actions
+        self._actions_valid(action)
+        self.set_action(action=action)
+
+        # Update with scenario data, if existing
+        self.set_scenario_state()
+
+        # Perform the actual step in the environment
+        reward, terminated, truncated, info = self._step()
+        self.n_steps += 1
+
+        # Execute optional state modification callback function
+        if self.state_modification_callback:
+            self.state_modification_callback()
+
+        self.state_log.append(self.state)
+
+        # Render the environment at each step
+        if self.render_mode is not None:
+            self.render()
+        return self.get_observations(), reward, terminated, truncated, info
+
+    def _actions_valid(self, action: np.ndarray | dict) -> None:
         """Check whether the actions are within the specified action space.
 
         :param action: Actions taken by the agent.
         :raise: RuntimeError, when the actions are not inside of the action space.
         """
-        if self.action_space.shape is not None and self.action_space.shape != action.shape:
-            msg = (
-                f"Agent action {action} (shape: {action.shape})"
-                f" does not correspond to shape of environment action space (shape: {self.action_space.shape})."
-            )
-            raise RuntimeError(msg)
+        if not self.action_space.contains(action):
+            error_msg = self._build_action_error_message(action)
+            raise RuntimeError(error_msg)
 
-    def _create_new_state(self, additional_state: dict[str, float] | None) -> None:
-        """Take some initial values and create a new environment state object, stored in self.state.
+    def _build_action_error_message(self, action: np.ndarray | dict) -> str:
+        """Build a detailed error message explaining why the action is invalid.
 
-        :param additional_state: Values to initialize the state.
+        :param action: The invalid action that was provided.
+        :return: Detailed error message string.
         """
-        self.state = {} if additional_state is None else additional_state
+        error_parts = ["Action validation failed!"]
+        error_parts.append(f"\nReceived action: {self._format_array(action)}")
+        error_parts.append(f"Action space: {self.action_space}")
 
-    def _actions_to_state(self, actions: np.ndarray) -> None:
-        """Gather actions and store them in self.state.
+        # Delegate to specific validators based on space type
+        if isinstance(self.action_space, spaces.Box):
+            error_parts.extend(self._validate_box_action(cast("np.ndarray", action), self.action_space))
+        elif isinstance(self.action_space, spaces.Discrete):
+            error_parts.extend(self._validate_discrete_action(cast("np.ndarray", action), self.action_space))
+        elif isinstance(self.action_space, spaces.MultiDiscrete):
+            error_parts.extend(self._validate_multi_discrete_action(cast("np.ndarray", action), self.action_space))
+        elif isinstance(self.action_space, spaces.Dict):
+            error_parts.extend(self._validate_dict_action(action, self.action_space))
+        else:
+            error_parts.append("\nThe action does not match the expected action space type.")
 
-        :param actions: Actions taken by the agent.
+        return "\n".join(error_parts)
+
+    def _add_shape_error(self, errors: list[str], expected: tuple, received: tuple) -> None:
+        """Add shape mismatch error details to error list
+
+        :param errors: List to append error messages to.
+        :param expected: Expected shape.
+        :param received: Received shape.
         """
-        for idx, act in enumerate(self.state_config.actions):
-            self.state[act] = actions[idx]
+        errors.append("\nShape mismatch:")
+        errors.append(f"  Expected: {expected}")
+        errors.append(f"  Received: {received}")
+        if len(expected) == 1 and len(received) == 1:
+            errors.append(f"  → Expected {expected[0]} action(s), but received {received[0]} action(s)")
 
-    def _observations(self) -> np.ndarray:
-        """Determine the observations list from environment state. This uses state_config to determine all
-        observations.
+    def _add_violations(self, errors: list[str], violations: list[str], violation_type: str = "Bound") -> None:
+        """Add violation details to error list with truncationS
 
-        :return: Observations for the agent as determined by state_config.
+        :param errors: List to append error messages to.
+        :param violations: List of violation messages.
+        :param violation_type: Type of violation (e.g., "Bound", "Value").
         """
-        return np.array([self.state[name] for name in self.state_config.observations], dtype=np.float64)
+        if violations:
+            errors.append(f"\n{violation_type} violations ({len(violations)} found):")
+            errors.extend(violations[:10])
+            if len(violations) > 10:
+                errors.append(f"  ... and {len(violations) - 10} more violation(s)")
 
-    def _done(self) -> bool:
-        """Check if the episode is over or not using the number of steps (n_steps) and the total number of
+    def _validate_box_action(self, action: np.ndarray, space: spaces.Box) -> list[str]:
+        """Validate Box space action and return specific error details.
+
+        :param action: The action to validate.
+        :param space: The Box space to validate against.
+        :return: List of error message parts.
+        """
+        errors: list[str] = []
+
+        # Check shape
+        if action.shape != space.shape:
+            self._add_shape_error(errors, space.shape, action.shape)
+            return errors
+
+        # Check dtype compatibility (warn but don't fail for float32 vs float64)
+        if action.dtype != space.dtype and not (
+            np.issubdtype(action.dtype, np.floating) and np.issubdtype(space.dtype, np.floating)
+        ):
+            errors.append("\nData type mismatch:")
+            errors.append(f"  Expected: {space.dtype}")
+            errors.append(f"  Received: {action.dtype}")
+
+        # Check bounds
+        violations = []
+        action_flat = action.flatten()
+        low_flat = np.broadcast_to(space.low, space.shape).flatten()
+        high_flat = np.broadcast_to(space.high, space.shape).flatten()
+
+        for idx, (val, low, high) in enumerate(zip(action_flat, low_flat, high_flat, strict=False)):
+            if val < low:
+                violations.append(f"  - action[{idx}] = {val:.6g} is below minimum bound of {low:.6g}")
+            elif val > high:
+                violations.append(f"  - action[{idx}] = {val:.6g} exceeds maximum bound of {high:.6g}")
+
+        self._add_violations(errors, violations, "Bound")
+        return errors
+
+    def _validate_discrete_action(self, action: np.ndarray | int, space: spaces.Discrete) -> list[str]:
+        """Validate Discrete space action and return specific error details.
+
+        :param action: The action to validate.
+        :param space: The Discrete space to validate against.
+        :return: List of error message parts.
+        """
+        errors: list[str] = []
+
+        # Convert to int if it's an array
+        if isinstance(action, np.ndarray):
+            if action.size != 1:
+                self._add_shape_error(errors, (1,), action.shape)
+                return errors
+            action_val = int(action.item())
+        else:
+            action_val = int(action)
+
+        # Check bounds
+        if action_val < space.start or action_val >= space.start + space.n:
+            errors.append("\nValue out of range:")
+            errors.append(f"  Valid range: [{space.start}, {space.start + space.n - 1}]")
+            errors.append(f"  Received: {action_val}")
+
+        return errors
+
+    def _validate_multi_discrete_action(self, action: np.ndarray, space: spaces.MultiDiscrete) -> list[str]:
+        """Validate MultiDiscrete space action and return specific error details.
+
+        :param action: The action to validate.
+        :param space: The MultiDiscrete space to validate against.
+        :return: List of error message parts.
+        """
+        errors: list[str] = []
+
+        # Check shape
+        if action.shape != space.nvec.shape:
+            self._add_shape_error(errors, space.nvec.shape, action.shape)
+            return errors
+
+        # Check individual action values
+        violations = []
+        action_flat = action.flatten()
+        nvec_flat = space.nvec.flatten()
+        start_flat = np.broadcast_to(space.start, space.nvec.shape).flatten()
+
+        for idx, (val, n, start) in enumerate(zip(action_flat, nvec_flat, start_flat, strict=False)):
+            if val < start or val >= start + n:
+                violations.append(f"  - action[{idx}] = {val} is outside valid range [{start}, {start + n - 1}]")
+
+        self._add_violations(errors, violations, "Value")
+        return errors
+
+    def _validate_dict_action(self, action: np.ndarray | dict, space: spaces.Dict) -> list[str]:
+        """Validate Dict space action and return specific error details.
+
+        :param action: The action to validate.
+        :param space: The Dict space to validate against.
+        :return: List of error message parts.
+        """
+        errors: list[str] = []
+        errors.append("\nDict action space validation failed.")
+        errors.append(f"  Expected a dictionary with keys: {list(space.spaces.keys())}")
+
+        if not isinstance(action, dict):
+            errors.append(f"  Received type: {type(action).__name__}")
+            errors.append("  → Dict action spaces require actions to be dictionaries, not arrays")
+        else:
+            missing_keys = set(space.spaces.keys()) - set(action.keys())
+            extra_keys = set(action.keys()) - set(space.spaces.keys())
+
+            if missing_keys:
+                errors.append(f"  Missing keys: {list(missing_keys)}")
+            if extra_keys:
+                errors.append(f"  Unexpected keys: {list(extra_keys)}")
+
+        return errors
+
+    def _format_array(self, arr: np.ndarray | dict, max_items: int = 10) -> str:
+        """Format a numpy array or dict for display in error messages.
+
+        :param arr: Array or dict to format.
+        :param max_items: Maximum number of items to display before truncating.
+        :return: Formatted string representation.
+        """
+        # Handle dict actions (for Dict action spaces)
+        if isinstance(arr, dict):
+            return str(arr)
+
+        # Handle numpy arrays - cast needed for mypy type narrowing
+        arr = cast("np.ndarray", arr)
+
+        if arr.size <= max_items:
+            return str(arr)
+
+        # For large arrays, show first few and last few elements
+        arr_flat = arr.flatten()
+        first_items = arr_flat[: max_items // 2]
+        last_items = arr_flat[-(max_items // 2) :]
+        formatted = f"[{' '.join(f'{x:.6g}' for x in first_items)} ... {' '.join(f'{x:.6g}' for x in last_items)}]"
+        return f"{formatted} (shape: {arr.shape}, dtype: {arr.dtype})"
+
+    def _reset_state(self) -> None:
+        """Clear self.state and initialize with additional_state."""
+        self.state = {}
+        if self.additional_state is not None:
+            additional_state = {name: np.array([value]) for name, value in self.additional_state.items()}
+            self.state.update(additional_state)
+
+    def _truncated(self) -> bool:
+        """Check if the episode is over using the number of steps (n_steps) and the total number of
         steps in an episode (n_episode_steps).
 
-        :return: boolean showing, whether the episode is done.
+        :return: boolean showing, whether the episode is over (truncated by its time limit).
         """
         return self.n_steps >= self.n_episode_steps
+
+    @abc.abstractmethod
+    def _reset(
+        self,
+        *,
+        seed: int | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Abstract reset method that must be implemented by subclasses.
+
+        :meta public:
+        """
 
     def reset(
         self,
@@ -363,22 +524,10 @@ class BaseEnv(Env, abc.ABC):
 
         This method generates a new starting state often with some randomness to ensure that the agent explores the
         state space and learns a generalised policy about the environment. This randomness can be controlled
-        with the ``seed`` parameter otherwise if the environment already has a random number generator and
-        :meth:`reset` is called with ``seed=None``, the RNG is not reset. When using the environment in conjunction with
-        *stable_baselines3*, the vectorized environment will take care of seeding your custom environment automatically.
+        with the ``seed`` parameter.
 
-        For Custom environments, the first line of :meth:`reset` should be ``super().reset(seed=seed)`` which implements
-        the seeding correctly.
-
-        .. note ::
-            Don't forget to store and reset the episode_timer by calling self._reset_state() if you overwrite this
-            function.
-
-        :param seed: The seed that is used to initialize the environment's PRNG (`np_random`).
-                If the environment does not already have a PRNG and ``seed=None`` (the default option) is passed,
-                a seed will be chosen from some source of entropy (e.g. timestamp or /dev/urandom).
-                However, if the environment already has a PRNG and ``seed=None`` is passed, the PRNG will *not* be
-                reset. If you pass an integer, the PRNG will be reset even if it already exists. (default: None)
+        :param seed: The seed for initializing any randomized components of the state.
+                     Subclasses should use this for reproducible randomness in their state init
         :param options: Additional information to specify how the environment is reset (optional,
                 depending on the specific environment) (default: None)
 
@@ -387,36 +536,60 @@ class BaseEnv(Env, abc.ABC):
                 :meth:`step`. Info is a dictionary containing auxiliary information complementing ``observation``. It
                 should be analogous to the ``info`` returned by :meth:`step`.
         """
-        self._reset_state()
-        return super().reset(seed=seed, options=options)
+        # Reset state_log and counters
+        if self.n_steps > 0:
+            self._reset_episode()
 
-    def _reduce_state_log(self) -> list[dict[str, float]]:
+        # Clear state
+        self._reset_state()
+
+        # Set rng seed
+        Env.reset(self, seed=seed)
+
+        # Update with scenario data, if existing
+        self.set_scenario_state()
+
+        # Set initial observations in child class
+        info = self._reset(options=options)
+
+        # Execute optional state modification callback function
+        if self.state_modification_callback:
+            self.state_modification_callback()
+
+        # Log state
+        self.state_log.append(self.state)
+
+        # Render the environment
+        if self.render_mode is not None:
+            self.render()
+
+        return self.get_observations(), info
+
+    def _reduce_state_log(self) -> list[dict[str, np.ndarray]]:
         """Remove unwanted parameters from state_log before storing in state_log_longtime.
 
         :return: The return value is a list of dictionaries,
          where the parameters that should not be stored were removed
         """
-        dataframe = pd.DataFrame(self.state_log)
-        return dataframe.drop(columns=list(set(dataframe.keys()) - self.state_config.add_to_state_log)).to_dict(
-            "records"
-        )
+        allowed_keys = set(self.state_config.add_to_state_log)
+        return [{k: v for k, v in entry.items() if k in allowed_keys} for entry in self.state_log]
 
-    def _reset_state(self) -> None:
+    def _reset_episode(self) -> None:
         """Store episode statistics and reset episode counters."""
-        if self.n_steps > 0:
-            if self.callback is not None:
-                self.callback(self)
+        if self.callback is not None:
+            self.callback(self)
 
-            # Store some logging data
-            self.n_episodes += 1
+        # Store some logging data
+        self.n_episodes += 1
 
-            # store reduced_state_log in state_log_longtime
-            self.state_log_longtime.append(self._reduce_state_log())
-            self.n_steps_longtime += self.n_steps
+        # store reduced_state_log in state_log_longtime
+        self.state_log_longtime.append(self._reduce_state_log())
+        self.n_steps_longtime += self.n_steps
 
-            # Reset episode variables
-            self.n_steps = 0
-            self.state_log = []
+        # Reset episode variables
+        self.n_steps = 0
+        self.episode_timer = time.time()
+        self.state_log = []
 
     @abc.abstractmethod
     def close(self) -> None:
@@ -451,6 +624,24 @@ class BaseEnv(Env, abc.ABC):
         """
         return cls.version, cls.description  # type: ignore[return-value]
 
+    def __str__(self) -> str:
+        """Human-readable string representation of BaseEnv."""
+        env_class = self.__class__.__name__
+        n_actions = len(self.state_config.actions)
+        n_observations = len(self.state_config.observations)
+        status = f"Episode {self.n_episodes}, Step {self.n_steps}/{self.n_episode_steps}"
+
+        return f"{env_class}(id={self.env_id}, {n_actions} actions, {n_observations} observations, {status})"
+
+    def __repr__(self) -> str:
+        """Developer-friendly string representation of BaseEnv."""
+        env_class = self.__class__.__name__
+        return (
+            f"{env_class}(env_id={self.env_id}, run_name='{self.run_name}', "
+            f"n_episodes={self.n_episodes}, n_steps={self.n_steps}, "
+            f"episode_duration={self.episode_duration}, sampling_time={self.sampling_time})"
+        )
+
     def export_state_log(
         self,
         path: Path,
@@ -464,9 +655,93 @@ class BaseEnv(Env, abc.ABC):
         :param names: Field names used when data is a Matrix without column names.
         :param sep: Separator to use between the fields.
         :param decimal: Sign to use for decimal points.
-
         """
         start_time = datetime.fromtimestamp(self.episode_timer)
         step = self.sampling_time / self.sim_steps_per_sample
         timerange = [start_time + timedelta(seconds=(k * step)) for k in range(len(self.state_log))]
         csv_export(path=path, data=self.state_log, index=timerange, names=names, sep=sep, decimal=decimal)
+
+    def get_observations(self) -> dict[str, np.ndarray]:
+        """Gather observations from the state.
+
+        :raises KeyError: Observation is not available in state
+        :return: Filtered observations as a dictionary.
+        :rtype: dict[str, np.ndarray]
+        """
+        observations = {}
+        for name in self.state_config.observations:
+            try:
+                observations[name] = self.state[name]
+            except KeyError as e:
+                msg = f"{e!s} is unavailable in environment state."
+                raise KeyError(msg) from e
+        return observations
+
+    def get_external_inputs(self) -> dict[str, float]:
+        """Gather external inputs from the state.
+        Uses scalar values instead of numpy arrays for values.
+
+        :raises KeyError: External input is not available in state
+        :raises ValueError: External input value is not scalar
+        :return: Filtered external inputs with external id as keys.
+        :rtype: dict[str, float]
+        """
+        external_inputs = {}
+        for name in self.state_config.ext_inputs:
+            ext_id = self.state_config.map_ext_ids[name]
+            state_var = self.state_config.vars[name]
+            try:
+                scaled_value = self.state[name].item()
+            except KeyError as e:
+                msg = f"{e!s} is unavailable in environment state."
+                raise KeyError(msg) from e
+            except ValueError as e:
+                msg = "External Inputs can't have multiple values"
+                raise ValueError(msg) from e
+            external_inputs[ext_id] = scaled_value / state_var.ext_scale_mult - state_var.ext_scale_add
+        return external_inputs
+
+    def set_action(self, action: np.ndarray | dict[str, np.ndarray]) -> None:
+        """Set action values in the state.
+
+        :param action: Actions to be set.
+        :type action: np.ndarray | dict[str, np.ndarray]
+        """
+        iterator: Iterator
+        if isinstance(action, np.ndarray):
+            iterator = zip(self.state_config.actions, action, strict=True)
+        else:
+            iterator = iter(action.items())
+
+        for name, value in iterator:
+            val = value if isinstance(value, np.ndarray) else np.array([value])
+            self.state[name] = val
+
+    def set_external_outputs(self, external_outputs: dict[str, float]) -> None:
+        """Set external outputs in the state.
+        Accepts scalars instead of numpy arrays as values.
+
+        :param external_outputs: Dict of external outputs with external_ids as keys.
+        :type external_outputs: dict[str, float]
+        :raises KeyError: Received an unknown external id
+        """
+        for name in self.state_config.ext_outputs:
+            state_var = self.state_config.vars[name]
+            try:
+                unscaled_value = external_outputs[state_var.ext_id]  # type: ignore[index]
+            except KeyError as e:
+                msg = f"Missing value for external output: {name}"
+                raise KeyError(msg) from e
+            scaled_value = (unscaled_value + state_var.ext_scale_add) * state_var.ext_scale_mult
+
+            self.state[name] = np.array([scaled_value])
+
+    def set_scenario_state(self) -> None:
+        """Set scenario output values for the current timestep in the state."""
+        if self.scenario_manager is not None:
+            # Only request the columns specified in state_config to avoid loading unnecessary data
+            scenario_data = self.scenario_manager.get_scenario_state(
+                n_steps=self.n_steps, columns=self.state_config.scenario_outputs
+            )
+            for scenario_id in self.state_config.scenario_outputs:
+                self.state[scenario_id] = scenario_data[scenario_id]

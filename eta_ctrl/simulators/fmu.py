@@ -2,21 +2,22 @@
 
 from __future__ import annotations
 
-import itertools as it
+import pathlib
 import shutil
-from collections.abc import Mapping
-from datetime import timedelta
+from contextlib import contextmanager
 from logging import getLogger
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 import numpy as np
 from fmpy import extract, read_model_description
+from fmpy.build import build_platform_binary
 from fmpy.fmi2 import FMU2Model, FMU2Slave
 from fmpy.sundials import CVodeSolver
-from fmpy.util import compile_platform_binary
+
+from eta_ctrl.util.utils import timestep_to_seconds
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterator, Mapping, Sequence
     from typing import Any
 
     from fmpy.model_description import ModelDescription
@@ -43,10 +44,6 @@ class FMUSimulator:
                           should be returned.
     :param init_values: Starting values for parameters that should be pushed to the FMU with names corresponding to
                         variables in the FMU.
-    :param str return_type: "dict" or "list". Alter the standard behavior, which is to return lists from the step and
-                            get_values functions only if both, "names_inputs" and "names_outputs" are specified.
-                            This parameter will force the step and get_values functions to always return either
-                            dictionaries or lists.
     """
 
     def __init__(
@@ -59,116 +56,44 @@ class FMUSimulator:
         names_inputs: Sequence[str] | None = None,
         names_outputs: Sequence[str] | None = None,
         init_values: Mapping[str, float] | None = None,
-        *,
-        return_type: str | None = None,
     ) -> None:
         #: Path to the FMU model.
         self.fmu_path = fmu_path
 
         #: Start time for the simulation in time increments.
-        self.start_time = start_time.total_seconds() if isinstance(start_time, timedelta) else start_time
+        self.start_time = int(timestep_to_seconds(start_time))
         #: Stopping time for the simulation in time increments (only relevant if run in simulation loop).
-        self.stop_time = stop_time.total_seconds() if isinstance(stop_time, timedelta) else stop_time
+        self.stop_time = int(timestep_to_seconds(stop_time))
         #: Step size (time) for the simulation in time increments.
-        self.step_size = step_size.total_seconds() if isinstance(step_size, timedelta) else step_size
+        self.step_size = int(timestep_to_seconds(step_size))
 
         #: Model description from the FMU (contains variable names, types, references and more).
         self.model_description: ModelDescription = read_model_description(fmu_path)
 
         #: Variable map from model description. The map specifies the value reference and datatype of a named
         #: variable in the FMU. The structure is {'name': {'ref': <value reference>, 'type': <variable data type>}}.
-        self._model_vars: dict[str, dict[str, str]] = {}
         self.__type_map = {"Real": "real", "Boolean": "bool", "Integer": "int", "Enumeration": "enum"}
 
+        self._model_vars: dict[str, dict[str, str]] = {}
         for var in self.model_description.modelVariables:
             self._model_vars[var.name] = {"ref": var.valueReference, "type": self.__type_map[var.type]}
+        self.model_vars_names = list(self._model_vars.keys())
 
-        #: Map of input variables which can be used to evaluate an ordered list of input variables. This is typically
-        #: not required when working with mappings/dictionaries as step inputs.
-        #:
-        #: The map contains the following lists:
-        #:
-        #:     * real: Mask for real variables. This can be used to identify real variables from the complete set of
-        #:       input variables (_inputs["refs"], see below) using `itertools.compress`.
-        #:     * int: Mask for integer variables. This can be used to identify integer variables from the complete set
-        #:       of input variables (_inputs["refs"], see below) using `itertools.compress`.
-        #:     * bool: Mask for boolean variables. This can be used to identify boolean variables from the complete set
-        #:       of input variables (_inputs["refs"], see below) using `itertools.compress`.
-        self._input_map: dict[str, list[bool]] = {"names": [], "real": [], "int": [], "bool": []}
+        if names_inputs is not None:
+            self._validate_names(names_inputs, context="input names")
+            input_names = names_inputs
+        else:
+            input_names = self.model_vars_names
+        #: Mapping of input names to model references
+        self.input_mapping = {name: self._model_vars[name]["ref"] for name in input_names}
 
-        #: Map of input variable references and their names. The map contains the following lists:
-        #:
-        #:     * names: List of the named input variables that are accessible in the model.
-        #:     * refs: List of all value references to input variables of all types. This is the complete list, which
-        #:       can be filtered using itertools.compress (see above).
-        #:     * real: List of all value references to input variables of type real.
-        #:     * int: List of all value references to input variables of type integer.
-        #:     * bool: List of all value references to input variables of type boolean.
-        self._inputs: dict[str, list[str]] = {"names": [], "refs": [], "real": [], "int": [], "bool": []}
-        refs = []
-        names = []
-        iterator = names_inputs if names_inputs is not None else self._model_vars.keys()
-
-        for var in iterator:
-            if var in self._model_vars:
-                refs.append(self._model_vars[var]["ref"])
-                names.append(var)
-                self._input_map["real"].append(self._model_vars[var]["type"] == "real")
-                self._input_map["int"].append(self._model_vars[var]["type"] == "int")
-                self._input_map["bool"].append(self._model_vars[var]["type"] == "bool")
-            else:
-                log.warning(
-                    f"Input variable '{var}' couldn't be found in FMU model description. Entry will be ignored."
-                )
-
-        self._inputs["names"] = names
-        self._inputs["refs"] = refs
-        self._inputs["real"] = list(it.compress(refs, self._input_map["real"]))
-        self._inputs["int"] = list(it.compress(refs, self._input_map["int"]))
-        self._inputs["bool"] = list(it.compress(refs, self._input_map["bool"]))
-
-        #: Map of output variables which can be used to evaluate an ordered list of output variables. This is typically
-        #: not required when working with mappings/dictionaries as step outputs.
-        #:
-        #: The map contains the following lists:
-        #:
-        #:     * real: Mask for real variables. This can be used to identify real variables from the complete set of
-        #:       output variables (_outputs['refs'], see below) using `itertools.compress`.
-        #:     * int: Mask for integer variables. This can be used to identify integer variables from the complete set
-        #:       of output variables (_outputs['refs'], see below) using `itertools.compress`.
-        #:     * bool: Mask for boolean variables. This can be used to identify boolean variables from the complete set
-        #:       of output variables (_outputs['refs'], see below) using `itertools.compress`.
-        self._output_map: dict[str, list[bool]] = {"names": [], "real": [], "int": [], "bool": []}
-
-        #: Map of output variable references and their names. The map contains the following lists:
-        #:
-        #:     * names: List of the named output variables that are accessible in the model.
-        #:     * refs: List of all value references to output variables of all types. This is the complete list, which
-        #:       can be filtered using itertools.compress (see above).
-        #:     * real: List of all value references to output variables of type real.
-        #:     * int: List of all value references to output variables of type integer.
-        #:     * bool: List of all value references to output variables of type boolean.
-        self._outputs: dict[str, list[str]] = {"names": [], "refs": [], "real": [], "int": [], "bool": []}
-        refs = []
-        names = []
-        iterator = names_outputs if names_outputs is not None else self._model_vars.keys()
-
-        for var in iterator:
-            if var in self._model_vars:
-                refs.append(self._model_vars[var]["ref"])
-                names.append(var)
-                self._output_map["real"].append(self._model_vars[var]["type"] == "real")
-                self._output_map["int"].append(self._model_vars[var]["type"] == "int")
-                self._output_map["bool"].append(self._model_vars[var]["type"] == "bool")
-            else:
-                log.warning(
-                    f"Output variable '{var}' couldn't be found in FMU model description. Entry will be ignored."
-                )
-        self._outputs["names"] = names
-        self._outputs["refs"] = refs
-        self._outputs["real"] = list(it.compress(refs, self._output_map["real"]))
-        self._outputs["int"] = list(it.compress(refs, self._output_map["int"]))
-        self._outputs["bool"] = list(it.compress(refs, self._output_map["bool"]))
+        if names_outputs is not None:
+            self._validate_names(names_outputs, context="output names")
+            output_names = names_outputs
+        else:
+            output_names = self.model_vars_names
+        #: Mapping of output names to model references
+        self.output_mapping = {name: self._model_vars[name]["ref"] for name in output_names}
 
         #: Directory where the FMU will be extracted.
         self._unzipdir: Path = extract(fmu_path)
@@ -182,7 +107,7 @@ class FMUSimulator:
                 instanceName="FMUsimulator_" + str(_id),
             )
         except Exception:  # noqa: BLE001  fmpy raises bare Exceptions
-            compile_platform_binary(self.fmu_path)
+            build_platform_binary(unzipdir=self._unzipdir)
             self.fmu = FMU2Slave(
                 guid=self.model_description.guid,
                 unzipDirectory=self._unzipdir,
@@ -205,84 +130,80 @@ class FMUSimulator:
         #: Current simulation time.
         self.time = self.start_time
 
-        # Initialize some other parameters used to switch functionality of class methods.
-        #: Return dictionaries from the step and get_values functions instead of lists.
-        self._return_dict: bool = False
-        if return_type is None:
-            self._return_dict = names_inputs is None or names_outputs is None
-        else:
-            self._return_dict = return_type != "list"
+    def _validate_names(self, names: Sequence[str], context: str = "names") -> None:
+        """Validate a given sequence of names by checking their existence in the FMU.
+
+        :param names: Names to check.
+        :param context: Additional context for log messages, defaults to "names".
+        :raises KeyError: Unknown variable names.
+        """
+        names_set = set(names)
+        model_vars_set = set(self.model_vars_names)
+        if len(names_set) < len(names):
+            log.warning(f"{context.capitalize()} contain duplicate elements")
+
+        # Find names that don't exist in the model
+        missing_names = names_set - model_vars_set
+        if missing_names:
+            msg = f"Found {len(missing_names)} unknown variable names in {context}: {sorted(missing_names)}. "
+            raise KeyError(msg)
 
     @property
     def input_vars(self) -> list[str]:
         """Ordered list of all available input variable names in the FMU."""
-        return self._inputs["names"].copy()
+        return list(self.input_mapping.keys())
 
     @property
     def output_vars(self) -> list[str]:
         """Ordered list of all available output variable names in the FMU."""
-        return self._outputs["names"].copy()
+        return list(self.output_mapping.keys())
 
-    def read_values(self, names: Sequence[str] | None = None) -> dict[str | int, Any] | list:
+    @property
+    def parameter_vars(self) -> list[str]:
+        """Get names of all available parameters in the FMU.
+
+        :return: List of parameter variable names.
+        """
+        if not hasattr(self, "_parameter_vars"):
+            # Extract parameter variables from model description
+            self._parameter_vars = []
+            for var in self.model_description.modelVariables:
+                # Check if the variable is a parameter (or has causality="parameter")
+                if hasattr(var, "causality") and var.causality == "parameter":
+                    self._parameter_vars.append(var.name)
+        return self._parameter_vars
+
+    def read_values(self, names: Sequence[str] | None = None) -> dict[str, float]:
         """Return current values of the simulation without advancing a simulation step or the simulation time.
 
         :param names: Sequence of values to read from the FMU. If this is None (default), all available values will be
                       read.
+        :return: Read values from the FMU mapped with their names.
         """
         # Find value references and names for the variables that should be read from the FMU
         if names is None:
-            refs = self._outputs["refs"]
-            vars_ = self._outputs["names"]
+            var_refs = self.output_mapping
         else:
-            refs = []
-            vars_ = []
-            for var in names:
-                try:
-                    refs.append(self._model_vars[var]["ref"])
-                    vars_.append(var)
-                except KeyError as e:
-                    msg = f"Specified an output value for a variable which is not available in the FMU: {var}"
-                    raise KeyError(msg) from e
+            self._validate_names(names, context="output names")
+            var_refs = {name: self.output_mapping[name] for name in names}
 
-        # Get values from the FMU and convert to specified output format (dict or list)
-        output_values = self.fmu.getReal(refs)
-        return dict(zip(vars_, output_values, strict=False)) if self._return_dict else output_values
+        # Get values from the FMU and convert to a dictionary
+        output_values = self.fmu.getReal(list(var_refs.values()))
+        return dict(zip(var_refs.keys(), output_values, strict=False))
 
-    def set_values(self, values: Sequence[Number | bool] | Mapping[str, Number | bool]) -> None:
+    def set_values(self, values: Mapping[str, Number | bool]) -> None:
         """Set values of simulation variables without advancing a simulation step or the simulation time.
 
         :param values: Values that should be pushed to the FMU. Names of the input_values must correspond
-                       to variables in the FMU. If passing as a Sequence, make sure the order corresponds to
-                       the order of the input_vars property.
+                       to variables in the FMU.
         """
+        self._validate_names(list(values.keys()), context="input names")
         vals: dict[str, list[Number | bool]] = {"real": [], "int": [], "bool": []}
         refs: dict[str, list[str]] = {"real": [], "int": [], "bool": []}
-        if isinstance(values, Mapping):
-            for var, val in values.items():
-                try:
-                    refs[self._model_vars[var]["type"]].append(self._model_vars[var]["ref"])
-                    vals[self._model_vars[var]["type"]].append(val)
-                except KeyError as e:
-                    msg = f"Specified an input value for a variable which is not available in the FMU: {var}"
-                    raise KeyError(msg) from e
-        else:
-            if len(values) != len(self._inputs["refs"]):
-                msg = (
-                    f"Length of value list ({len(values)}) must be equal to length of input_vars "
-                    f"property ({len(self._inputs['refs'])})"
-                )
-                raise AttributeError(msg)
-            refs = {
-                "real": self._inputs["real"],
-                "int": self._inputs["int"],
-                "bool": self._inputs["bool"],
-            }
-
-            vals = {
-                "real": list(it.compress(values, self._input_map["real"])),
-                "int": list(it.compress(values, self._input_map["int"])),
-                "bool": list(it.compress(values, self._input_map["bool"])),
-            }
+        for var, val in values.items():
+            model_var = self._model_vars[var]
+            refs[model_var["type"]].append(model_var["ref"])
+            vals[model_var["type"]].append(val)
 
         if len(refs["real"]) > 0:
             self.fmu.setReal(refs["real"], vals["real"])
@@ -293,16 +214,15 @@ class FMUSimulator:
 
     def step(
         self,
-        input_values: Sequence[Number | bool] | Mapping[str, Number | bool] | None = None,
+        input_values: Mapping[str, float] | None = None,
         output_names: Sequence[str] | None = None,
         advance_time: bool = True,
         nr_substeps: int | None = None,
-    ) -> dict[str | int, Any] | list[Any]:
+    ) -> dict[str, float]:
         """Simulate next time step in the FMU with defined input values and output values.
 
         :param input_values: Current values that should be pushed to the FMU. Names of the input_values must correspond
-                             to variables in the FMU. If passing as a Sequence, make sure the order corresponds to
-                             the order of the input_vars property.
+                             to variables in the FMU.
         :param advance_time: Decide if the FMUsimulator should add one timestep to the simulation time or not.
                                   This can be deactivated, if you just want to look at the result of a simulation step
                                   beforehand, without actually advancing simulation time.
@@ -349,12 +269,11 @@ class FMUSimulator:
                             variables in the FMU.
         """
         simulator = cls(0, fmu_path, start_time, stop_time, step_size, init_values=init_values)
-
         dt = np.dtype([(name, float) for name in simulator.read_values()])
         # mypy does not recognize the return type of floor division...
         result = np.rec.array(
             None,
-            shape=((simulator.stop_time - simulator.start_time) // simulator.step_size + 1,),  # type: ignore[arg-type]
+            shape=((simulator.stop_time - simulator.start_time) // simulator.step_size + 1,),
             dtype=dt,
         )
         if result.dtype.names is None:
@@ -364,14 +283,10 @@ class FMUSimulator:
         step = 0
         while simulator.time <= simulator.stop_time:
             step_result = simulator.step()
-            if not isinstance(step_result, dict):
-                msg = "The simulator needs a dictionary return."
-                raise TypeError(msg)
             for name in result.dtype.names:
                 result[step][name] = step_result[name]
 
             step += 1
-
         return result
 
     def reset(self, init_values: Mapping[str, float] | None = None) -> None:
@@ -396,6 +311,105 @@ class FMUSimulator:
         self.fmu.terminate()
         self.fmu.freeInstance()
         shutil.rmtree(self._unzipdir)  # clean up unzipped files
+
+    @classmethod
+    @contextmanager
+    def inspect(cls, fmu_path: pathlib.Path | str) -> Iterator[FMUContext]:
+        """
+        Context manager for inspecting an FMU to extract metadata.
+
+        Initializes a temporary FMU simulation environment to extract information such as
+        input/output variable names, parameter start values, and variable bounds. Returns
+        this data as a dictionary for use in TOML export or further analysis.
+
+        This method handles FMU loading, parsing, and cleanup internally, and is safe to use
+        with `with` blocks. If initialization fails, it yields `None`.
+
+        :param fmu_path: Path to the FMU file (.fmu) as a string or Path.
+        :param output_path: Optional output path for the resulting file or reference.
+        :yield: A dictionary with FMU metadata, or None on failure.
+        """
+
+        def parse_numeric(value: str | None) -> float | None:
+            if value is None:
+                return None
+            try:
+                number = float(value)
+                return int(number) if number.is_integer() else number
+            except (ValueError, TypeError):
+                return None
+
+        fmu_path = pathlib.Path(fmu_path)
+        simulator = cls(
+            _id=0,
+            fmu_path=fmu_path,
+            start_time=0.0,
+            stop_time=1.0,
+            step_size=0.1,
+        )
+        model_description = simulator.model_description
+
+        try:
+            actions: list[VariableDict] = []
+            observations: list[VariableDict] = []
+            parameters: dict[str, str | None] = {}
+            var_dict: VariableDict
+            for var in model_description.modelVariables:
+                if "." in var.name or "[" in var.name or "]" in var.name:
+                    continue
+
+                if var.causality == "input":
+                    var_dict = {"name": var.name, "is_ext_input": True}
+                    min_val = parse_numeric(getattr(var, "min", None))
+                    max_val = parse_numeric(getattr(var, "max", None))
+                    if min_val is not None:
+                        var_dict["low_value"] = min_val
+                    if max_val is not None:
+                        var_dict["high_value"] = max_val
+                    actions.append(var_dict)
+
+                elif var.causality == "output":
+                    var_dict = {"name": var.name, "is_ext_output": True}
+                    min_val = parse_numeric(getattr(var, "min", None))
+                    max_val = parse_numeric(getattr(var, "max", None))
+                    if min_val is not None:
+                        var_dict["low_value"] = min_val
+                    if max_val is not None:
+                        var_dict["high_value"] = max_val
+                    observations.append(var_dict)
+
+                elif var.causality == "parameter":
+                    parameters[var.name] = str(getattr(var, "start", None)) if hasattr(var, "start") else None
+            yield {
+                "fmu_name": fmu_path.stem,
+                "fmu_path": fmu_path,
+                "actions": actions,
+                "observations": observations,
+                "parameters": parameters,
+            }
+
+        except Exception:
+            log.exception("Failed to inspect FMU simulator")
+
+        finally:
+            if simulator:
+                simulator.close()
+
+
+class VariableDict(TypedDict, total=False):
+    name: str
+    is_ext_input: bool
+    is_ext_output: bool
+    low_value: Number
+    high_value: Number
+
+
+class FMUContext(TypedDict):
+    fmu_name: str
+    fmu_path: pathlib.Path
+    actions: list[VariableDict]
+    observations: list[VariableDict]
+    parameters: dict[str, str | None]
 
 
 class FMU2MESlave(FMU2Model):

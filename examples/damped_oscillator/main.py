@@ -27,7 +27,9 @@ def experiment_conventional(root_path: pathlib.Path, overwrite: dict[str, Any] |
     :return: The EtaCtrl object containing the experiment
     """
     # --main--
-    experiment = EtaCtrl(root_path, "config_conventional", overwrite, relpath_config=".")
+    experiment = EtaCtrl(
+        config_name="config_conventional", root_path=root_path, config_overwrite=overwrite, config_relpath="."
+    )
     experiment.play(series_name="conventional_series", run_name="run1")
     # --main--
     return experiment
@@ -41,7 +43,9 @@ def experiment_learning(root_path: pathlib.Path, overwrite: dict[str, Any] | Non
     :param overwrite: Additional config values to overwrite values from JSON.
     """
     # --main--
-    experiment = EtaCtrl(root_path, "config_learning", overwrite, relpath_config=".")
+    experiment = EtaCtrl(
+        config_name="config_learning", root_path=root_path, config_overwrite=overwrite, config_relpath="."
+    )
     experiment.learn(series_name="learning_series", run_name="run1")
     experiment.play(series_name="learning_series", run_name="run1")
     # --main--

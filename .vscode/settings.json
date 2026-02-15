@@ -1,0 +1,20 @@
+{
+  "evenBetterToml.schema.associations": {
+    ".*_state_config.toml": "file://.vscode/schemas/state_config.json",
+  },
+  "json.schemas": [
+    {
+      "fileMatch": [
+        "/*_state_config.json",
+      ],
+      "url": "./.vscode/schemas/state_config.json"
+    },
+  ],
+
+  "autoDocstring.docstringFormat": "sphinx",
+  "python.testing.pytestArgs": [
+    "test"
+  ],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true,
+}

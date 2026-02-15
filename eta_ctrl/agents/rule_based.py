@@ -5,6 +5,7 @@ from logging import getLogger
 from typing import TYPE_CHECKING
 
 import numpy as np
+from gymnasium.vector.utils import concatenate, create_empty_array, iterate
 from stable_baselines3.common.base_class import BaseAlgorithm
 
 if TYPE_CHECKING:
@@ -57,7 +58,7 @@ class RuleBased(BaseAlgorithm, abc.ABC):
         return self.env
 
     @abc.abstractmethod
-    def control_rules(self, observation: np.ndarray) -> np.ndarray:
+    def control_rules(self, observation: np.ndarray | dict[str, np.ndarray]) -> np.ndarray:
         """This function is abstract and should be used to implement control rules which determine actions from
         the received observations.
 
@@ -82,12 +83,23 @@ class RuleBased(BaseAlgorithm, abc.ABC):
                               deterministic actions.
         :return: Tuple of the model's action and the next state (state is typically None in this agent).
         """
-        action = []
-        for idx, obs in enumerate(observation):
-            action.append(np.array(self.control_rules(obs)))
-            log.debug(f"Action vector for environment {idx}: {action[-1]}")
+        actions = []
+        for idx, env_obs in enumerate(iterate(self.observation_space, observation)):
+            actions.append(self.control_rules(env_obs))
+            log.debug(f"Action vector for environment {idx}: {actions[idx]}")
+        if not actions:
+            msg = "The control_rules method must NOT return None."
+            raise ValueError(msg)
 
-        return np.array(action), None
+        action_array = create_empty_array(self.action_space, n=self.get_env().num_envs)
+        result = concatenate(self.action_space, actions, action_array)
+
+        # Mypy can't infer types here
+        if not isinstance(result, np.ndarray):
+            msg = "Actions must be an np.ndarray"
+            raise TypeError(msg)
+
+        return result, None
 
     @classmethod
     def load(
@@ -170,7 +182,7 @@ class RuleBased(BaseAlgorithm, abc.ABC):
 
     def action_probability(
         self,
-        observation: np.ndarray,
+        observation: dict[str, np.ndarray],
         state: np.ndarray | None = None,
         mask: np.ndarray | None = None,
         actions: np.ndarray | None = None,
