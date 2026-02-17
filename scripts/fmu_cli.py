@@ -68,7 +68,7 @@ def export_fmu_data() -> None:
     # Export state config
     state_config_output = None
     if args.output_dir:
-        state_config_output = str(pathlib.Path(args.output_dir) / f"{fmu_path.stem}_state_config.toml")
+        state_config_output = str(pathlib.Path(args.output_dir) / f"{fmu_path.stem}_env_state_config.toml")
 
     SimEnvScaffolder.export_fmu_state_config(fmu_path, state_config_output)
 
