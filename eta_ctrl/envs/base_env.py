@@ -677,16 +677,16 @@ class BaseEnv(Env, abc.ABC):
                 raise KeyError(msg) from e
         return observations
 
-    def get_external_inputs(self) -> dict[str, float]:
+    def get_external_inputs(self) -> dict[str, float | bool]:
         """Gather external inputs from the state.
         Uses scalar values instead of numpy arrays for values.
 
         :raises KeyError: External input is not available in state
         :raises ValueError: External input value is not scalar
         :return: Filtered external inputs with external id as keys.
-        :rtype: dict[str, float]
+        :rtype: dict[str, float | bool]
         """
-        external_inputs = {}
+        external_inputs: dict[str, float | bool] = {}
         for name in self.state_config.ext_inputs:
             ext_id = self.state_config.map_ext_ids[name]
             state_var = self.state_config.vars[name]
@@ -698,7 +698,11 @@ class BaseEnv(Env, abc.ABC):
             except ValueError as e:
                 msg = "External Inputs can't have multiple values"
                 raise ValueError(msg) from e
-            external_inputs[ext_id] = scaled_value / state_var.ext_scale_mult - state_var.ext_scale_add
+            # Skip scaling for boolean values
+            if isinstance(scaled_value, (bool, np.bool_)):
+                external_inputs[ext_id] = bool(scaled_value)
+            else:
+                external_inputs[ext_id] = scaled_value / state_var.ext_scale_mult - state_var.ext_scale_add
         return external_inputs
 
     def set_action(self, action: np.ndarray | dict[str, np.ndarray]) -> None:
@@ -717,12 +721,12 @@ class BaseEnv(Env, abc.ABC):
             val = value if isinstance(value, np.ndarray) else np.array([value])
             self.state[name] = val
 
-    def set_external_outputs(self, external_outputs: dict[str, float]) -> None:
+    def set_external_outputs(self, external_outputs: dict[str, float | bool]) -> None:
         """Set external outputs in the state.
         Accepts scalars instead of numpy arrays as values.
 
         :param external_outputs: Dict of external outputs with external_ids as keys.
-        :type external_outputs: dict[str, float]
+        :type external_outputs: dict[str, float | bool]
         :raises KeyError: Received an unknown external id
         """
         for name in self.state_config.ext_outputs:
@@ -732,9 +736,12 @@ class BaseEnv(Env, abc.ABC):
             except KeyError as e:
                 msg = f"Missing value for external output: {name}"
                 raise KeyError(msg) from e
-            scaled_value = (unscaled_value + state_var.ext_scale_add) * state_var.ext_scale_mult
-
-            self.state[name] = np.array([scaled_value])
+            # Skip scaling for boolean values
+            if isinstance(unscaled_value, (bool, np.bool_)):
+                self.state[name] = np.array([bool(unscaled_value)])
+            else:
+                scaled_value = (unscaled_value + state_var.ext_scale_add) * state_var.ext_scale_mult
+                self.state[name] = np.array([scaled_value])
 
     def set_scenario_state(self) -> None:
         """Set scenario output values for the current timestep in the state."""

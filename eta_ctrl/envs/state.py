@@ -309,11 +309,20 @@ class StateConfig:
         :param state: The state array to check for conformance.
         :return: Result of the check (False if the state does not conform to the required conditions).
         """
-        valid_min = all(state[name] >= self.vars[name].abort_condition_min for name in state)
+        # Skip boolean values when checking abort conditions
+        valid_min = all(
+            state[name] >= self.vars[name].abort_condition_min
+            for name in state
+            if not isinstance(state[name], (bool, np.bool_))
+        )
         if not valid_min:
             log.warning("Minimum abort condition exceeded by at least one value.")
 
-        valid_max = all(state[name] <= self.vars[name].abort_condition_max for name in state)
+        valid_max = all(
+            state[name] <= self.vars[name].abort_condition_max
+            for name in state
+            if not isinstance(state[name], (bool, np.bool_))
+        )
         if not valid_max:
             log.warning("Maximum abort condition exceeded by at least one value.")
 
