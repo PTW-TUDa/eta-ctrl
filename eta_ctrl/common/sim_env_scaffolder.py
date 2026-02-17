@@ -41,7 +41,9 @@ class SimEnvScaffolder:
         SimEnvScaffolder._create_environment_file(python_file_path, class_name, fmu_name)
 
         # Use custom output directory if output_dir is defined, default otherwise
-        state_config_file_path = output_directory / f"{fmu_name}_state_config.toml" if output_dir is not None else None
+        state_config_file_path = (
+            output_directory / f"{fmu_name}_env_state_config.toml" if output_dir is not None else None
+        )
         # Create state config TOML file
         SimEnvScaffolder.export_fmu_state_config(fmu_path=fmu_path, output_path=state_config_file_path)
 
@@ -68,7 +70,7 @@ class SimEnvScaffolder:
             }
 
             base_path = (
-                ctx["fmu_path"].parent / f"{ctx['fmu_name']}_state_config.toml"
+                ctx["fmu_path"].parent / f"{ctx['fmu_name']}_env_state_config.toml"
                 if output_path is None
                 else pathlib.Path(output_path)
             )
@@ -121,15 +123,15 @@ class SimEnvScaffolder:
             log.warning(f"Python file already exists at {file_path}. Skipping creation.")
             return
 
-        # Get template file path
-        templates_dir = pathlib.Path(__file__).parent / "templates"
-        template_path = templates_dir / "simenv_template.py"
+        # Get template file path from envs module
+        templates_dir = pathlib.Path(__file__).parent.parent / "envs" / "templates"
+        template_path = templates_dir / "sim_env_template.py"
 
         # Read template content
         template_content = template_path.read_text(encoding="utf-8")
 
         # Replace template placeholders
-        file_content = template_content.replace("TemplateSimEnv", class_name)
+        file_content = template_content.replace("SimEnvTemplate", class_name)
         file_content = file_content.replace("TEMPLATE_FMU_NAME", fmu_name)
 
         # Write the file

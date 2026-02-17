@@ -3,34 +3,32 @@ import pathlib
 import pytest
 
 from eta_ctrl.common.sim_env_scaffolder import SimEnvScaffolder
-from examples.damped_oscillator.main import (
-    get_path as get_oscillator_path,
-)
 
 
 class TestSimEnvScaffolder:
     """Test the FMU variables export functionality."""
 
     @pytest.fixture(scope="class")
-    def experiment_path(self):
-        path = get_oscillator_path()
+    def experiment_path(self, resources_path):
+        """Get the path to the test resources directory containing the FMU."""
+        path = resources_path / "damped_oscillator"
         yield path
         # Clean up any test files created - including numbered variants due to overwrite protection
 
         # Clean up files in the experiment path
-        for toml_file in path.glob("damped_oscillator_state_config*.toml"):
+        for toml_file in path.glob("damped_oscillator_*state_config*.toml"):
             toml_file.unlink(missing_ok=True)
         for toml_file in path.glob("damped_oscillator_parameters*.toml"):
             toml_file.unlink(missing_ok=True)
 
         # Clean up files in current directory
-        for toml_file in pathlib.Path().glob("damped_oscillator_state_config*.toml"):
+        for toml_file in pathlib.Path().glob("damped_oscillator_*state_config*.toml"):
             toml_file.unlink(missing_ok=True)
         for toml_file in pathlib.Path().glob("damped_oscillator_parameters*.toml"):
             toml_file.unlink(missing_ok=True)
 
         # Clean up any other test files
-        for toml_file in pathlib.Path().glob("test_state_config*.toml"):
+        for toml_file in pathlib.Path().glob("test_*state_config*.toml"):
             toml_file.unlink(missing_ok=True)
         for toml_file in pathlib.Path().glob("test_parameters*.toml"):
             toml_file.unlink(missing_ok=True)
@@ -49,7 +47,7 @@ class TestSimEnvScaffolder:
         SimEnvScaffolder.export_fmu_state_config(fmu_path)
 
         # Check if default file was created
-        default_path = fmu_path.parent / f"{fmu_path.stem}_state_config.toml"
+        default_path = fmu_path.parent / f"{fmu_path.stem}_env_state_config.toml"
         assert default_path.exists(), f"Default export file not created at {default_path}"
 
         # Clean up the file after test
@@ -72,7 +70,7 @@ class TestSimEnvScaffolder:
         """Test that the exported TOML file has the expected structure."""
         SimEnvScaffolder.export_fmu_state_config(fmu_path)
 
-        default_path = fmu_path.parent / f"{fmu_path.stem}_state_config.toml"
+        default_path = fmu_path.parent / f"{fmu_path.stem}_env_state_config.toml"
 
         import toml
 
@@ -94,7 +92,7 @@ class TestSimEnvScaffolder:
         """Test that the fmu_info section contains expected fields."""
         SimEnvScaffolder.export_fmu_state_config(fmu_path)
 
-        default_path = fmu_path.parent / f"{fmu_path.stem}_state_config.toml"
+        default_path = fmu_path.parent / f"{fmu_path.stem}_env_state_config.toml"
 
         import toml
 
@@ -116,7 +114,7 @@ class TestSimEnvScaffolder:
         """Test that at least one model action exists."""
         SimEnvScaffolder.export_fmu_state_config(fmu_path)
 
-        default_path = fmu_path.parent / f"{fmu_path.stem}_state_config.toml"
+        default_path = fmu_path.parent / f"{fmu_path.stem}_env_state_config.toml"
 
         import toml
 
@@ -133,7 +131,7 @@ class TestSimEnvScaffolder:
         """Test that at least one model observation exists."""
         SimEnvScaffolder.export_fmu_state_config(fmu_path)
 
-        default_path = fmu_path.parent / f"{fmu_path.stem}_state_config.toml"
+        default_path = fmu_path.parent / f"{fmu_path.stem}_env_state_config.toml"
 
         import toml
 
@@ -150,7 +148,7 @@ class TestSimEnvScaffolder:
         """Test that model actions have the expected structure."""
         SimEnvScaffolder.export_fmu_state_config(fmu_path)
 
-        default_path = fmu_path.parent / f"{fmu_path.stem}_state_config.toml"
+        default_path = fmu_path.parent / f"{fmu_path.stem}_env_state_config.toml"
 
         import toml
 
@@ -197,7 +195,7 @@ class TestSimEnvScaffolder:
         """Test that model observations have the expected structure."""
         SimEnvScaffolder.export_fmu_state_config(fmu_path)
 
-        default_path = fmu_path.parent / f"{fmu_path.stem}_state_config.toml"
+        default_path = fmu_path.parent / f"{fmu_path.stem}_env_state_config.toml"
 
         import toml
 
@@ -244,12 +242,12 @@ class TestSimEnvScaffolder:
         """Test that overwrite protection creates unique filenames."""
         # Create first file
         SimEnvScaffolder.export_fmu_state_config(fmu_path)
-        default_path = fmu_path.parent / f"{fmu_path.stem}_state_config.toml"
+        default_path = fmu_path.parent / f"{fmu_path.stem}_env_state_config.toml"
         assert default_path.exists()
 
         # Create second file - should have _1 suffix due to overwrite protection
         SimEnvScaffolder.export_fmu_state_config(fmu_path)
-        protected_path = fmu_path.parent / f"{fmu_path.stem}_state_config_1.toml"
+        protected_path = fmu_path.parent / f"{fmu_path.stem}_env_state_config_1.toml"
         assert protected_path.exists()
 
         # Clean up both files
@@ -395,7 +393,7 @@ class TestSimEnvScaffolder:
         SimEnvScaffolder.export_fmu_state_config(fmu_path)
         SimEnvScaffolder.export_fmu_parameters(fmu_path)
 
-        variables_path = fmu_path.parent / f"{fmu_path.stem}_state_config.toml"
+        variables_path = fmu_path.parent / f"{fmu_path.stem}_env_state_config.toml"
         parameters_path = fmu_path.parent / f"{fmu_path.stem}_parameters.toml"
 
         assert variables_path.exists()
@@ -437,7 +435,7 @@ class TestSimEnvScaffolder:
         SimEnvScaffolder.export_fmu_state_config(fmu_path)
 
         parameters_path = fmu_path.parent / f"{fmu_path.stem}_parameters.toml"
-        structure_path = fmu_path.parent / f"{fmu_path.stem}_state_config.toml"
+        structure_path = fmu_path.parent / f"{fmu_path.stem}_env_state_config.toml"
 
         import toml
 
