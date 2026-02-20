@@ -9,7 +9,6 @@ config = {  # noqa: INP001
         "policy_class": "NoPolicy",
         "policy_package": "eta_ctrl.common",
     },
-    "paths": {"state_relpath": "."},
     "settings": {
         "sampling_time": 10,
         "episode_duration": 1800,

@@ -2,17 +2,21 @@ import copy
 import re
 from datetime import datetime
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 
 from eta_ctrl.config import Config, ConfigSettings, ConfigSetup
+from eta_ctrl.config.config import _derive_state_config
 from eta_ctrl.envs.state import StateConfig
 from test.resources.config.config_python import config as python_dict
 
 
 @pytest.fixture
 def config_dict() -> dict:
-    return copy.deepcopy(python_dict)
+    config = copy.deepcopy(python_dict)
+    config.setdefault("paths", {})["state_relpath"] = "test_env_state_config.toml"
+    return config
 
 
 class TestConfig:
@@ -79,7 +83,10 @@ class TestConfig:
         assert config.scenarios_path == config_resources_path / "scenarios"
 
     def test_from_file(self, config_dict: dict, config_resources_path: Path):
-        config = Config.from_file(root_path=config_resources_path, config_relpath=Path(), config_name="config1")
+        overwrite = {"paths": {"state_relpath": "test_env_state_config.toml"}}
+        config = Config.from_file(
+            root_path=config_resources_path, config_relpath=Path(), config_name="config1", overwrite=overwrite
+        )
         assert config.config_name == "config1"
 
 
@@ -161,3 +168,78 @@ class TestConfigSettings:
         settings = ConfigSettings.from_dict(config_dict)
         assert settings.scenario_time_begin == datetime(2022, 3, 18, 0, 0, 0)
         assert settings.scenario_time_end == datetime(2022, 3, 18, 0, 10, 0)
+
+
+class TestDeriveStateConfig:
+    @staticmethod
+    def _mock_setup() -> ConfigSetup:
+        setup = Mock(spec=ConfigSetup)
+        setup.environment_class = type("PyomoEnv", (), {})
+        return setup
+
+    def test_derive_state_config_default_directory(self, tmp_path: Path, monkeypatch):
+        setup = self._mock_setup()
+        state_file = "pyomo_env_state_config"
+        state_path = tmp_path / "environments" / state_file
+        state_path.parent.mkdir()
+        state_path.write_text("placeholder", encoding="utf-8")
+
+        seen: dict[str, Path] = {}
+
+        def _fake_from_file(*, file: Path):
+            seen["file"] = file
+
+        monkeypatch.setattr(StateConfig, "from_file", _fake_from_file)
+
+        state_relpath, state_config = _derive_state_config(tmp_path, {}, setup)
+
+        assert Path(state_relpath) == Path("environments") / state_file
+        assert seen["file"] == state_path
+        assert state_config is None
+
+    def test_derive_state_config_with_custom_directory(self, tmp_path: Path, monkeypatch):
+        setup = self._mock_setup()
+        state_file = "pyomo_env_state_config"
+        state_path = tmp_path / "custom_dir" / state_file
+        state_path.parent.mkdir()
+        state_path.write_text("placeholder", encoding="utf-8")
+
+        seen: dict[str, Path] = {}
+
+        def _fake_from_file(*, file: Path):
+            seen["file"] = file
+
+        monkeypatch.setattr(StateConfig, "from_file", _fake_from_file)
+
+        state_relpath, state_config = _derive_state_config(tmp_path, {"state_relpath": "custom_dir"}, setup)
+
+        assert Path(state_relpath) == Path("custom_dir") / state_file
+        assert seen["file"] == state_path
+        assert state_config is None
+
+    def test_derive_state_config_with_explicit_file_path(self, tmp_path: Path, monkeypatch):
+        setup = self._mock_setup()
+        state_path = tmp_path / "custom_state.toml"
+        state_path.write_text("placeholder", encoding="utf-8")
+
+        seen: dict[str, Path] = {}
+
+        def _fake_from_file(*, file: Path):
+            seen["file"] = file
+
+        monkeypatch.setattr(StateConfig, "from_file", _fake_from_file)
+
+        state_relpath, state_config = _derive_state_config(tmp_path, {"state_relpath": "custom_state.toml"}, setup)
+
+        assert state_relpath == "custom_state.toml"
+        assert seen["file"] == state_path
+        assert state_config is None
+
+    def test_derive_state_config_missing_path_raises(self, tmp_path: Path):
+        setup = self._mock_setup()
+        missing_relpath = "missing_state_config.toml"
+        missing_path = tmp_path / missing_relpath
+        error_msg = re.escape(f"StateConfig path {missing_path} does not exist")
+
+        with pytest.raises(FileNotFoundError, match=error_msg):
+            _derive_state_config(tmp_path, {"state_relpath": missing_relpath}, setup)
