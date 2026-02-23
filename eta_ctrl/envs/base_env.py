@@ -15,7 +15,7 @@ from eta_ctrl.util import csv_export
 from eta_ctrl.util.utils import timestep_to_seconds
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator, Sequence
+    from collections.abc import Callable, Iterator, Mapping, Sequence
     from typing import Any
 
     from eta_ctrl.config import ConfigRun
@@ -677,16 +677,16 @@ class BaseEnv(Env, abc.ABC):
                 raise KeyError(msg) from e
         return observations
 
-    def get_external_inputs(self) -> dict[str, float | bool]:
+    def get_external_inputs(self) -> dict[str, int | float | bool | str]:
         """Gather external inputs from the state.
         Uses scalar values instead of numpy arrays for values.
 
         :raises KeyError: External input is not available in state
         :raises ValueError: External input value is not scalar
         :return: Filtered external inputs with external id as keys.
-        :rtype: dict[str, float | bool]
+        :rtype: dict[str, int | float | bool | str]
         """
-        external_inputs: dict[str, float | bool] = {}
+        external_inputs: dict[str, int | float | bool | str] = {}
         for name in self.state_config.ext_inputs:
             ext_id = self.state_config.map_ext_ids[name]
             state_var = self.state_config.vars[name]
@@ -698,11 +698,16 @@ class BaseEnv(Env, abc.ABC):
             except ValueError as e:
                 msg = "External Inputs can't have multiple values"
                 raise ValueError(msg) from e
-            # Skip scaling for boolean values
+            # Check for boolean FIRST (since bool is a subclass of int in Python)
             if isinstance(scaled_value, (bool, np.bool_)):
+                # Preserve non-numeric values as-is, cast np.bool_ to Python bool
                 external_inputs[ext_id] = bool(scaled_value)
+            elif isinstance(scaled_value, (int, float, np.integer, np.floating)):
+                # Only scale numeric values (int and float), cast to Python float
+                external_inputs[ext_id] = float(scaled_value / state_var.ext_scale_mult - state_var.ext_scale_add)
             else:
-                external_inputs[ext_id] = scaled_value / state_var.ext_scale_mult - state_var.ext_scale_add
+                # Preserve other non-numeric values as-is (string, etc.)
+                external_inputs[ext_id] = scaled_value
         return external_inputs
 
     def set_action(self, action: np.ndarray | dict[str, np.ndarray]) -> None:
@@ -721,12 +726,12 @@ class BaseEnv(Env, abc.ABC):
             val = value if isinstance(value, np.ndarray) else np.array([value])
             self.state[name] = val
 
-    def set_external_outputs(self, external_outputs: dict[str, float | bool]) -> None:
+    def set_external_outputs(self, external_outputs: Mapping[str, int | float | bool | str]) -> None:
         """Set external outputs in the state.
         Accepts scalars instead of numpy arrays as values.
 
         :param external_outputs: Dict of external outputs with external_ids as keys.
-        :type external_outputs: dict[str, float | bool]
+        :type external_outputs: Mapping[str, int | float | bool | str]
         :raises KeyError: Received an unknown external id
         """
         for name in self.state_config.ext_outputs:
@@ -736,12 +741,17 @@ class BaseEnv(Env, abc.ABC):
             except KeyError as e:
                 msg = f"Missing value for external output: {name}"
                 raise KeyError(msg) from e
-            # Skip scaling for boolean values
+            # Check for boolean FIRST (since bool is a subclass of int in Python)
             if isinstance(unscaled_value, (bool, np.bool_)):
-                self.state[name] = np.array([bool(unscaled_value)])
-            else:
+                # Preserve boolean with explicit dtype to avoid conversion to float
+                self.state[name] = np.array([unscaled_value], dtype=bool)
+            elif isinstance(unscaled_value, (int, float, np.integer, np.floating)):
+                # Only scale numeric values (int and float)
                 scaled_value = (unscaled_value + state_var.ext_scale_add) * state_var.ext_scale_mult
                 self.state[name] = np.array([scaled_value])
+            else:
+                # Preserve other non-numeric values as-is (string, etc.)
+                self.state[name] = np.array([unscaled_value])
 
     def set_scenario_state(self) -> None:
         """Set scenario output values for the current timestep in the state."""

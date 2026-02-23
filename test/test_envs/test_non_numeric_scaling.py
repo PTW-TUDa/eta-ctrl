@@ -1,4 +1,4 @@
-"""Tests for boolean variable handling in external inputs/outputs and abort conditions."""
+"""Tests for non-numeric variable handling: only scale int/float, preserve bool/str as-is."""
 
 import shutil
 import tempfile
@@ -39,6 +39,7 @@ def test_env():
             abort_condition_max=90.0,
         ),
         StateVar(name="status", is_agent_observation=True, is_ext_output=True, ext_id="status"),
+        StateVar(name="mode", is_agent_observation=True, is_ext_output=True, ext_id="mode"),
         StateVar(name="value", is_agent_action=True, is_ext_input=True, ext_id="value"),
     )
 
@@ -68,8 +69,8 @@ def test_env():
     shutil.rmtree(temp_dir, ignore_errors=True)
 
 
-class TestBooleanHandling:
-    """Test boolean handling in all three modified methods."""
+class TestNumericOnlyScaling:
+    """Test that only numeric (int/float) values are scaled, non-numeric (bool/str) preserved as-is."""
 
     @pytest.mark.parametrize(
         ("bool_val", "bool_type"),
@@ -77,14 +78,26 @@ class TestBooleanHandling:
     )
     def test_set_external_outputs_preserves_booleans(self, test_env, bool_val, bool_type):
         """Test set_external_outputs preserves booleans without scaling."""
-        test_env.set_external_outputs({"temp": 25.0, "status": bool_val})
+        test_env.set_external_outputs({"temp": 25.0, "status": bool_val, "mode": "IDLE"})
 
-        # Boolean preserved
+        # Boolean preserved - check value and that dtype is boolean (kind 'b')
         assert test_env.state["status"][0] == bool(bool_val)
-        assert isinstance(test_env.state["status"][0], (bool, np.bool_))
+        assert test_env.state["status"].dtype.kind == "b"  # 'b' = boolean type
 
         # Numeric scaled: (25.0 + 10.0) * 2.0 = 70.0
         assert np.isclose(test_env.state["temperature"][0], 70.0)
+
+    @pytest.mark.parametrize("string_val", ["IDLE", "RUNNING", "ERROR", ""])
+    def test_set_external_outputs_preserves_strings(self, test_env, string_val):
+        """Test set_external_outputs preserves string values without scaling."""
+        test_env.set_external_outputs({"temp": 30.0, "status": True, "mode": string_val})
+
+        # String preserved as-is
+        assert test_env.state["mode"][0] == string_val
+        assert isinstance(test_env.state["mode"][0], str)
+
+        # Numeric still scaled: (30.0 + 10.0) * 2.0 = 80.0
+        assert np.isclose(test_env.state["temperature"][0], 80.0)
 
     @pytest.mark.parametrize("bool_val", [True, False, np.bool_(True)])
     def test_get_external_inputs_preserves_booleans(self, test_env, bool_val):
@@ -102,24 +115,51 @@ class TestBooleanHandling:
         [
             ({"temperature": 50.0, "status": True}, True),
             ({"temperature": 50.0, "status": False}, True),
+            ({"temperature": 50.0, "mode": "IDLE"}, True),
+            ({"temperature": 50.0, "status": True, "mode": "RUNNING"}, True),
             ({"temperature": 95.0, "status": True}, False),  # temp exceeds max
             ({"temperature": 5.0, "status": False}, False),  # temp below min
+            ({"temperature": 5.0, "mode": "ERROR"}, False),  # temp below min, string ignored
         ],
     )
-    def test_within_abort_conditions_skips_booleans(self, test_env, state, expected):
-        """Test within_abort_conditions correctly skips booleans."""
+    def test_within_abort_conditions_only_checks_numeric(self, test_env, state, expected):
+        """Test within_abort_conditions only validates numeric values, ignores bool/str."""
         assert test_env.state_config.within_abort_conditions(state) == expected
 
     def test_boolean_roundtrip(self, test_env):
         """Test booleans survive roundtrip: set_external_outputs -> state -> get_external_inputs."""
         for bool_val in [True, False]:
-            test_env.set_external_outputs({"temp": 20.0, "status": bool_val})
+            test_env.set_external_outputs({"temp": 20.0, "status": bool_val, "mode": "ACTIVE"})
             assert test_env.state["status"][0] == bool_val
 
+    def test_integer_scaling(self, test_env):
+        """Test that integer values are also scaled like floats."""
+        test_env.set_external_outputs({"temp": 25, "status": True, "mode": "IDLE"})  # int 25, not float
+
+        # Integer should be scaled: (25 + 10.0) * 2.0 = 70.0
+        assert np.isclose(test_env.state["temperature"][0], 70.0)
+
+    def test_numpy_types_scaling(self, test_env):
+        """Test that numpy numeric types are scaled correctly."""
+        test_env.set_external_outputs({"temp": np.int32(25), "status": True, "mode": "IDLE"})
+        assert np.isclose(test_env.state["temperature"][0], 70.0)
+
+        test_env.set_external_outputs({"temp": np.float64(25.0), "status": False, "mode": "RUNNING"})
+        assert np.isclose(test_env.state["temperature"][0], 70.0)
+
     def test_backward_compatibility_numeric_only(self):
-        """Verify numeric-only configs still work (backward compatibility)."""
+        """Verify numeric-only configs still work correctly (backward compatibility)."""
         config = StateConfig(
             StateVar(name="temp", is_agent_observation=True, abort_condition_min=10.0, abort_condition_max=90.0)
         )
         assert config.within_abort_conditions({"temp": 50.0}) is True
         assert config.within_abort_conditions({"temp": 95.0}) is False
+
+    def test_mixed_types_in_state(self, test_env):
+        """Test that mixed types (numeric, bool, string) can coexist in state."""
+        test_env.set_external_outputs({"temp": 40.0, "status": True, "mode": "ACTIVE"})
+
+        assert np.isclose(test_env.state["temperature"][0], 100.0)  # (40 + 10) * 2
+        # Use dtype check to confirm boolean is preserved, not converted to float
+        assert test_env.state["status"][0]
+        assert test_env.state["mode"][0] == "ACTIVE"
