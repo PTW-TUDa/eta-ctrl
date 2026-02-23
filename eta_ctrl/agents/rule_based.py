@@ -83,21 +83,40 @@ class RuleBased(BaseAlgorithm, abc.ABC):
                               deterministic actions.
         :return: Tuple of the model's action and the next state (state is typically None in this agent).
         """
+        # Handle the case when no observations are defined (empty observation space)
+        # This can occur when using AutomaticMode where control logic is inside the FMU
+        num_envs = self.get_env().num_envs
+        action_array = create_empty_array(self.action_space, n=num_envs)
+
+        # Check if observation space is empty by attempting to iterate
+        try:
+            obs_iterator = list(iterate(self.observation_space, observation))
+        except (ValueError, TypeError):
+            # Empty observation space - create empty observations for each environment
+            log.debug("Empty observation space - supplying empty observations to control_rules")
+            obs_iterator = [{}] * num_envs if isinstance(observation, dict) else [np.array([])] * num_envs
+
         actions = []
-        for idx, env_obs in enumerate(iterate(self.observation_space, observation)):
+        for idx, env_obs in enumerate(obs_iterator):
             actions.append(self.control_rules(env_obs))
             log.debug(f"Action vector for environment {idx}: {actions[idx]}")
+
         if not actions:
             msg = "The control_rules method must NOT return None."
             raise ValueError(msg)
 
-        action_array = create_empty_array(self.action_space, n=self.get_env().num_envs)
         result = concatenate(self.action_space, actions, action_array)
 
-        # Mypy can't infer types here
+        # Convert to ndarray for type consistency
         if not isinstance(result, np.ndarray):
-            msg = "Actions must be an np.ndarray"
-            raise TypeError(msg)
+            # For empty Dict/Tuple action spaces, convert to empty ndarray
+            # Check if result is an empty container (dict or tuple)
+            if (isinstance(result, dict) and not result) or (isinstance(result, tuple) and len(result) == 0):
+                result = np.array([])
+            else:
+                # Non-empty Dict/Tuple spaces are invalid configuration
+                msg = "Actions must be an np.ndarray"
+                raise TypeError(msg)
 
         return result, None
 
