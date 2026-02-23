@@ -126,13 +126,13 @@ class SimEnv(BaseEnv, abc.ABC):
                  during simulation.
         """
         # generate FMU input from current state
-        step_inputs: dict[str, float] = self.get_external_inputs()
+        step_inputs: dict[str, int | float | bool | str] = self.get_external_inputs()
 
         sim_time_start = time.time()
         step_success = True
         try:
             # We provide output and input names to the FMU so output will be a dictionary
-            step_output: dict[str, float] = self.simulator.step(input_values=step_inputs)
+            step_output: dict[str, float] = self.simulator.step(input_values=step_inputs)  # type: ignore[arg-type]
         except Exception:
             step_success = False
             log.exception("Simulation failed")
