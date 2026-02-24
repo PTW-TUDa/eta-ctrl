@@ -301,7 +301,7 @@ class PyomoEnv(BaseEnv, abc.ABC):
         self.state_log.append(self.state)
         self.pyo_update_params(updated_params, self.nonindex_update_append_string)
 
-    def solve_failed(self, model: pyo.ConcreteModel, result: SolverResults) -> None:
+    def handle_failed_solve(self, model: pyo.ConcreteModel, result: SolverResults) -> None:
         """This method will try to render the result in case the model could not be solved. It should automatically
         be called by the agent.
 

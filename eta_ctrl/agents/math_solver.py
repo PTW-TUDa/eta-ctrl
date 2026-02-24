@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-import sys
 from logging import getLogger
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
 import pyomo.environ as pyo
 from gymnasium import spaces
 from pyomo import opt
+from pyomo.common.errors import InfeasibleConstraintException
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.vec_env import VecEnv, VecNormalize
 
@@ -173,14 +174,70 @@ class MathSolver(BaseAlgorithm):
                 "\t+----------------------------------+",
             )
 
-        # Interrupt execution if no optimal solution could be found
+        # Check if no optimal solution could be found
         if (
             result.solver.termination_condition != opt.TerminationCondition.optimal
             or result.solver.status != opt.SolverStatus.ok
         ):
-            log.error("Problem can not be solved - aborting.")
-            self.get_env().env_method("solve_failed", self.model, result)
-            sys.exit(1)
+            # Log warning with achieved gap information if available
+            gap_info = ""
+            if len(result["Solution"]) >= 1 and "Gap" in result["Solution"][0]:
+                gap_value = result["Solution"][0]["Gap"].value
+                if not isinstance(gap_value, opt.UndefinedData):
+                    gap_info = f" (achieved MIP gap: {gap_value})"
+
+            log.warning(
+                f"Solver did not reach optimal solution within constraints{gap_info}. "
+                f"Termination condition: {result.solver.termination_condition}, "
+                f"Status: {result.solver.status}. Continuing with best available solution."
+            )
+
+            # Check if there is at least a feasible solution to work with
+            if len(result["Solution"]) == 0 or result.solver.termination_condition in {
+                opt.TerminationCondition.infeasible,
+                opt.TerminationCondition.invalidProblem,
+                opt.TerminationCondition.solverFailure,
+                opt.TerminationCondition.internalSolverError,
+                opt.TerminationCondition.error,
+            }:
+                # Log detailed diagnostic information for debugging
+                log.error(
+                    "Problem has no feasible solution. Solver details:\n"
+                    "  Termination condition: %s\n"
+                    "  Solver status: %s\n"
+                    "  Number of solutions: %d\n"
+                    "  Solver message: %s",
+                    result.solver.termination_condition,
+                    result.solver.status,
+                    len(result["Solution"]),
+                    result.solver.message if hasattr(result.solver, "message") else "N/A",
+                )
+
+                # Log full result object - save to disk if too large
+                result_str = str(result)
+                if len(result_str) > 10000:  # If result is larger than 10KB
+                    # Save to disk instead of cluttering logs
+                    try:
+                        log_dir = Path(self.get_env().get_attr("config_run", 0)[0].results_path)
+                        result_file = log_dir / f"solver_result_failure_{self.num_timesteps}.txt"
+                        result_file.write_text(result_str, encoding="utf-8")
+                        log.debug("Full solver result saved to: %s", result_file)
+                    except (OSError, AttributeError, IndexError, TypeError) as e:
+                        log.warning("Could not save result to disk: %s. Logging truncated version.", e)
+                        log.debug("Solver result (truncated): %s", result_str[:5000] + "...")
+                else:
+                    # Small enough to log directly
+                    log.debug("Full solver result object: %s", result)
+
+                self.get_env().env_method("handle_failed_solve", self.model, result)
+
+                # Raise appropriate exception instead of sys.exit
+                msg = (
+                    f"Solver failed to find feasible solution. "
+                    f"Termination condition: {result.solver.termination_condition}, "
+                    f"Status: {result.solver.status}"
+                )
+                raise InfeasibleConstraintException(msg)
 
         return self.model
 
