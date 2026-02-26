@@ -32,26 +32,10 @@ def _pop_dict(dikt: dict, key: str) -> dict:
     return val
 
 
-def _derive_state_config(root_path: pathlib.Path, paths: dict, setup: ConfigSetup) -> tuple[str, StateConfig]:
-    state_relpath = paths.pop("state_relpath", None)
+def _derive_state_config(root_path: pathlib.Path, paths: dict, setup: ConfigSetup) -> StateConfig:
     state_file = camel_to_snake_case(setup.environment_class.__name__) + "_state_config"
-    if state_relpath is None:
-        state_relpath = "environments/"
-        log.info(f"Using default state_relpath 'environments/{state_file}'")
-    state_path = root_path / state_relpath
-
-    # only check existence of state_path (directory) here, state_file is checked in .from_file
-    if not state_path.exists():
-        msg = f"StateConfig path {state_path} does not exist"
-        raise FileNotFoundError(msg)
-
-    if state_path.is_dir():
-        state_path = state_path / state_file
-        state_relpath = str(pathlib.Path(state_relpath) / state_file)
-
-    log.info(f"Loading StateConfig from file at {state_path}).")
-    state_config = StateConfig.from_file(file=state_path)
-    return state_relpath, state_config
+    state_path = root_path / paths.pop("state_relpath", "")
+    return StateConfig.from_file(path=state_path, filename=state_file)
 
 
 def _path_or_default(value: str | pathlib.Path | None, default: str) -> pathlib.Path:
@@ -85,8 +69,6 @@ class Config:
 
     #: Root folder path for the optimization run (default: parent folder of invoking script).
     root_path: pathlib.Path = field(converter=pathlib.Path)
-    #: Relative path to the state config file (default: environments/[environment_classname]_state_config).
-    state_relpath: pathlib.Path = field(converter=pathlib.Path)
     #: Relative path to the results folder (default: results).
     results_relpath: pathlib.Path = field(converter=_convert_results_relpath, default=pathlib.Path("results"))
     #: relative path to the scenarios folder (default: scenarios).
@@ -205,7 +187,7 @@ class Config:
         setup = ConfigSetup.from_dict(_setup)
 
         # Create StateConfig (moved to helper to lower function complexity)
-        state_relpath, state_config = _derive_state_config(root_path, paths, setup)
+        state_config = _derive_state_config(root_path, paths, setup)
         settings_raw["environment_specific"]["state_config"] = state_config
 
         if "interaction_env_specific" in config:
@@ -227,7 +209,6 @@ class Config:
             root_path=root_path,
             results_relpath=results_relpath,
             scenarios_relpath=scenarios_relpath,
-            state_relpath=state_relpath,
             setup=setup,
             settings=ConfigSettings.from_dict(settings_raw),
         )

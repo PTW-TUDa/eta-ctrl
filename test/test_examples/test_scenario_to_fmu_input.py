@@ -122,7 +122,7 @@ high_value = 30
         toml_file = tmp_path / "test_state_config.toml"
         toml_file.write_text(toml_content)
 
-        config = StateConfig.from_file(toml_file)
+        config = StateConfig.from_file(path=tmp_path, filename="test_state_config.toml")
 
         # Verify the configuration loaded correctly
         assert "heater_power" in config.actions

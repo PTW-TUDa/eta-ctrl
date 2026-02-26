@@ -1,5 +1,7 @@
 """Tests for StateConfig class."""
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 from gymnasium.spaces.box import Box
@@ -191,13 +193,11 @@ class TestStateConfig:
 
     @pytest.fixture(scope="class")
     def config_from_test_env_file(self, config_resources_path):
-        path = config_resources_path / "test_env_state_config.toml"
-        return StateConfig.from_file(path)
+        return StateConfig.from_file(path=config_resources_path, filename="test_env_state_config.toml")
 
     @pytest.fixture(scope="class")
     def config_from_test_env_csv_file(self, config_resources_path):
-        path = config_resources_path / "test_env_state_config.csv"
-        return StateConfig.from_file(path)
+        return StateConfig.from_file(path=config_resources_path, filename="test_env_state_config.csv")
 
     def test_continuous_action_space_should_include_all_and_only_agent_actions(self, state_config):
         # also tests: continuous_action_space_should_span_from_low_to_high_value_for_every_statevar
@@ -427,15 +427,28 @@ class TestStateConfig:
         assert str(config_from_test_env_file._source_file) not in repr_result
         assert "from" not in repr_result
 
-    def test_source_file_attribute_access(self, config_resources_path):
-        """Test that _source_file attribute can be accessed directly."""
-        # Test manual creation
-        manual_config = StateConfig(StateVar(name="test", is_agent_action=True))
-        assert hasattr(manual_config, "_source_file")
-        assert manual_config._source_file is None
+    def test_from_file_loads_from_given_path(self, tmp_path: Path):
+        config_file = tmp_path / "my_state_config.toml"
+        config_file.write_text("[[actions]]\nname = 'u'\n", encoding="utf-8")
 
-        # Test file creation
-        path = config_resources_path / "test_env_state_config.toml"
-        file_config = StateConfig.from_file(path)
-        assert hasattr(file_config, "_source_file")
-        assert file_config._source_file == path
+        config = StateConfig.from_file(path=tmp_path, filename="my_state_config.toml")
+
+        assert config.actions == ["u"]
+        assert config._source_file == config_file
+
+    def test_from_file_falls_back_to_environments_subdir(self, tmp_path: Path):
+        config_file = tmp_path / "environments" / "my_state_config.toml"
+        config_file.parent.mkdir()
+        config_file.write_text("[[actions]]\nname = 'u'\n", encoding="utf-8")
+
+        config = StateConfig.from_file(path=tmp_path, filename="my_state_config.toml")
+        assert config.actions == ["u"]
+        assert config._source_file == config_file
+
+    def test_from_file_raises_if_file_not_found(self, tmp_path: Path):
+        expected_direct = tmp_path / "missing.toml"
+        expected_fallback = tmp_path / "environments" / "missing.toml"
+        error_msg = f"StateConfig file not found at {expected_direct} or {expected_fallback}".replace("\\", "\\\\")
+
+        with pytest.raises(FileNotFoundError, match=error_msg):
+            StateConfig.from_file(path=tmp_path, filename="missing.toml")
