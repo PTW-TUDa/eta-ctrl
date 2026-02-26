@@ -40,13 +40,14 @@ def _derive_state_config(root_path: pathlib.Path, paths: dict, setup: ConfigSetu
         log.info(f"Using default state_relpath 'environments/{state_file}'")
     state_path = root_path / state_relpath
 
-    if state_path.is_dir():
-        state_path = state_path / state_file
-        state_relpath = str(pathlib.Path(state_relpath) / state_file)
-
+    # only check existence of state_path (directory) here, state_file is checked in .from_file
     if not state_path.exists():
         msg = f"StateConfig path {state_path} does not exist"
         raise FileNotFoundError(msg)
+
+    if state_path.is_dir():
+        state_path = state_path / state_file
+        state_relpath = str(pathlib.Path(state_relpath) / state_file)
 
     log.info(f"Loading StateConfig from file at {state_path}).")
     state_config = StateConfig.from_file(file=state_path)
