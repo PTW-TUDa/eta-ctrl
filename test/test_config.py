@@ -20,7 +20,15 @@ def config_dict() -> dict:
 class TestConfig:
     @pytest.fixture(autouse=True)
     def prevent_state_config_loading(self, monkeypatch):
-        monkeypatch.setattr(StateConfig, "from_file", lambda path, filename: None)
+        class _DummyStateConfig:
+            def __init__(self, source_file: Path):
+                self.source_file = source_file
+
+        monkeypatch.setattr(
+            StateConfig,
+            "from_file",
+            lambda path, filename: _DummyStateConfig(source_file=Path(path) / filename),
+        )
 
     def test_from_dict(self, config_dict, config_resources_path):
         Config._from_dict(config=config_dict, config_name="test", root_path=config_resources_path)

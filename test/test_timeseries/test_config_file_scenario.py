@@ -80,7 +80,15 @@ def test_path_not_found():
 
 @pytest.fixture(autouse=True)
 def prevent_state_config_loading(monkeypatch):
-    monkeypatch.setattr(StateConfig, "from_file", lambda *args, **kwargs: None)
+    class _DummyStateConfig:
+        def __init__(self, source_file: Path):
+            self.source_file = source_file
+
+    monkeypatch.setattr(
+        StateConfig,
+        "from_file",
+        lambda path, filename: _DummyStateConfig(source_file=Path(path) / filename),
+    )
 
 
 @pytest.fixture
