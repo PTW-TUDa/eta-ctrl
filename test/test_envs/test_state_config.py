@@ -389,20 +389,20 @@ class TestStateConfig:
         config = StateConfig(
             StateVar(name="test_action", is_agent_action=True), StateVar(name="test_obs", is_agent_observation=True)
         )
-        assert config._source_file is None
+        assert config.source_file is None
 
     def test_from_dict_no_source_file(self):
-        """Test that from_dict without source path sets _source_file to None."""
+        """Test that from_dict without source path sets source_file to None."""
         state_vars = [{"name": "action1", "is_agent_action": True}, {"name": "obs1", "is_agent_observation": True}]
         config = StateConfig.from_dict(state_vars)
-        assert config._source_file is None
+        assert config.source_file is None
 
     def test_from_file_sets_source_file(self, config_resources_path, config_from_test_env_file):
-        """Test that from_file sets _source_file to the file path."""
+        """Test that from_file sets source_file to the file path."""
         path = config_resources_path / "test_env_state_config.toml"
-        assert config_from_test_env_file._source_file == path
+        assert config_from_test_env_file.source_file == path
 
-    def test_str_representation_without_source_file(self):
+    def test_str_representation_withoutsource_file(self):
         """Test __str__ method when no source path is available."""
         config = StateConfig(
             StateVar(name="action1", is_agent_action=True), StateVar(name="obs1", is_agent_observation=True)
@@ -416,7 +416,7 @@ class TestStateConfig:
         """Test __str__ method with real file path from from_file."""
         str_result = str(config_from_test_env_file)
         assert "StateConfig with 1 actions, 4 observations (5 total variables) from" in str_result
-        assert str(config_from_test_env_file._source_file) in str_result
+        assert str(config_from_test_env_file.source_file) in str_result
 
     def test_repr_representation_unchanged_with_source_file(self, config_from_test_env_file):
         """Test that __repr__ method doesn't include source path (developer format)."""
@@ -424,7 +424,7 @@ class TestStateConfig:
         expected = "StateConfig(actions=['torque'], observations=['cos_th', 'sin_th', 'th', ...])"
         assert repr_result == expected
         # Ensure path is not in repr (it's for developers, not end users)
-        assert str(config_from_test_env_file._source_file) not in repr_result
+        assert str(config_from_test_env_file.source_file) not in repr_result
         assert "from" not in repr_result
 
     def test_from_file_loads_from_given_path(self, tmp_path: Path):
@@ -434,7 +434,7 @@ class TestStateConfig:
         config = StateConfig.from_file(path=tmp_path, filename="my_state_config.toml")
 
         assert config.actions == ["u"]
-        assert config._source_file == config_file
+        assert config.source_file == config_file
 
     def test_from_file_falls_back_to_environments_subdir(self, tmp_path: Path):
         config_file = tmp_path / "environments" / "my_state_config.toml"
@@ -443,7 +443,7 @@ class TestStateConfig:
 
         config = StateConfig.from_file(path=tmp_path, filename="my_state_config.toml")
         assert config.actions == ["u"]
-        assert config._source_file == config_file
+        assert config.source_file == config_file
 
     def test_from_file_raises_if_file_not_found(self, tmp_path: Path):
         expected_direct = tmp_path / "missing.toml"

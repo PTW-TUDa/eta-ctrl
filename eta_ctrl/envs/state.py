@@ -165,11 +165,11 @@ class StateConfig:
     is very important for the functionality of EtaCtrl.
     """
 
-    def __init__(self, *state_vars: StateVar, _source_file: Path | None = None) -> None:
+    def __init__(self, *state_vars: StateVar, source_file: pathlib.Path | None = None) -> None:
         #: Mapping of the variables names to their StateVar instance with all associated information.
         self.vars = {var.name: var for var in state_vars}
-        #: Private attribute to store the source file path (if loaded from file).
-        self._source_file: Path | None = _source_file
+        #: Attribute to store the source file path (if loaded from file).
+        self.source_file: pathlib.Path | None = source_file
         # Additional Dataframe for easier access
         if state_vars:
             self.df_vars: pd.DataFrame = pd.DataFrame([var.model_dump() for var in state_vars]).set_index("name")
@@ -251,11 +251,11 @@ class StateConfig:
 
         if isinstance(state_params, dict):
             log.debug(f"Using State parameters {state_params} from {file} for StateConfig.")
-            return cls.from_dict(mapping=all_states, state_params=state_params, _source_file=file)
+            return cls.from_dict(mapping=all_states, state_params=state_params, source_file=file)
 
         if state_params is not None:
             log.warning(f"State parameters in {file} need to be a dict! Ignoring.")
-        return cls.from_dict(mapping=all_states, _source_file=file)
+        return cls.from_dict(mapping=all_states, source_file=file)
 
     @classmethod
     def from_dict(
@@ -382,8 +382,8 @@ class StateConfig:
 
         base_str = f"StateConfig with {n_actions} actions, {n_observations} observations ({n_total} total variables)"
 
-        if self._source_file is not None:
-            return f"{base_str} from '{self._source_file}'"
+        if self.source_file is not None:
+            return f"{base_str} from '{self.source_file}'"
 
         return base_str
 

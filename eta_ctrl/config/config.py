@@ -69,6 +69,8 @@ class Config:
 
     #: Root folder path for the optimization run (default: parent folder of invoking script).
     root_path: pathlib.Path = field(converter=pathlib.Path)
+    #: Relative path to the state config file (default: environments/[environment_classname]_state_config).
+    state_relpath: pathlib.Path = field(converter=pathlib.Path)
     #: Relative path to the results folder (default: results).
     results_relpath: pathlib.Path = field(converter=_convert_results_relpath, default=pathlib.Path("results"))
     #: relative path to the scenarios folder (default: scenarios).
@@ -209,6 +211,9 @@ class Config:
             root_path=root_path,
             results_relpath=results_relpath,
             scenarios_relpath=scenarios_relpath,
+            state_relpath=state_config.source_file.relative_to(root_path)
+            if state_config.source_file is not None
+            else pathlib.Path(),
             setup=setup,
             settings=ConfigSettings.from_dict(settings_raw),
         )
