@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import itertools
+import math
+from datetime import datetime
 from logging import getLogger
 from typing import TYPE_CHECKING
 
@@ -9,9 +11,9 @@ from pandas.core.tools.datetimes import to_datetime
 
 from eta_ctrl.timeseries.scenario_manager import ConfigCsvScenario, CsvScenarioManager
 from eta_ctrl.util import dict_pop_any
+from eta_ctrl.util.utils import is_divisible
 
 if TYPE_CHECKING:
-    from datetime import datetime
     from pathlib import Path
     from typing import Any
 
@@ -21,8 +23,10 @@ if TYPE_CHECKING:
 log = getLogger(__name__)
 
 
-def convert_datetime(datetime_: str) -> datetime:
+def convert_datetime(datetime_: str | datetime) -> datetime:
     """Convert a string to a datetime object using pandas."""
+    if isinstance(datetime_, datetime):
+        return datetime_
     return to_datetime(datetime_).to_pydatetime()
 
 
@@ -144,6 +148,14 @@ class ConfigSettings:
         if self.n_episodes_play is None and self.n_episodes_learn is None:
             msg = "At least one of 'n_episodes_play' or 'n_episodes_learn' must be specified in settings."
             raise ValueError(msg)
+
+        if not is_divisible(self.episode_duration, self.sampling_time):
+            corrected = math.floor(self.episode_duration / self.sampling_time) * self.sampling_time
+            log.warning(
+                f"Episode duration {self.episode_duration} is not a multiple of sampling time "
+                f"{self.sampling_time}. Rounding down to {corrected}."
+            )
+            self.episode_duration = corrected
 
     @classmethod
     def from_dict(cls, dikt: dict[str, dict[str, Any]]) -> ConfigSettings:
@@ -278,6 +290,13 @@ class ConfigSettings:
             duration = self.episode_duration + prediction_horizon
         else:
             duration = self.episode_duration + self.sampling_time
+
+        if (self.scenario_time_end - self.scenario_time_begin).total_seconds() < duration:
+            msg = (
+                f"Given scenario time range from {self.scenario_time_begin} to {self.scenario_time_end}"
+                f"does not cover the requested duration of {duration} seconds."
+            )
+            raise ValueError(msg)
         scenario_configs = [
             ConfigCsvScenario(**raw_config, scenarios_path=scenarios_path) for raw_config in raw_configs
         ]
@@ -287,7 +306,7 @@ class ConfigSettings:
             end_time=self.scenario_time_end,
             total_time=duration,
             resample_time=self.sampling_time,
-            seed=self.seed if self.use_random_time_slice else None,
+            use_random_time_slice=self.use_random_time_slice,
         )
 
     def __getitem__(self, name: str) -> Any:

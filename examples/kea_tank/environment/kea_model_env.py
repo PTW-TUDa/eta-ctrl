@@ -108,12 +108,9 @@ class DrKea(PyomoEnv):
 
         model.objective = pyo.Objective(rule=objective_rule, sense=pyo.minimize, doc="Total cost of heating")
 
-        ts = (
-            self.scenario_manager.get_scenario_state_with_duration(n_step=0, duration=self.n_prediction_steps + 1)
-            if self.scenario_manager is not None
-            else None
+        return model.create_instance(
+            data=self.pyo_component_params(component_name=None, ts=self.scenario_manager.scenarios, index=model.t)
         )
-        return model.create_instance(data=self.pyo_component_params(component_name=None, ts=ts, index=model.t))
 
     ### This method does not need to be implemented
     def _reset(

@@ -16,7 +16,7 @@ n_environments = 1
 verbose = 2
 seed = 123
 scenario_time_begin = "2022-03-18 00:00"
-scenario_time_end = "2022-03-18 00:30"
+scenario_time_end = "2022-03-18 00:50"
 
 [environment_specific]
 sim_steps_per_sample = 1
