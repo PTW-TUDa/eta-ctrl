@@ -13,7 +13,7 @@ from eta_ctrl.util import (
     log_add_filehandler,
 )
 from eta_ctrl.util.io_utils import load_config
-from eta_ctrl.util.utils import timestep_to_seconds, timestep_to_timedelta
+from eta_ctrl.util.utils import is_divisible, timestep_to_seconds, timestep_to_timedelta
 from test.resources.config.config_python import config as python_dict
 
 
@@ -120,3 +120,32 @@ class TestTimestep:
     def test_timestep_to_timedelta(self, timestep, expected_timedelta):
         res = timestep_to_timedelta(timestep=timestep)
         assert res == expected_timedelta
+
+
+class TestIsDivisible:
+    @pytest.mark.parametrize(
+        ("a", "b"),
+        [
+            (15, 0.05),
+            (15, 0.5),
+            (15, 5),
+            (12, 0.1),
+            (1.2, 0.1),
+            (90, 0.01),
+            (90, 0.1),
+            (90, 1),
+        ],
+    )
+    def test_is_divisible(self, a, b):
+        assert is_divisible(a=a, b=b)
+
+    @pytest.mark.parametrize(
+        ("a", "b"),
+        [
+            (15, 0.0499),
+            (0.12, 0.1),
+            (90.000001, 0.1),
+        ],
+    )
+    def test_is_not_divisible(self, a, b):
+        assert not is_divisible(a=a, b=b)

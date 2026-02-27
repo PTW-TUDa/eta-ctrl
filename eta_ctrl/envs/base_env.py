@@ -150,8 +150,6 @@ class BaseEnv(Env, abc.ABC):
 
         if seed is not None:
             # Initialize random generator
-            # Explicitly use Env class from gymnasium since super() doesn't work with multiple inheritance
-            Env.reset(self, seed=seed)
             self.action_space.seed(seed=seed)
             self.observation_space.seed(seed=seed)
 
@@ -543,11 +541,16 @@ class BaseEnv(Env, abc.ABC):
         # Clear state
         self._reset_state()
 
-        # Set rng seed
+        # Set rng seed (only has a value on first reset of first episode)
         Env.reset(self, seed=seed)
 
+        # Create separate rng for the scenario manager to ensure deterministic values
+        # The value for self.np_random_seed is set by Env.reset()
+        if seed is not None or not hasattr(self, "_scenario_rng"):
+            self._scenario_rng = np.random.default_rng(self.np_random_seed)
+
         # Update with scenario data, if existing
-        self.set_scenario_state()
+        self.set_scenario_state(reset=True)
 
         # Set initial observations in child class
         info = self._reset(options=options)
@@ -753,12 +756,22 @@ class BaseEnv(Env, abc.ABC):
                 # Preserve other non-numeric values as-is (string, etc.)
                 self.state[name] = np.array([unscaled_value])
 
-    def set_scenario_state(self) -> None:
-        """Set scenario output values for the current timestep in the state."""
-        if self.scenario_manager is not None:
-            # Only request the columns specified in state_config to avoid loading unnecessary data
-            scenario_data = self.scenario_manager.get_scenario_state(
-                n_steps=self.n_steps, columns=self.state_config.scenario_outputs
+    def set_scenario_state(self, reset: bool = False) -> None:
+        """Set scenario output values for the current timestep in the state.
+
+        :param reset: Indicator whether this was called from the reset method
+        """
+        if self.scenario_manager is None:
+            return
+
+        # Compute new offset after reset
+        if reset:
+            self._scenario_offset = self.scenario_manager.compute_episode_offset(self._scenario_rng)
+
+        for state_name in self.state_config.scenario_outputs:
+            state_var = self.state_config.vars[state_name]
+            unscaled_data = self.scenario_manager.get_scenario_state_var(
+                n_step=self.n_steps + self._scenario_offset, state_var=state_var
             )
-            for scenario_id in self.state_config.scenario_outputs:
-                self.state[scenario_id] = scenario_data[scenario_id]
+            scaled_data = (unscaled_data + state_var.ext_scale_add) * state_var.ext_scale_mult
+            self.state[state_name] = scaled_data

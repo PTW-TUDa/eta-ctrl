@@ -2,7 +2,6 @@
 
 import pathlib
 import tempfile
-from datetime import datetime
 from pathlib import Path
 
 import pyomo.environ as pyo
@@ -79,6 +78,9 @@ def state_config_factory():
                 StateVar(name="test_action", is_agent_action=True, low_value=0, high_value=100),
                 StateVar(name="test_obs", is_agent_observation=True, low_value=0, high_value=100),
             ),
+            "scenario": lambda: StateConfig(
+                StateVar(name="scen1", from_scenario=True),
+            ),
             "multi_action": lambda: StateConfig(
                 StateVar(name="heating_power", is_agent_action=True, low_value=0, high_value=5000),
                 StateVar(name="cooling_power", is_agent_action=True, low_value=0, high_value=3000),
@@ -117,8 +119,6 @@ def unified_env_factory(config_run_factory, state_config_factory):
         env_id=42,
         config_run_params=None,
         state_config_type="default",
-        scenario_time_begin=datetime(2023, 6, 15, 8, 0),
-        scenario_time_end=datetime(2023, 6, 15, 20, 0),
         episode_duration=7200,
         sampling_time=300,
         path_env=None,
@@ -140,15 +140,13 @@ def unified_env_factory(config_run_factory, state_config_factory):
             "env_id": env_id,
             "config_run": config_run,
             "state_config": state_config,
-            "scenario_time_begin": scenario_time_begin,
-            "scenario_time_end": scenario_time_end,
             "episode_duration": episode_duration,
             "sampling_time": sampling_time,
             "path_env": path_env,
         }
 
         if env_type == "base":
-            return TestBaseEnv(**common_params)
+            return TestBaseEnv(**common_params, **env_specific_params)
         if env_type == "pyomo":
             # Extract PyomoEnv specific parameters with defaults
             model_parameters = env_specific_params.get("model_parameters", {})
@@ -208,7 +206,7 @@ class TestBaseEnv(BaseEnv):
     def step(self, action):
         self.n_steps += 1
         self.n_steps_longtime += 1
-        return {}, 0.0, False, False, {}
+        return {}, 0.0, False, self._truncated(), {}
 
     def close(self):
         pass

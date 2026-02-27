@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from eta_ctrl.timeseries.dataframes import df_interpolate, df_resample
+from eta_ctrl.timeseries.dataframes import df_interpolate, df_resample, round_datetime_to_interval
 
 uneven_data = [100, 200, 0, 0, 300, 500]
 uneven_index = pd.DatetimeIndex(
@@ -132,3 +132,33 @@ class TestInterpolate:
 
         msg = f"Index has non-unique values. Dropping duplicates: {[duplicate_df.index[0]]}"
         assert msg in caplog.text
+
+
+class TestRoundDatetimeToInterval:
+    @pytest.mark.parametrize(
+        ("interval", "dt", "expected"),
+        [
+            # Already aligned — no change
+            (60, datetime(2026, 1, 1, 12, 0, 0), datetime(2026, 1, 1, 12, 0, 0)),
+            (900, datetime(2026, 1, 1, 12, 0, 0), datetime(2026, 1, 1, 12, 0, 0)),
+            (3600, datetime(2026, 1, 1, 12, 0, 0), datetime(2026, 1, 1, 12, 0, 0)),
+            (60, datetime(2026, 1, 1, 12, 0, 29), datetime(2026, 1, 1, 12, 0, 0)),
+            (900, datetime(2026, 1, 1, 12, 7, 0), datetime(2026, 1, 1, 12, 0, 0)),
+            (3600, datetime(2026, 1, 1, 12, 29, 0), datetime(2026, 1, 1, 12, 0, 0)),
+            (60, datetime(2026, 1, 1, 12, 0, 31), datetime(2026, 1, 1, 12, 0, 0)),
+            (900, datetime(2026, 1, 1, 12, 8, 0), datetime(2026, 1, 1, 12, 0, 0)),
+            (3600, datetime(2026, 1, 1, 12, 31, 0), datetime(2026, 1, 1, 12, 0, 0)),
+        ],
+    )
+    def test_round_datetime_to_interval(self, interval: float, dt: datetime, expected: datetime):
+        assert round_datetime_to_interval(dt=dt, interval=interval) == expected
+
+    def test_interval_zero_returns_unchanged(self):
+        dt = datetime(2026, 1, 1, 12, 3, 45)
+        assert round_datetime_to_interval(dt=dt, interval=0) == dt
+
+    def test_pandas_timestamp_input(self):
+        ts = pd.Timestamp("2026-01-01 12:00:31")
+        result = round_datetime_to_interval(dt=ts, interval=60)
+        assert result == datetime(2026, 1, 1, 12, 0, 0)
+        assert isinstance(result, datetime)

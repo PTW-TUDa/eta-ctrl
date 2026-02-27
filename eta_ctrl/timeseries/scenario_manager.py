@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from pathlib import Path  # noqa: TC003, pydantic needs this for type validation at runtime
 from typing import TYPE_CHECKING
 
-import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
 
 from eta_ctrl import timeseries
@@ -14,7 +14,12 @@ if TYPE_CHECKING:
     from datetime import datetime
     from typing import Any
 
+    import numpy as np
     import pandas as pd
+
+    from eta_ctrl.envs.state import StateVar
+
+log = logging.getLogger(__name__)
 
 
 class ConfigCsvScenario(BaseModel):
@@ -68,26 +73,37 @@ class ConfigCsvScenario(BaseModel):
 
 
 class ScenarioManager(ABC):
-    @abstractmethod
-    def get_scenario_state(self, n_steps: int, columns: list[str] | None = None) -> dict[str, np.ndarray]:
-        """Get scenario values for the current time step.
+    def compute_episode_offset(self, rng: np.random.Generator) -> int:
+        """Compute the row offset into the scenario data for the next episode.
 
-        :param n_steps: Current time step.
-        :param columns: Optional list of column names to return. If None, returns all columns.
-        :return: Dictionary with scenario data for the requested columns.
+        Returns 0 by default (no random slicing). Override in subclasses that support
+        random time slicing.
+
+        :param rng: Random number generator from the environment.
+        :return: Integer row offset into the scenario data.
         """
-        raise NotImplementedError
+        return 0
+
+    def get_scenario_state_var(self, n_step: int, state_var: StateVar) -> np.ndarray:
+        """Get scenario values for a single state variable at the given (absolute) step.
+
+        :param n_step: Absolute row index into the scenario data (env step + episode offset).
+        :param state_var: State variable configuration.
+        :return: Array of scenario values.
+        """
+        scenario_id = state_var.scenario_id
+
+        data = self._get_data(n_step=n_step, names=[scenario_id])  # type: ignore[list-item]
+        return data[scenario_id]  # type: ignore[index]
 
     @abstractmethod
-    def get_scenario_state_with_duration(
-        self, n_step: int, duration: int, columns: list[str] | None = None
-    ) -> dict[str, np.ndarray]:
+    def _get_data(self, n_step: int, duration: int = 1, names: list[str] | None = None) -> dict[str, np.ndarray]:
         """Get scenario values for the interval [n_step, n_step+duration].
 
-        :param n_step: Current time step.
-        :param duration: Additional amount of steps in interval.
-        :param columns: Optional list of column names to return. If None, returns all columns.
-        :return: Dictionary with scenario data for the requested columns.
+        :param n_step: Absolute row index into the scenario data (env step + episode offset).
+        :param duration: Number of steps to retrieve.
+        :param names: Column names to retrieve. If None, all columns are returned.
+        :return: Dictionary mapping column names to value arrays.
         """
         raise NotImplementedError
 
@@ -101,34 +117,46 @@ class CsvScenarioManager(ScenarioManager):
         start_time: datetime,
         end_time: datetime,
         total_time: float,
-        resample_time: float = 0.0,
-        seed: int | None = None,
+        resample_time: float,
+        use_random_time_slice: bool = False,
     ) -> None:
+        super().__init__()
         self._data: pd.DataFrame
+
+        self.scenario_steps = int(total_time / resample_time)
 
         self.scenario_configs: list[ConfigCsvScenario] = scenario_configs
         self.start_time = start_time
         self.end_time = end_time
         self.total_time = total_time
         self.resample_time = resample_time
-
-        self.seed = seed
+        self.use_random_time_slice = use_random_time_slice
 
         self.load_data()
 
+    def compute_episode_offset(self, rng: np.random.Generator) -> int:
+        """Compute the row offset into the scenario dataframe for the next episode.
+
+        :param rng: Random number generator used to pick a random starting position.
+        :return: Integer row index into self.scenarios representing the episode start.
+        """
+        if not self.use_random_time_slice:
+            return 0
+        available_space = self.total_df_length - self.scenario_steps
+        if available_space == 0:
+            return 0
+        return rng.choice(range(available_space)).item()
+
     def load_data(self) -> None:
         """Load scenario data by calling 'scenario_from_csv' with the ConfigCsvScenario objects"""
-        random = np.random.default_rng(self.seed) if self.seed is not None else None
         self.scenarios = timeseries.scenario_from_csv(
             scenario_configs=self.scenario_configs,
             start_time=self.start_time,
             end_time=self.end_time,
-            total_time=self.total_time,
-            random=random,
             resample_time=self.resample_time,
             prefix_renamed=True,
         )
-        self.total_length = len(self.scenarios)
+        self.total_df_length = len(self.scenarios)
 
     def _validate_columns(self, columns: list[str] | None) -> list[str]:
         """Validate and return the list of columns to retrieve.
@@ -151,30 +179,16 @@ class CsvScenarioManager(ScenarioManager):
 
         return columns
 
-    def get_scenario_state(self, n_steps: int, columns: list[str] | None = None) -> dict[str, np.ndarray]:
-        if n_steps >= self.total_length:
-            msg = f"n_steps {n_steps} is out of bounds for scenarios with length {len(self.scenarios)}"
-            raise IndexError(msg)
-
-        valid_columns = self._validate_columns(columns)
-        vals = self.scenarios.loc[self.scenarios.index[n_steps], valid_columns]
-        if isinstance(vals, (int, float)):
-            # Single column case - vals is a scalar
-            return {valid_columns[0]: np.array([vals])}
-        return {name: np.array([val]) for name, val in vals.to_dict().items()}
-
-    def get_scenario_state_with_duration(
-        self, n_step: int, duration: int, columns: list[str] | None = None
-    ) -> dict[str, np.ndarray]:
+    def _get_data(self, n_step: int, duration: int = 1, names: list[str] | None = None) -> dict[str, np.ndarray]:
         end_index = n_step + duration
 
-        if end_index > self.total_length:
+        if end_index > self.total_df_length:
             msg = (
                 f"Requested data from {n_step} to {end_index} ({duration} steps) "
-                f"but only {self.total_length} steps available. "
-                f"Shortfall: {end_index - self.total_length} steps."
+                f"but only {self.total_df_length} steps available. "
+                f"Shortfall: {end_index - self.total_df_length} steps."
             )
             raise IndexError(msg)
-
-        valid_columns = self._validate_columns(columns)
-        return self.scenarios.loc[self.scenarios.index[n_step:end_index], valid_columns].to_dict()
+        # Choose all columns if names are not supplied
+        columns = self._validate_columns(columns=names)
+        return {col: self.scenarios.iloc[n_step:end_index][col].to_numpy() for col in columns}

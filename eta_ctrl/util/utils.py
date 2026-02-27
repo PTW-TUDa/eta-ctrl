@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import math
 import re
 from collections.abc import Mapping
 from datetime import timedelta
@@ -132,3 +133,20 @@ def timestep_to_timedelta(timestep: TimeStep | str) -> timedelta:
     :return: timedelta object representing the duration
     """
     return timestep if isinstance(timestep, timedelta) else timedelta(seconds=float(timestep))
+
+
+def is_divisible(a: float, b: float) -> bool:
+    """Check whether a is divisible by b.
+
+    Just returning a%b==0 will not work for small divisor values.
+    E.g. 15 % 0.05 will result in 0.04999.. and not 0.
+
+    :param a: Dividend
+    :type a: float
+    :param b: Divisor
+    :type b: float
+    :return: a % b == 0
+    :rtype: bool
+    """
+    remainder = a % b
+    return math.isclose(remainder, 0, abs_tol=1e-9) or math.isclose(remainder, b, abs_tol=1e-9)

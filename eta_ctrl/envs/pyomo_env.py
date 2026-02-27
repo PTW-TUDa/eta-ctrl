@@ -231,9 +231,7 @@ class PyomoEnv(BaseEnv, abc.ABC):
             if self.use_model_time_increments
             else self.prediction_horizon
         )
-        ts = self.scenario_manager.get_scenario_state_with_duration(
-            n_step=self.n_steps, duration=self.n_prediction_steps + 1
-        )
+        ts = self.scenario_manager.scenarios.iloc[self.n_steps : self.n_steps + self.n_prediction_steps + 1]
         if self.time_var is not None:
             index = range(self.n_steps * step, duration + (self.n_steps * step), step)
             ts_current = self.pyo_convert_timeseries(
@@ -461,7 +459,6 @@ class PyomoEnv(BaseEnv, abc.ABC):
                 if component_name is not None and "." in key and component_name not in key.split("."):
                     continue
                 split_key = key.split(".")[-1]
-
                 # Simple values do not need their index converted...
                 if not hasattr(t, "__len__") and np.isreal(t):
                     output[split_key] = {None: t}

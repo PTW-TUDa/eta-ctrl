@@ -159,13 +159,12 @@ high_value = 30
         env.n_steps = 0
 
         # Mock the get_scenario_state method with the new columns parameter
-        def mock_scenario_manager_get_scenario_state(
-            n_steps: int, columns: list[str] | None = None
-        ) -> dict[str, np.ndarray]:
-            return {"scenario_input": np.array([42.0])}
+        def mock_scenario_manager_get_scenario_state_var(n_step: int, state_var: StateVar) -> dict[str, np.ndarray]:
+            return np.array([42.0])
 
         env.scenario_manager = MagicMock(spec=CsvScenarioManager)
-        env.scenario_manager.get_scenario_state = mock_scenario_manager_get_scenario_state
+        env.scenario_manager.get_scenario_state_var = mock_scenario_manager_get_scenario_state_var
+        env._scenario_offset = 0
 
         # Call the actual get_external_inputs method
         BaseEnv.set_scenario_state(env)

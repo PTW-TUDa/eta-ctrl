@@ -8,15 +8,14 @@ import csv
 import operator as op
 import pathlib
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
 from logging import getLogger
 from typing import TYPE_CHECKING, get_args
 
-import numpy as np
 import pandas as pd
 
 from eta_ctrl.util.type_annotations import FillMethod
-from eta_ctrl.util.utils import timestep_to_seconds, timestep_to_timedelta
+from eta_ctrl.util.utils import timestep_to_seconds
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -127,95 +126,21 @@ def df_from_csv(
     return data
 
 
-def find_time_slice(
-    time_begin: datetime,
-    time_end: datetime | None = None,
-    total_time: TimeStep | None = None,
-    round_to_interval: TimeStep | None = None,
-    random: bool | np.random.Generator = False,
-) -> tuple[datetime, datetime]:
-    """Return a (potentially random) slicing interval that can be used to slice a data frame.
+def round_datetime_to_interval(dt: datetime, interval: float) -> datetime:
+    """Round a datetime object down to match the given interval.
 
-    :param time_begin: Date and time of the beginning of the interval to slice from.
-    :param time_end: Date and time of the ending of the interval to slice from.
-    :param total_time: Specify the total time of the sliced interval. An integer will be interpreted as seconds.
-                       If this argument is None, the complete interval between beginning and end will be returned.
-    :param round_to_interval: Round times to a specified interval, this value is interpreted as seconds if given as
-                              an int. Default is no rounding.
-    :param random: If this value is true, or a random generator is supplied, it will be used to generate a
-                   random slice of length total_time in the interval between time_begin and time_end.
-    :return: Tuple of slice_begin time and slice_end time. Both times are datetime objects.
+    :param dt: Datetime object to round
+    :type dt: datetime
+    :param interval: Resampling interval
+    :type interval: float
+    :return: Rounded datetime object
+    :rtype: datetime
     """
-    # Determine ending time and total time depending on what was supplied.
-    if time_end is not None and total_time is None:
-        total_time = time_end - time_begin
-    elif total_time is not None:
-        total_time = timestep_to_timedelta(total_time)
-        time_end = time_begin + total_time if time_end is None else time_end
-    else:
-        msg = "At least one of time_end and total_time must be specified to fully constrain the interval."
-        raise ValueError(msg)
-
-    round_to_interval = (
-        round_to_interval.total_seconds() if isinstance(round_to_interval, timedelta) else round_to_interval
-    )
-    # pandas Timestamp returns a different timestamp than python datetime objects!
-    if isinstance(time_begin, pd.Timestamp):
-        time_begin = time_begin.to_pydatetime()
-
-    # Determine the (possibly random) beginning time of the time slice and round it if necessary
-    if random:
-        if isinstance(random, bool):
-            random = np.random.default_rng()
-            log.info(
-                "Using an unseeded random generator for time slicing. This will not produce deterministic results."
-            )
-        time_gap = max(0, (time_end - time_begin - total_time).total_seconds())
-        if time_gap <= 0:
-            log.warning(
-                "Could not use random time sampling because the gap between the required starting and ending "
-                "times is too small."
-            )
-        slice_begin = time_begin + timedelta(seconds=random.uniform() * time_gap)
-    else:
-        slice_begin = time_begin
-
-    round_to_interval = timestep_to_seconds(round_to_interval) if round_to_interval is not None else 0
-
-    if round_to_interval > 0:
-        slice_begin = datetime.fromtimestamp((slice_begin.timestamp() // round_to_interval) * round_to_interval)
-
-    # Determine the ending time of the time slice and round it if necessary
-    slice_end = slice_begin + total_time
-    if round_to_interval > 0:
-        slice_end = datetime.fromtimestamp((slice_end.timestamp() // round_to_interval) * round_to_interval)
-
-    return slice_begin, slice_end
-
-
-def df_time_slice(
-    df: pd.DataFrame,
-    time_begin: datetime,
-    time_end: datetime | None = None,
-    total_time: TimeStep | None = None,
-    round_to_interval: TimeStep | None = None,
-    random: bool | np.random.Generator = False,
-) -> pd.DataFrame:
-    """Return a data frame which has been sliced starting at time_begin and ending at time_end, from df.
-
-    :param df: Original data frame to be sliced.
-    :param time_begin: Date and time of the beginning of the interval to slice from.
-    :param time_end: Date and time of the ending of the interval to slice from.
-    :param total_time: Specify the total time of the sliced interval. An integer will be interpreted as seconds.
-                       If this argument is None, the complete interval between beginning and end will be returned.
-    :param round_to_interval: Round times to a specified interval, this value is interpreted as seconds if given as
-                              an int. Default is no rounding.
-    :param random: If this value is true, or a random generator is supplied, it will be used to generate a
-                   random slice of length total_time in the interval between time_begin and time_end.
-    :return: Sliced data frame.
-    """
-    slice_begin, slice_end = find_time_slice(time_begin, time_end, total_time, round_to_interval, random)
-    return df[slice_begin:slice_end].copy()  # type: ignore[misc]
+    if isinstance(dt, pd.Timestamp):
+        dt = dt.to_pydatetime()
+    if interval == 0:
+        return dt
+    return datetime.fromtimestamp((dt.timestamp() // interval) * interval)
 
 
 def df_resample(
