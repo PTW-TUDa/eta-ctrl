@@ -84,6 +84,9 @@ class StateVar(BaseModel):
     #: returned). In this case, the index values might be different for actions and observations.
     index: int = 0
 
+    #: For scenario StateVars: Length of StateVars horizon in state, e.g. the prediction horizon length (unit: steps).
+    duration: int = 1
+
     def model_post_init(self, context: Any) -> None:
         for flag, id_value, id_name in [
             (self.is_ext_input, self.ext_id, "ext_id"),
@@ -370,7 +373,7 @@ class StateConfig:
         :return: Observation Space.
         """
         observations: dict[str, spaces.Box] = {
-            name: spaces.Box(low=row["low_value"], high=row["high_value"], dtype=np.float32)
+            name: spaces.Box(low=row["low_value"], high=row["high_value"], shape=(row["duration"],), dtype=np.float32)
             for name, row in self.df_vars.iterrows()
             if row["is_agent_observation"] is True
         }
