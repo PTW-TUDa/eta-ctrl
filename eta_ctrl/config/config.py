@@ -32,10 +32,11 @@ def _pop_dict(dikt: dict, key: str) -> dict:
     return val
 
 
-def _derive_state_config(root_path: pathlib.Path, paths: dict, setup: ConfigSetup) -> StateConfig:
-    state_file = camel_to_snake_case(setup.environment_class.__name__) + "_state_config"
-    state_path = root_path / paths.pop("state_relpath", "")
-    return StateConfig.from_file(path=state_path, filename=state_file)
+def _derive_state_config(root_path: pathlib.Path, env_name: str, state_file_relpath: str | None = None) -> StateConfig:
+    if not state_file_relpath:
+        # set default state file path based on environment class name if not provided in config
+        state_file_relpath = camel_to_snake_case(env_name) + "_state_config"
+    return StateConfig.from_file(root_path=root_path, filename=state_file_relpath)
 
 
 def _path_or_default(value: str | pathlib.Path | None, default: str) -> pathlib.Path:
@@ -70,7 +71,7 @@ class Config:
     #: Root folder path for the optimization run (default: parent folder of invoking script).
     root_path: pathlib.Path = field(converter=pathlib.Path)
     #: Relative path to the state config file (default: environments/[environment_classname]_state_config).
-    state_relpath: pathlib.Path = field(converter=pathlib.Path)
+    state_file_relpath: pathlib.Path = field(converter=pathlib.Path)
     #: Relative path to the results folder (default: results).
     results_relpath: pathlib.Path = field(converter=_convert_results_relpath, default=pathlib.Path("results"))
     #: relative path to the scenarios folder (default: scenarios).
@@ -189,7 +190,11 @@ class Config:
         setup = ConfigSetup.from_dict(_setup)
 
         # Create StateConfig (moved to helper to lower function complexity)
-        state_config = _derive_state_config(root_path, paths, setup)
+        state_config = _derive_state_config(
+            root_path=root_path,
+            state_file_relpath=paths.pop("state_file_relpath", None),
+            env_name=setup.environment_class.__name__,
+        )
         settings_raw["environment_specific"]["state_config"] = state_config
 
         if "interaction_env_specific" in config:
@@ -211,7 +216,7 @@ class Config:
             root_path=root_path,
             results_relpath=results_relpath,
             scenarios_relpath=scenarios_relpath,
-            state_relpath=state_config.source_file.relative_to(root_path)
+            state_file_relpath=state_config.source_file.relative_to(root_path)
             if state_config.source_file is not None
             else pathlib.Path(),
             setup=setup,

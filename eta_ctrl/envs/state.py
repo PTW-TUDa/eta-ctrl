@@ -224,24 +224,25 @@ class StateConfig:
         self.abort_conditions_max: list[str] = self.df_vars["abort_condition_max"].index.tolist()
 
     @classmethod
-    def from_file(cls, path: pathlib.Path, filename: str) -> Self:
+    def from_file(cls, root_path: pathlib.Path, filename: str) -> Self:
         """Load a StateConfig from a config file.
 
         :param file: Path of the config file.
         :return: StateConfig object.
         """
+        state_folder_relpath = ""
         try:
-            raw_dict = load_config(file=path / filename)
-            state_relpath = ""
+            raw_dict = load_config(file=root_path / state_folder_relpath / filename)
         except FileNotFoundError:
+            state_folder_relpath = "environments/"
             try:
-                raw_dict = load_config(file=path / "environments" / (filename))
-                state_relpath = "environments/"
-                log.info("Using default state_relpath 'environments/'")
+                raw_dict = load_config(file=root_path / state_folder_relpath / (filename))
+                log.info("Using default state_folder_relpath 'environments/'")
             except FileNotFoundError:
-                msg = f"StateConfig file not found at {path / filename} or {path / 'environments' / filename}"
+                msg = f"StateConfig file not found at {root_path / filename} or {root_path / 'environments' / filename}"
                 raise FileNotFoundError(msg) from None
-        file = path / state_relpath / filename
+
+        file = root_path / state_folder_relpath / filename
         log.info(f"Loading StateConfig from file at {file}).")
 
         actions: list[dict[str, Any]] = raw_dict.get("actions") or []
