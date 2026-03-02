@@ -92,13 +92,14 @@ class ScenarioManager(ABC):
         :return: Array of scenario values.
         """
         scenario_id = state_var.scenario_id
+        duration = state_var.duration
 
-        data = self._get_data(n_step=n_step, names=[scenario_id])  # type: ignore[list-item]
+        data = self._get_data(n_step=n_step, duration=duration, names=[scenario_id])  # type: ignore[list-item]
         return data[scenario_id]  # type: ignore[index]
 
     @abstractmethod
     def _get_data(self, n_step: int, duration: int = 1, names: list[str] | None = None) -> dict[str, np.ndarray]:
-        """Get scenario values for the interval [n_step, n_step+duration].
+        """Get all scenario values for the interval [n_step, n_step+duration].
 
         :param n_step: Absolute row index into the scenario data (env step + episode offset).
         :param duration: Number of steps to retrieve.

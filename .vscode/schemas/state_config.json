@@ -163,6 +163,14 @@
                     "default": "0",
                     "title": "Index",
                     "type": "integer"
+                },
+                "duration": {
+                    "default": "1",
+                    "title": "Duration",
+                    "type": [
+                        "number",
+                        "string"
+                    ]
                 }
             },
             "required": [
