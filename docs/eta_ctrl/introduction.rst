@@ -139,7 +139,7 @@ The optional paths section can contain the following optional relative paths:
 
 .. autoattribute:: eta_ctrl.config::Config.results_relpath
 .. autoattribute:: eta_ctrl.config::Config.scenarios_relpath
-.. autoattribute:: eta_ctrl.config::Config.state_relpath
+.. autoattribute:: eta_ctrl.config::Config.state_file_relpath
 
 Config section 'settings'
 ^^^^^^^^^^^^^^^^^^^^^^^^^^

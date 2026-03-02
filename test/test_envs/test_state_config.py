@@ -191,11 +191,11 @@ class TestStateConfig:
 
     @pytest.fixture(scope="class")
     def config_from_test_env_file(self, config_resources_path):
-        return StateConfig.from_file(path=config_resources_path, filename="test_env_state_config.toml")
+        return StateConfig.from_file(root_path=config_resources_path, filename="test_env_state_config.toml")
 
     @pytest.fixture(scope="class")
     def config_from_test_env_csv_file(self, config_resources_path):
-        return StateConfig.from_file(path=config_resources_path, filename="test_env_state_config.csv")
+        return StateConfig.from_file(root_path=config_resources_path, filename="test_env_state_config.csv")
 
     def test_continuous_action_space_should_include_all_and_only_agent_actions(self, state_config):
         # also tests: continuous_action_space_should_span_from_low_to_high_value_for_every_statevar
@@ -436,7 +436,7 @@ class TestStateConfig:
         config_file = tmp_path / "my_state_config.toml"
         config_file.write_text("[[actions]]\nname = 'u'\nlow_value = -10\nhigh_value = 10\n", encoding="utf-8")
 
-        config = StateConfig.from_file(path=tmp_path, filename="my_state_config.toml")
+        config = StateConfig.from_file(root_path=tmp_path, filename="my_state_config.toml")
 
         assert config.actions == ["u"]
         assert config.source_file == config_file
@@ -446,7 +446,7 @@ class TestStateConfig:
         config_file.parent.mkdir()
         config_file.write_text("[[actions]]\nname = 'u'\nlow_value = -10\nhigh_value = 10\n", encoding="utf-8")
 
-        config = StateConfig.from_file(path=tmp_path, filename="my_state_config.toml")
+        config = StateConfig.from_file(root_path=tmp_path, filename="my_state_config.toml")
         assert config.actions == ["u"]
         assert config.source_file == config_file
 
@@ -456,4 +456,4 @@ class TestStateConfig:
         error_msg = f"StateConfig file not found at {expected_direct} or {expected_fallback}".replace("\\", "\\\\")
 
         with pytest.raises(FileNotFoundError, match=error_msg):
-            StateConfig.from_file(path=tmp_path, filename="missing.toml")
+            StateConfig.from_file(root_path=tmp_path, filename="missing.toml")

@@ -13,7 +13,7 @@ from test.resources.config.config_python import config as python_dict
 @pytest.fixture
 def config_dict() -> dict:
     config = copy.deepcopy(python_dict)
-    config.setdefault("paths", {})["state_relpath"] = "test_env_state_config.toml"
+    config.setdefault("paths", {})["state_file_relpath"] = "test_env_state_config.toml"
     return config
 
 
@@ -27,7 +27,7 @@ class TestConfig:
         monkeypatch.setattr(
             StateConfig,
             "from_file",
-            lambda path, filename: _DummyStateConfig(source_file=Path(path) / filename),
+            lambda root_path, filename: _DummyStateConfig(source_file=Path(root_path) / filename),
         )
 
     def test_from_dict(self, config_dict, config_resources_path):
@@ -89,7 +89,7 @@ class TestConfig:
         assert config.scenarios_path == config_resources_path / "scenarios"
 
     def test_from_file(self, config_dict: dict, config_resources_path: Path):
-        overwrite = {"paths": {"state_relpath": "test_env_state_config.toml"}}
+        overwrite = {"paths": {"state_file_relpath": "test_env_state_config.toml"}}
         config = Config.from_file(
             root_path=config_resources_path, config_relpath=Path(), config_name="config1", overwrite=overwrite
         )

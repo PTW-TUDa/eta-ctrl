@@ -12,9 +12,6 @@ interact_with_env = false
 scenario_time_begin = "2022-03-18 00:00"
 scenario_time_end = "2022-03-18 00:30"
 
-[paths]
-state_relpath = "."
-
 [environment_specific]
 sim_steps_per_sample = 1
 prediction_horizon = 900  # time in seconds, optimization horizon K, is constant
