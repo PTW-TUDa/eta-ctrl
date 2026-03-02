@@ -22,6 +22,9 @@ from logging import getLogger
 
 log = getLogger(__name__)
 
+#: Largest finite float32 value, used as default bound for non-action state variables.
+_FMAX = float(np.finfo(np.float32).max)
+
 
 class StateVar(BaseModel):
     """A variable in the state of an environment."""
@@ -68,10 +71,10 @@ class StateVar(BaseModel):
     #: Value to multiply to the value read from a scenario file (default: 1.0).
     scenario_scale_mult: float = 1.0
 
-    #: Lowest possible value of the state variable (default: -np.inf).
-    low_value: float = -np.inf
-    #: Highest possible value of the state variable (default: np.inf).
-    high_value: float = np.inf
+    #: Lowest possible value of the state variable (default: -np.finfo(np.float32).max).
+    low_value: float = -_FMAX
+    #: Highest possible value of the state variable (default: np.finfo(np.float32).max).
+    high_value: float = _FMAX
     #: If the value of the variable dips below this, the episode should be aborted (default: -np.inf).
     abort_condition_min: float = -np.inf
     #: If the value of the variable rises above this, the episode should be aborted (default: np.inf).
@@ -91,6 +94,14 @@ class StateVar(BaseModel):
                 # set the correct id attribute (ext_id or scenario_id) when missing
                 object.__setattr__(self, id_name, self.name)
                 log.info(f"Using name as {id_name} for variable {self.name}")
+
+        # Require explicit finite bounds for action variables
+        if self.is_agent_action and (self.low_value == -_FMAX or self.high_value == _FMAX):
+            msg = (
+                f"Action variable '{self.name}' requires explicit finite bounds. "
+                f"Set both 'low_value' and 'high_value' in the state config."
+            )
+            raise ValueError(msg)
 
         # Validate mutual exclusivity of from_scenario, is_ext_output and is_agent_action
         data_sources = {
@@ -127,7 +138,7 @@ class StateVar(BaseModel):
             var_type.append("variable")
 
         type_str = "/".join(var_type)
-        has_range = self.low_value != -np.inf or self.high_value != np.inf
+        has_range = self.low_value != -_FMAX or self.high_value != _FMAX
         range_str = f"[{self.low_value}, {self.high_value}]" if has_range else ""
 
         return f"StateVar '{self.name}' ({type_str}){' ' + range_str if range_str else ''}"
@@ -139,9 +150,9 @@ class StateVar(BaseModel):
             key_attrs.append("is_agent_action=True")
         if self.is_agent_observation:
             key_attrs.append("is_agent_observation=True")
-        if self.low_value != -np.inf:
+        if self.low_value != -_FMAX:
             key_attrs.append(f"low_value={self.low_value}")
-        if self.high_value != np.inf:
+        if self.high_value != _FMAX:
             key_attrs.append(f"high_value={self.high_value}")
 
         attrs_str = ", ".join(key_attrs)
