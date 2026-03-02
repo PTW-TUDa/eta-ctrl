@@ -25,8 +25,8 @@ class TestStateVar:
         assert state_var_default.is_agent_observation is False
         assert state_var_default.is_ext_input is False
         assert state_var_default.is_ext_output is False
-        assert state_var_default.low_value == -np.inf
-        assert state_var_default.high_value == np.inf
+        assert state_var_default.low_value == -np.finfo(np.float32).max
+        assert state_var_default.high_value == np.finfo(np.float32).max
         assert state_var_default.ext_id is None
         assert state_var_default.abort_condition_min == -np.inf
         assert state_var_default.abort_condition_max == np.inf
@@ -83,7 +83,7 @@ class TestStateVar:
         assert state_var_interact.interact_scale_mult == 2.0
 
     def test_from_dict(self):
-        dikt = {"name": "foo", "is_agent_action": True}
+        dikt = {"name": "foo", "is_agent_action": True, "low_value": 0, "high_value": 1}
         state_var = StateVar.from_dict(dikt)
         assert state_var.name == "foo"
         assert state_var.is_agent_action is True
@@ -115,16 +115,14 @@ class TestStateVar:
         assert str(state_var) == expected
 
     def test_str_representation_infinite_range(self):
-        """Test __str__ method for StateVar with infinite range."""
-        state_var = StateVar(name="unlimited_var", is_agent_action=True)
-        expected = "StateVar 'unlimited_var' (action)"
-        assert str(state_var) == expected
+        """Test that creating an action StateVar without bounds raises ValueError."""
+        with pytest.raises(ValueError, match="requires explicit finite bounds"):
+            StateVar(name="unlimited_var", is_agent_action=True)
 
     def test_str_representation_partial_infinite_range(self):
-        """Test __str__ method for StateVar with partially infinite range."""
-        state_var = StateVar(name="min_limited", is_agent_action=True, low_value=0)
-        expected = "StateVar 'min_limited' (action) [0.0, inf]"
-        assert str(state_var) == expected
+        """Test that creating an action StateVar with only one bound raises ValueError."""
+        with pytest.raises(ValueError, match="requires explicit finite bounds"):
+            StateVar(name="min_limited", is_agent_action=True, low_value=0)
 
     def test_repr_representation_minimal(self):
         """Test __repr__ method for minimal StateVar."""
@@ -187,7 +185,7 @@ class TestStateConfig:
     @pytest.fixture(scope="class")
     def state_config_nan(self):
         return StateConfig(
-            StateVar(name="action1", is_agent_action=True),
+            StateVar(name="action1", is_agent_action=True, low_value=-1, high_value=1),
             StateVar(name="observation1", is_agent_observation=True),
         )
 
@@ -204,9 +202,9 @@ class TestStateConfig:
         action_space = state_config.continuous_action_space()
         assert action_space == create_box(low=[0, 4], high=[1, 5])
 
-    def test_continuous_action_space_should_use_infinity_if_no_low_and_high_values_are_provided(self, state_config_nan):
+    def test_continuous_action_space_should_use_finite_if_no_low_and_high_values_are_provided(self, state_config_nan):
         action_space = state_config_nan.continuous_action_space()
-        assert action_space == create_box(low=[-np.inf], high=[np.inf])
+        assert action_space == create_box(low=[-1], high=[1])
 
     def test_continuous_observation_space_should_include_all_and_only_agent_observations(self, state_config):
         # also tests: continuous_observation_space_should_span_from_low_to_high_value_for_every_statevar
@@ -218,15 +216,17 @@ class TestStateConfig:
             }
         )
 
-    def test_continuous_observation_space_should_use_infinity_if_no_low_and_high_values_are_provided(
+    def test_continuous_observation_space_should_use_finite_if_no_low_and_high_values_are_provided(
         self, state_config_nan
     ):
         obs_space = state_config_nan.continuous_observation_space()
-        assert obs_space == Dict({"observation1": create_box(low=[-np.inf], high=[np.inf])})
+        assert obs_space == Dict(
+            {"observation1": create_box(low=[-np.finfo(np.float32).max], high=[np.finfo(np.float32).max])}
+        )
 
     def test_from_dict(self):
         state_vars = [
-            {"name": "action1", "is_agent_action": True, "ext_id": "foo"},
+            {"name": "action1", "is_agent_action": True, "ext_id": "foo", "low_value": 0, "high_value": 1},
             {"name": "action2", "is_agent_observation": True, "ext_id": "foo"},
         ]
         StateConfig.from_dict(state_vars)
@@ -234,7 +234,7 @@ class TestStateConfig:
     def test_from_dict_with_dataframe(self):
         import pandas as pd
 
-        state_vars = pd.DataFrame([{"name": "foo", "is_agent_action": True}])
+        state_vars = pd.DataFrame([{"name": "foo", "is_agent_action": True, "low_value": 0, "high_value": 1}])
         stateconfig = StateConfig.from_dict(state_vars)
         assert stateconfig.actions == ["foo"]
 
@@ -274,7 +274,7 @@ class TestStateConfig:
     def test_state_params(self):
         state_params = {"extra_param": True}
         statevars = [
-            {"name": "action1", "is_agent_action": "extra_param"},
+            {"name": "action1", "is_agent_action": "extra_param", "low_value": 0, "high_value": 1},
         ]
         state_config = StateConfig.from_dict(statevars, state_params=state_params)
         assert state_config.loc["action1"]["is_agent_action"] is True
@@ -301,8 +301,8 @@ class TestStateConfig:
     def test_str_representation_actions_only(self):
         """Test __str__ method for StateConfig with only actions."""
         config = StateConfig(
-            StateVar(name="action1", is_agent_action=True),
-            StateVar(name="action2", is_agent_action=True),
+            StateVar(name="action1", is_agent_action=True, low_value=0, high_value=1),
+            StateVar(name="action2", is_agent_action=True, low_value=0, high_value=1),
         )
         expected = "StateConfig with 2 actions, 0 observations (2 total variables)"
         assert str(config) == expected
@@ -320,7 +320,7 @@ class TestStateConfig:
     def test_str_representation_mixed_with_other_vars(self):
         """Test __str__ method for StateConfig with actions, observations, and other variables."""
         config = StateConfig(
-            StateVar(name="action1", is_agent_action=True),
+            StateVar(name="action1", is_agent_action=True, low_value=0, high_value=1),
             StateVar(name="obs1", is_agent_observation=True),
             StateVar(name="internal_var1"),  # Neither action nor observation
             StateVar(name="internal_var2"),  # Neither action nor observation
@@ -347,7 +347,7 @@ class TestStateConfig:
 
     def test_repr_representation_large_config_with_truncation(self):
         """Test __repr__ method for large StateConfig with truncation."""
-        actions = [StateVar(name=f"action_{i}", is_agent_action=True) for i in range(5)]
+        actions = [StateVar(name=f"action_{i}", is_agent_action=True, low_value=0, high_value=1) for i in range(5)]
         observations = [StateVar(name=f"obs_{i}", is_agent_observation=True) for i in range(6)]
         config = StateConfig(*actions, *observations)
 
@@ -359,7 +359,7 @@ class TestStateConfig:
 
     def test_repr_representation_exactly_three_items(self):
         """Test __repr__ method for StateConfig with exactly 3 actions and observations (no truncation)."""
-        actions = [StateVar(name=f"action_{i}", is_agent_action=True) for i in range(3)]
+        actions = [StateVar(name=f"action_{i}", is_agent_action=True, low_value=0, high_value=1) for i in range(3)]
         observations = [StateVar(name=f"obs_{i}", is_agent_observation=True) for i in range(3)]
         config = StateConfig(*actions, *observations)
 
@@ -387,13 +387,17 @@ class TestStateConfig:
     def test_manual_creation_no_source_file(self):
         """Test that manually created StateConfig has no source path."""
         config = StateConfig(
-            StateVar(name="test_action", is_agent_action=True), StateVar(name="test_obs", is_agent_observation=True)
+            StateVar(name="test_action", is_agent_action=True, low_value=0, high_value=1),
+            StateVar(name="test_obs", is_agent_observation=True),
         )
         assert config.source_file is None
 
     def test_from_dict_no_source_file(self):
         """Test that from_dict without source path sets source_file to None."""
-        state_vars = [{"name": "action1", "is_agent_action": True}, {"name": "obs1", "is_agent_observation": True}]
+        state_vars = [
+            {"name": "action1", "is_agent_action": True, "low_value": 0, "high_value": 1},
+            {"name": "obs1", "is_agent_observation": True},
+        ]
         config = StateConfig.from_dict(state_vars)
         assert config.source_file is None
 
@@ -405,7 +409,8 @@ class TestStateConfig:
     def test_str_representation_withoutsource_file(self):
         """Test __str__ method when no source path is available."""
         config = StateConfig(
-            StateVar(name="action1", is_agent_action=True), StateVar(name="obs1", is_agent_observation=True)
+            StateVar(name="action1", is_agent_action=True, low_value=0, high_value=1),
+            StateVar(name="obs1", is_agent_observation=True),
         )
         str_result = str(config)
         expected = "StateConfig with 1 actions, 1 observations (2 total variables)"
@@ -429,7 +434,7 @@ class TestStateConfig:
 
     def test_from_file_loads_from_given_path(self, tmp_path: Path):
         config_file = tmp_path / "my_state_config.toml"
-        config_file.write_text("[[actions]]\nname = 'u'\n", encoding="utf-8")
+        config_file.write_text("[[actions]]\nname = 'u'\nlow_value = -10\nhigh_value = 10\n", encoding="utf-8")
 
         config = StateConfig.from_file(path=tmp_path, filename="my_state_config.toml")
 
@@ -439,7 +444,7 @@ class TestStateConfig:
     def test_from_file_falls_back_to_environments_subdir(self, tmp_path: Path):
         config_file = tmp_path / "environments" / "my_state_config.toml"
         config_file.parent.mkdir()
-        config_file.write_text("[[actions]]\nname = 'u'\n", encoding="utf-8")
+        config_file.write_text("[[actions]]\nname = 'u'\nlow_value = -10\nhigh_value = 10\n", encoding="utf-8")
 
         config = StateConfig.from_file(path=tmp_path, filename="my_state_config.toml")
         assert config.actions == ["u"]

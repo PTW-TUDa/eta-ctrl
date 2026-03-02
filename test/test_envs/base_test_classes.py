@@ -71,7 +71,7 @@ def state_config_factory():
                 StateVar(name="single_obs", is_agent_observation=True, low_value=0, high_value=1),
             ),
             "minimal": lambda: StateConfig(
-                StateVar(name="test_action", is_agent_action=True),
+                StateVar(name="test_action", is_agent_action=True, low_value=0, high_value=1),
                 StateVar(name="test_obs", is_agent_observation=True),
             ),
             "basic": lambda: StateConfig(

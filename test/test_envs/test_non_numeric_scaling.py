@@ -40,7 +40,7 @@ def test_env():
         ),
         StateVar(name="status", is_agent_observation=True, is_ext_output=True, ext_id="status"),
         StateVar(name="mode", is_agent_observation=True, is_ext_output=True, ext_id="mode"),
-        StateVar(name="value", is_agent_action=True, is_ext_input=True, ext_id="value"),
+        StateVar(name="value", is_agent_action=True, is_ext_input=True, ext_id="value", low_value=0, high_value=100),
     )
 
     class TestEnv(BaseEnv):
