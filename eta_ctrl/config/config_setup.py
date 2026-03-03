@@ -41,7 +41,7 @@ def _get_class(instance: ConfigSetup, attrib: Attribute, new_value: str | None) 
     return new_value
 
 
-@define(frozen=False, kw_only=True)
+@define(frozen=False, kw_only=True, repr=False)
 class ConfigSetup:
     """Configuration options as specified in the "setup" section of the configuration file."""
 
@@ -94,6 +94,20 @@ class ConfigSetup:
         _get_class(self, _fields.interaction_env_import, self.interaction_env_import)
         _get_class(self, _fields.vectorizer_import, self.vectorizer_import)
         _get_class(self, _fields.policy_import, self.policy_import)
+
+    def __str__(self) -> str:
+        """Human-readable string representation of ConfigSetup."""
+        env_class = self.environment_class.__name__
+        agent_class = self.agent_class.__name__
+        return f"ConfigSetup(env={env_class}, agent={agent_class})"
+
+    def __repr__(self) -> str:
+        """Developer-friendly string representation of ConfigSetup."""
+        interaction = self.interaction_env_class.__name__ if self.interaction_env_class is not None else None
+        return (
+            f"ConfigSetup(environment='{self.environment_import}', agent='{self.agent_import}', "
+            f"interaction_env={interaction!r})"
+        )
 
     @classmethod
     def from_dict(cls, dikt: dict[str, Any]) -> ConfigSetup:

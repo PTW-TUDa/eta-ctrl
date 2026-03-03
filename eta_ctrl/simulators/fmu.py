@@ -130,6 +130,19 @@ class FMUSimulator:
         #: Current simulation time.
         self.time = self.start_time
 
+    def __str__(self) -> str:
+        """Human-readable string representation of FMUSimulator."""
+        n_inputs = len(self.input_mapping)
+        n_outputs = len(self.output_mapping)
+        return f"FMUSimulator('{pathlib.Path(self.fmu_path).stem}', {n_inputs} inputs, {n_outputs} outputs)"
+
+    def __repr__(self) -> str:
+        """Developer-friendly string representation of FMUSimulator."""
+        return (
+            f"FMUSimulator(fmu_path='{self.fmu_path}', start_time={self.start_time}, "
+            f"stop_time={self.stop_time}, step_size={self.step_size})"
+        )
+
     def _validate_names(self, names: Sequence[str], context: str = "names") -> None:
         """Validate a given sequence of names by checking their existence in the FMU.
 

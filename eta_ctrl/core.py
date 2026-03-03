@@ -71,6 +71,19 @@ class EtaCtrl:
         #: The model or algorithm.
         self._model: BaseAlgorithm | None = None
 
+    def __str__(self) -> str:
+        """Human-readable string representation of EtaCtrl."""
+        env_class = self.config.setup.environment_class.__name__
+        agent_class = self.config.setup.agent_class.__name__
+        return f"EtaCtrl(config='{self.config.config_name}', env={env_class}, agent={agent_class})"
+
+    def __repr__(self) -> str:
+        """Developer-friendly string representation of EtaCtrl."""
+        return (
+            f"EtaCtrl(config_name='{self.config.config_name}', root_path='{self.config.root_path}', "
+            f"config_run_initialized={self.config_run is not None})"
+        )
+
     @property
     def environments(self) -> VecEnv | VecNormalize:
         if self._environments is None:
