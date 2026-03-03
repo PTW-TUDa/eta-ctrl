@@ -61,7 +61,7 @@ def _convert_scenarios_relpath(value: str | pathlib.Path | None) -> pathlib.Path
 log = getLogger(__name__)
 
 
-@define(frozen=False, kw_only=True)
+@define(frozen=False, kw_only=True, repr=False)
 class Config:
     """Configuration for the optimization, which can be loaded from a JSON file."""
 
@@ -96,6 +96,19 @@ class Config:
         self.scenarios_path = self.root_path / self.scenarios_relpath
 
         self.settings.create_scenario_manager(self.scenarios_path)
+
+    def __str__(self) -> str:
+        """Human-readable string representation of Config."""
+        env_class = self.setup.environment_class.__name__
+        agent_class = self.setup.agent_class.__name__
+        return f"Config '{self.config_name}' (env={env_class}, agent={agent_class})"
+
+    def __repr__(self) -> str:
+        """Developer-friendly string representation of Config."""
+        return (
+            f"Config(config_name='{self.config_name}', root_path='{self.root_path}', "
+            f"results_relpath='{self.results_relpath}')"
+        )
 
     @classmethod
     def from_file(

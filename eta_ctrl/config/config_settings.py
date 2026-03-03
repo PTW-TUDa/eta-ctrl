@@ -54,7 +54,7 @@ def _agent_defaults(instance: ConfigSettings, attrib: Attribute, new_value: dict
     return _new_value
 
 
-@define(frozen=False, kw_only=True)
+@define(frozen=False, kw_only=True, repr=False)
 class ConfigSettings:
     #: Seed for random sampling (default: None).
     seed: int | None = field(default=None, converter=converters.optional(int))
@@ -156,6 +156,20 @@ class ConfigSettings:
                 f"{self.sampling_time}. Rounding down to {corrected}."
             )
             self.episode_duration = corrected
+
+    def __str__(self) -> str:
+        """Human-readable string representation of ConfigSettings."""
+        return (
+            f"ConfigSettings(episode_duration={self.episode_duration}, "
+            f"sampling_time={self.sampling_time}, n_environments={self.n_environments})"
+        )
+
+    def __repr__(self) -> str:
+        """Developer-friendly string representation of ConfigSettings."""
+        return (
+            f"ConfigSettings(episode_duration={self.episode_duration}, sampling_time={self.sampling_time}, "
+            f"n_environments={self.n_environments}, seed={self.seed}, verbose={self.verbose})"
+        )
 
     @classmethod
     def from_dict(cls, dikt: dict[str, dict[str, Any]]) -> ConfigSettings:

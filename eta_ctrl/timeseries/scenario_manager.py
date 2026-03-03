@@ -159,6 +159,19 @@ class CsvScenarioManager(ScenarioManager):
         )
         self.total_df_length = len(self.scenarios)
 
+    def __str__(self) -> str:
+        """Human-readable string representation of CsvScenarioManager."""
+        n_scenarios = len(self.scenario_configs)
+        return f"CsvScenarioManager({n_scenarios} scenario(s), {self.start_time} to {self.end_time})"
+
+    def __repr__(self) -> str:
+        """Developer-friendly string representation of CsvScenarioManager."""
+        return (
+            f"CsvScenarioManager(start_time={self.start_time!r}, end_time={self.end_time!r}, "
+            f"total_time={self.total_time}, n_scenarios={len(self.scenario_configs)}, "
+            f"columns={list(self.scenarios.columns)})"
+        )
+
     def _validate_columns(self, columns: list[str] | None) -> list[str]:
         """Validate and return the list of columns to retrieve.
 
