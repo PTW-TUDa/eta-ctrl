@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import abc
+import importlib
 from logging import getLogger
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -15,7 +15,6 @@ from stable_baselines3.common.vec_env import VecEnv, VecNormalize
 from typing_extensions import Self
 
 from eta_ctrl.common.sb3_extensions.policies import NoPolicy
-from eta_ctrl.simulators import PyomoModel
 
 if TYPE_CHECKING:
     from typing import Any
@@ -24,40 +23,41 @@ if TYPE_CHECKING:
     from stable_baselines3.common.policies import BasePolicy
     from stable_baselines3.common.type_aliases import MaybeCallback
 
+    from eta_ctrl.simulators import PyomoModel
+
 log = getLogger(__name__)
 
 
 class MpcAgent(BaseAlgorithm):
     """Simple, Pyomo based optimization agent supporting multiple solvers.
 
-    The agent requires an environment that specifies the 'model' attribute, returning a
-    :py:class:`pyomo.ConcreteModel` and a sorted list as the order for the action space. This list is used to
-    avoid ambiguity when returning a list of actions. Since the model specifies its own action and observation
-    space, this agent does not use the *action_space* and *observation_space* specified by the environment.
+    The MpcAgent requires a PyomoModel which is passed via the `model_import` parameter.
+    It must be defined in the config under the 'agent_specific' section.
+    Common stablebaselines3 parameters are ignored for the MpcAgent as it cannot be used for learning or training.
+    It can only be used to predict actions via predict(); use EtaCtrl.play() to run experiments.
 
-    :param policy: Agent policy. Parameter is not used in this agent.
-    :param env: Environment to be optimized.
-    :param verbose: Logging verbosity.
-    :param solver_name: Name of the solver, could be cplex or glpk.
-    :param action_index: Index of the solution value to be used as action (if this is 0, the first value in a list
-        of solution values will be used).
-    :param kwargs: Additional arguments as specified in stable_baselines3.common.base_class or as provided by solver.
+    :param policy: Agent policy. Parameter is not used in this agent
+    :param env: Environment to be optimized
+    :param sampling_time: Interval for one timestep. Used to calcucate n_prediction_steps
+    :param prediction_horizon: Duration of the prediction in seconds (usually a subsample of the episode duration)
+    :param model_import: Dotted import path to the PyomoModel subclass (e.g. ``"my_package.my_module.MyModel"``)
+    :param verbose: Logging verbosity
+    :param solver_name: Name of the solver (e.g. gurobi, cplex, or glpk). Is passed to ``pyomo.SolverFactory``.
+    :param action_index: Index of the solution value to be used as action
+        (by default the value for the first timestep in the solution will be used)
+    :param kwargs: `model_parameters` is forwarded to the PyomoModel,
+        common stable_baselines3 parameters are silently ignored,
+        and any remaining kwargs are passed as solver options (e.g. solver time limits or tolerances).
     """
-
-    @property
-    @abc.abstractmethod
-    def model_file(self) -> Path | str:
-        """Relative path to the MPC model."""
-        return ""
 
     def __init__(
         self,
         env: VecEnv,
         sampling_time: float,
         prediction_horizon: float,
+        model_import: str,
         verbose: int = 1,
         *,
-        policy: type[BasePolicy] | None = None,
         solver_name: str = "cplex",
         action_index: int = 0,
         **kwargs: Any,
@@ -71,6 +71,7 @@ class MpcAgent(BaseAlgorithm):
         super_args.setdefault("learning_rate", 0.0)
 
         for unused_kwarg in (
+            "policy",
             "policy_base",
             "learning_rate",
             "policy_kwargs",
@@ -98,11 +99,11 @@ class MpcAgent(BaseAlgorithm):
         #: of solution values will be used).
         self.action_index = action_index
 
-        model_path = (self.get_env().get_attr("path_env", 0)[0] / self.model_file).resolve()
-        target_class = PyomoModel.import_mpc_class(model_path)
+        module_path, cls_name = model_import.rsplit(".", 1)
+        target_class: type[PyomoModel] = getattr(importlib.import_module(module_path), cls_name)
 
         self.model: PyomoModel = target_class(
-            model_parameters=kwargs.pop("model_parameters"),
+            model_parameters=kwargs.pop("model_parameters", None),
             sampling_time=sampling_time,
             prediction_horizon=prediction_horizon,
         )

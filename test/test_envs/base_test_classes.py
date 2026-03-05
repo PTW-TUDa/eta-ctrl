@@ -4,6 +4,7 @@ import pathlib
 import tempfile
 from pathlib import Path
 
+import pandas as pd
 import pyomo.environ as pyo
 import pytest
 
@@ -13,7 +14,20 @@ from eta_ctrl.envs.live_env import LiveEnv
 from eta_ctrl.envs.pyomo_env import PyomoEnv
 from eta_ctrl.envs.sim_env import SimEnv
 from eta_ctrl.envs.state import StateConfig, StateVar
-from test.test_agents.test_mpc_agent import DummyScenarioManager
+from eta_ctrl.timeseries.scenario_manager import CsvScenarioManager
+
+
+class DummyScenarioManager(CsvScenarioManager):
+    """Dummy class for testing purposes"""
+
+    def __init__(self) -> None:
+        self.scenarios = pd.DataFrame()
+
+    def get_scenario_state(self, n_steps):
+        return {}
+
+    def get_scenario_state_with_duration(self, n_step, duration):
+        return {}
 
 
 @pytest.fixture(scope="class")
@@ -146,7 +160,7 @@ def unified_env_factory(config_run_factory, state_config_factory):
         }
 
         if env_type == "base":
-            return TestBaseEnv(**common_params, **env_specific_params)
+            return TestBaseEnv(**{**common_params, **env_specific_params})
         if env_type == "pyomo":
             # Extract PyomoEnv specific parameters with defaults
             model_parameters = env_specific_params.get("model_parameters", {})

@@ -208,7 +208,7 @@ ignore = [
 
 [tool.ruff.lint.extend-per-file-ignores]
 "__init__.py" = ["PLC0414"]
-"test/*" = ["RUF012", "S", "ANN", "D", "SIM", "FBT00", "PLR2004", "SLF"]
+"test/*" = ["RUF012", "S", "ANN", "D", "SIM", "FBT00", "PLR2004", "SLF", "PLC0414"]
 "examples/*" = ["S10", "D"]
 "scripts/*" = ["INP001"]
 
