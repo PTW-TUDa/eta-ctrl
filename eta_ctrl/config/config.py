@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from attrs import define, field, validators
 
 import __main__
+from eta_ctrl.agents.mpc_agent import MpcAgent
 from eta_ctrl.envs.state import StateConfig
 from eta_ctrl.util import deep_mapping_update
 from eta_ctrl.util.io_utils import load_config
@@ -96,6 +97,9 @@ class Config:
         self.scenarios_path = self.root_path / self.scenarios_relpath
 
         self.settings.create_scenario_manager(self.scenarios_path)
+
+        if issubclass(self.setup.agent_class, MpcAgent):
+            self.settings["agent"]["sampling_time"] = self.settings.sampling_time
 
     def __str__(self) -> str:
         """Human-readable string representation of Config."""

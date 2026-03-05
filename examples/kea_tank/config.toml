@@ -1,6 +1,6 @@
 [setup]
 environment_import = "examples.kea_tank.environment.kea_model_env.DrKea"
-agent_import = "examples.kea_tank.kea_mpc_agent.KeaMpcAgent"
+agent_import = "eta_ctrl.agents.MpcAgent"
 
 [settings]
 sampling_time = 10  # time in seconds
@@ -24,9 +24,9 @@ rename_cols = {"Electrical_Energy_Price_MWh" = "energy_price"}
 
 
 [agent_specific]
+model_import = "examples.kea_tank.kea_pyomo_model.DrKeaModel"
 solver_name = "cplex_direct"
 prediction_horizon = 600  # time in seconds, optimization horizon K, is constant
-sampling_time = 10  # time in seconds
 
 [agent_specific.model_parameters]
 p_heat = 10  # kW, heating power consumption

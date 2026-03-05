@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import abc
-import importlib
-import inspect
 from collections.abc import Mapping, Sequence
 from datetime import timedelta
 from logging import getLogger
@@ -15,8 +13,6 @@ from pyomo import environ as pyo
 from eta_ctrl.util.utils import is_divisible
 
 if TYPE_CHECKING:
-    from importlib.machinery import ModuleSpec
-    from pathlib import Path
     from typing import Any
 
     from eta_ctrl.util.type_annotations import PyoParams, TimeStep
@@ -149,36 +145,6 @@ class PyomoModel:
         out: PyoParams = {name: {None: value} for name, value in out_raw.items()}
 
         return {None: out}
-
-    @staticmethod
-    def import_mpc_class(path: Path) -> type[PyomoModel]:
-        """Utility method to load a PyomoModel type from a filepath.
-
-        Assumes that only one PyomoModel exists in the given file.
-
-        :param path: path to the PyomoModel
-        :type path: Path
-        :raises ValueError: File not existent
-        :return: PyomoModel class from the file
-        :rtype: type[PyomoModel]
-        """
-        spec: ModuleSpec | None = importlib.util.spec_from_file_location("PyomoModel_spec", str(path))
-        if spec is None:
-            msg = f"Couldnd't find the specified Pyomo model at {path}"
-            raise FileNotFoundError(msg)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)  # type: ignore[union-attr]
-
-        classes = [
-            cls_
-            for name, cls_ in inspect.getmembers(module, inspect.isclass)
-            if cls_.__module__ == module.__name__  # Only classes defined in this module
-            and issubclass(cls_, PyomoModel)
-        ]
-        if len(classes) == 0:
-            msg = f"Couldn't find a PyomoModel class in {path.name}"
-            raise ValueError(msg)
-        return classes[0]
 
     def pyo_get_solution(self, names: set[str] | None = None) -> dict[str, float | list[float]]:
         """Convert the pyomo solution into a more usable format for plotting.
