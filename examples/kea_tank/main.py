@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import pathlib
 from typing import TYPE_CHECKING
 
@@ -10,7 +11,7 @@ if TYPE_CHECKING:
 
 
 def main() -> None:
-    get_logger(level=1, log_format="logname")
+    get_logger(level=logging.WARNING, log_format="logname")
 
     experiment()
 
@@ -22,8 +23,10 @@ def experiment(overwrite: dict[str, Any] | None = None) -> None:
     :param overwrite: Additional config values to overwrite values from JSON.
     """
     root_path = pathlib.Path(__file__).parent
-    experiment = EtaCtrl(root_path=root_path, config_overwrite=overwrite, config_relpath=".", config_name="config")
-    experiment.play(series_name="cleaning_machine", run_name="test_run")
+    env_path = root_path / "environment"
+    overwrite = {"environment_specific": {"path_env": env_path.absolute()}}
+    experiment = EtaCtrl(root_path=root_path, config_overwrite=overwrite, config_relpath=".", config_name="config.toml")
+    experiment.play(series_name="kea_tank_pyomo_sim", run_name="example_run")
 
 
 if __name__ == "__main__":

@@ -295,7 +295,7 @@ class ConfigSettings:
             raise ValueError(msg)
 
         # When prediction horizon is defined the duration will include it
-        if prediction_horizon := self.environment.get("prediction_horizon"):
+        if prediction_horizon := self.agent.get("prediction_horizon"):
             try:
                 prediction_horizon = float(prediction_horizon)
             except ValueError:

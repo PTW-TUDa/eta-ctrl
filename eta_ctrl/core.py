@@ -447,7 +447,7 @@ class EtaCtrl:
             action = np.round(action * _scale_actions, _round_actions)
         else:
             action *= _scale_actions
-        # Some agents (i.e. MathSolver) can interact with an additional environment
+        # Some agents (i.e. MpcAgent) can interact with an additional environment
         if self.config.settings.interact_with_env:
             if self.interaction_env is None:
                 msg = "Initialized interaction environments could not be found. Call prepare_run first."

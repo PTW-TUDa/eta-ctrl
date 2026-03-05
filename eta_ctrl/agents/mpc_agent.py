@@ -1,31 +1,33 @@
 from __future__ import annotations
 
+import abc
 from logging import getLogger
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
-import numpy as np
 import pyomo.environ as pyo
 from gymnasium import spaces
+from gymnasium.vector.utils import create_empty_array, iterate
 from pyomo import opt
 from pyomo.common.errors import InfeasibleConstraintException
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.vec_env import VecEnv, VecNormalize
+from typing_extensions import Self
+
+from eta_ctrl.common.sb3_extensions.policies import NoPolicy
+from eta_ctrl.simulators import PyomoModel
 
 if TYPE_CHECKING:
-    import io
-    import pathlib
-    from collections.abc import Sequence
     from typing import Any
 
-    import torch as th
+    import numpy as np
     from stable_baselines3.common.policies import BasePolicy
-    from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback
+    from stable_baselines3.common.type_aliases import MaybeCallback
 
 log = getLogger(__name__)
 
 
-class MathSolver(BaseAlgorithm):
+class MpcAgent(BaseAlgorithm):
     """Simple, Pyomo based optimization agent supporting multiple solvers.
 
     The agent requires an environment that specifies the 'model' attribute, returning a
@@ -42,77 +44,80 @@ class MathSolver(BaseAlgorithm):
     :param kwargs: Additional arguments as specified in stable_baselines3.common.base_class or as provided by solver.
     """
 
+    @property
+    @abc.abstractmethod
+    def model_file(self) -> Path | str:
+        """Relative path to the MPC model."""
+        return ""
+
     def __init__(
         self,
-        policy: type[BasePolicy],
         env: VecEnv,
+        sampling_time: float,
+        prediction_horizon: float,
         verbose: int = 1,
         *,
+        policy: type[BasePolicy] | None = None,
         solver_name: str = "cplex",
         action_index: int = 0,
-        _init_setup_model: bool = True,
         **kwargs: Any,
     ) -> None:
         # Prepare kwargs to be sent to the super class and to the solver.
         super_args: dict[str, Any] = {}
-        solver_args = {}
 
         # Set default values for superclass arguments
-        kwargs.setdefault("learning_rate", 0.0)
+        super_args = {"supported_action_spaces": (spaces.Box,), "monitor_wrapper": False}
+        super_args["seed"] = kwargs.pop("seed", None)
+        super_args.setdefault("learning_rate", 0.0)
 
-        for key, value in kwargs.items():
-            # Find arguments which are meant for the BaseAlgorithm class and extract them into super_args
-            if key in {
-                "policy_base",
-                "learning_rate",
-                "policy_kwargs",
-                "device",
-                "support_multi_env",
-                "create_eval_env",
-                "monitor_wrapper",
-                "seed",
-                "use_sde",
-                "sde_sample_freq",
-            }:
-                super_args[key] = value
-            elif key == "tensorboard_log":
-                log.warning(
-                    "The MPC Basic agent does not support logging to tensorboard. Ignoring parameter tensorboard_log."
-                )
-            else:
-                solver_args[key] = value
+        for unused_kwarg in (
+            "policy_base",
+            "learning_rate",
+            "policy_kwargs",
+            "device",
+            "support_multi_env",
+            "create_eval_env",
+            "use_sde",
+            "sde_sample_freq",
+        ):
+            kwargs.pop(unused_kwarg, None)
 
-        super_args["supported_action_spaces"] = (spaces.Box,)
-        super().__init__(policy=policy, env=env, verbose=verbose, **super_args)
+        super().__init__(policy=NoPolicy, env=env, verbose=verbose, **super_args)
         log.setLevel(int(verbose * 10))  # Set logging verbosity
 
-        # Check configuration for MILP compatibility
-        if self.n_envs is not None and self.n_envs > 1:
-            msg = "The MPC agent can only use one environment. It cannot work on multiple vectorized environments."
-            raise ValueError(msg)
         if isinstance(self.get_env(), VecNormalize):
             msg = "The MPC agent does not allow the use of normalized environments."
             raise TypeError(msg)
 
-        # Solver parameters
-        self.solver_name: str = solver_name
-        self.solver_options: dict = {}
-        self.solver_options.update(solver_args)
-
-        self.model: pyo.ConcreteModel  #: Pyomo optimization model as specified by the environment.
-        self.actions_order: Sequence[str]  #: Specification of the order in which action values should be returned.
+        #: Specification of the order in which action values should be returned.
+        self.actions_order = self.get_env().get_attr("state_config", 0)[0].actions
 
         self.policy_class: type[BasePolicy]
-        if _init_setup_model:
-            self._setup_model()
 
         #: Index of the solution value to be used as action (if this is 0, the first value in a list
         #: of solution values will be used).
         self.action_index = action_index
 
+        model_path = (self.get_env().get_attr("path_env", 0)[0] / self.model_file).resolve()
+        target_class = PyomoModel.import_mpc_class(model_path)
+
+        self.model: PyomoModel = target_class(
+            model_parameters=kwargs.pop("model_parameters"),
+            sampling_time=sampling_time,
+            prediction_horizon=prediction_horizon,
+        )
+        #: Pyomo optimization model as specified by the environment.
+        self.concrete_model: pyo.ConcreteModel = self.model.model
+
+        # Solver parameters
+        self.solver_name: str = solver_name
+        self.solver = pyo.SolverFactory(self.solver_name)
+        self.solver.options.update(kwargs)  # Adjust solver settings
+
+        self._setup_model()
+
     def _setup_model(self) -> None:
-        """Load the MILP model from the environment."""
-        self.model, self.actions_order = self.get_env().get_attr("model", 0)[0]
+        """Required method by the BaseAlgorithm interface."""
         if self.policy_class is not None:
             self.policy: type[BasePolicy] = self.policy_class(  # type: ignore[assignment]
                 self.observation_space,
@@ -120,6 +125,7 @@ class MathSolver(BaseAlgorithm):
             )
 
     def get_env(self) -> VecEnv:
+        """Helper method for type annotation."""
         if self.env is None:
             msg = "Can't access attribute 'self.env', initialize environment first"
             raise AttributeError(msg)
@@ -131,11 +137,11 @@ class MathSolver(BaseAlgorithm):
 
         :return: Solved pyomo model instance.
         """
-        solver = pyo.SolverFactory(self.solver_name)
-        solver.options.update(self.solver_options)  # Adjust solver settings
 
         _tee: bool = bool(log.level / 10 <= 1)
-        result = solver.solve(self.model, symbolic_solver_labels=True, tee=_tee)
+
+        result = self.solver.solve(self.model.model, symbolic_solver_labels=True, tee=_tee)
+
         if _tee:
             print("\n")  # noqa: T201 (print is ok here, because cplex prints directly to console).
         log.debug(
@@ -239,7 +245,7 @@ class MathSolver(BaseAlgorithm):
                 )
                 raise InfeasibleConstraintException(msg)
 
-        return self.model
+        return self.model.model
 
     def predict(
         self,
@@ -258,39 +264,36 @@ class MathSolver(BaseAlgorithm):
                                    deterministic actions.
         :return: Tuple of the model's action and the next state (not used here).
         """
-        self.model, _ = self.get_env().get_attr("model", 0)[0]
-        self.solve()
-        self.get_env().set_attr("model", self.model, 0)
+        action_array: np.ndarray = create_empty_array(self.action_space, n=self.get_env().num_envs)  # type: ignore[assignment]
 
-        # Aggregate the agent actions from pyomo component objects
-        solution = {}
-        for com in self.model.component_objects(pyo.Var):
-            if isinstance(com, pyo.ScalarVar):
-                continue
-            try:
-                solution[com.name] = pyo.value(com[com.index_set().at(self.action_index + 1)])
-            except ValueError:
-                log.exception("Couldn't fetch the value for action {}")
+        # Return actions for each environment
+        for idx, env_obs in enumerate(iterate(self.observation_space, observation)):
+            env_obs_: dict = env_obs  # for typing only, must be of type dictionary
 
-        # Make sure that actions are returned to the correct order and as a numpy array.
-        actions: np.ndarray = np.ndarray((1, len(self.actions_order)), dtype=np.float32)
-        for i, action in enumerate(self.actions_order):
-            log.debug(f"Action '{action}' value: {solution[action]}")
-            actions[0][i] = solution[action]
+            # Update model parameters with environment observations
+            self.model.pyo_update_params(env_obs_)
 
-        return actions, state
+            # Solve the model for actions
+            self.solve()
 
-    def action_probability(
-        self,
-        observation: dict[str, np.ndarray],
-        state: np.ndarray | None = None,
-        mask: np.ndarray | None = None,
-        actions: np.ndarray | None = None,
-        logp: bool = False,
-    ) -> None:
-        """The MPC approach cannot predict probabilities of single actions."""
-        msg = "The MPC agent cannot predict probabilities of single actions."
-        raise NotImplementedError(msg)
+            # Aggregate the agent actions from pyomo component objects
+            solution = {}
+            for com in self.model.model.component_objects(pyo.Var):
+                com = cast("pyo.Var", com)
+                if isinstance(com, pyo.ScalarVar):
+                    continue
+                try:
+                    solution[com.name] = pyo.value(com[com.index_set().at(self.action_index + 1)])  # index is 1-based
+                except (ValueError, KeyError) as e:
+                    model_name = type(self.model).__name__
+                    msg = f"Couldn't fetch the value for action '{com.name}' in the PyomoModel {model_name}"
+                    raise ValueError(msg) from e
+
+            for i, action in enumerate(self.actions_order):
+                log.debug(f"Action '{action}' value: {solution[action]}")
+                action_array[idx][i] = solution[action]
+
+        return action_array, state
 
     def learn(
         self,
@@ -300,7 +303,7 @@ class MathSolver(BaseAlgorithm):
         tb_log_name: str = "run",
         reset_num_timesteps: bool = True,
         progress_bar: bool = False,
-    ) -> MathSolver:
+    ) -> Self:
         """The MPC approach cannot learn a new model.
         Specify the model attribute as a pyomo Concrete model instead, to use the prediction function of this agent.
 
@@ -313,37 +316,3 @@ class MathSolver(BaseAlgorithm):
         :return: The trained model.
         """
         return self
-
-    @classmethod
-    def load(
-        cls,
-        path: str | pathlib.Path | io.BufferedIOBase,
-        env: GymEnv | None = None,
-        device: th.device | str = "auto",
-        custom_objects: dict[str, Any] | None = None,
-        print_system_info: bool = False,
-        force_reset: bool = True,
-        **kwargs: Any,
-    ) -> MathSolver:
-        """Load the model from a zip-file.
-
-        Warning: ``load`` re-creates the model from scratch, it does not update it in-place!
-
-        :param path: path to the file (or a file-like) where to load the agent from
-        :param env: the new environment to run the loaded model on
-            (can be None if you only need prediction from a trained model) has priority over any saved environment
-        :param device: Device on which the code should run.
-        :param custom_objects: Dictionary of objects to replace upon loading. If a variable is present in
-            this dictionary as a key, it will not be deserialized and the corresponding item will be used instead.
-        :param print_system_info: Whether to print system info from the saved model and the current system info
-            (useful to debug loading issues)
-        :param force_reset: Force call to ``reset()`` before training to avoid unexpected behavior.
-        :param kwargs: extra arguments to change the model when loading
-        :return: new model instance with loaded parameters
-        """
-        if env is None:
-            msg = "Parameter env must be specified."
-            raise ValueError(msg)
-        model: MathSolver = super().load(path, env, device, custom_objects, print_system_info, force_reset, **kwargs)
-
-        return model

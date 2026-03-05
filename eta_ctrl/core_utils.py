@@ -153,7 +153,7 @@ def initialize_model(
         )
 
     # create model instance
-    return algo(policy, envs, **algo_settings, **algo_kwargs)  # type: ignore[arg-type]
+    return algo(policy=policy, env=envs, **algo_settings, **algo_kwargs)  # type: ignore[arg-type]
 
 
 def load_model(
