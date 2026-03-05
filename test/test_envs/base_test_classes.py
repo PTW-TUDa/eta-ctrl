@@ -13,7 +13,7 @@ from eta_ctrl.envs.live_env import LiveEnv
 from eta_ctrl.envs.pyomo_env import PyomoEnv
 from eta_ctrl.envs.sim_env import SimEnv
 from eta_ctrl.envs.state import StateConfig, StateVar
-from test.test_agents.test_mathsolver import DummyScenarioManager
+from test.test_agents.test_mpc_agent import DummyScenarioManager
 
 
 @pytest.fixture(scope="class")

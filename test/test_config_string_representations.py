@@ -48,18 +48,18 @@ class TestConfigSetupStringRepresentations:
     # --- __str__ ---
 
     def test_str_shows_env_and_agent_names(self, setup_with_interaction):
-        assert str(setup_with_interaction) == "ConfigSetup(env=PyomoEnv, agent=MathSolver)"
+        assert str(setup_with_interaction) == "ConfigSetup(env=PyomoEnv, agent=MpcAgent)"
 
     def test_str_is_identical_regardless_of_interaction_env(self, setup_no_interaction):
         """__str__ only shows primary env and agent — interaction_env is not part of it."""
-        assert str(setup_no_interaction) == "ConfigSetup(env=PyomoEnv, agent=MathSolver)"
+        assert str(setup_no_interaction) == "ConfigSetup(env=PyomoEnv, agent=MpcAgent)"
 
     # --- __repr__ ---
 
     def test_repr_contains_full_import_paths(self, setup_with_interaction):
         result = repr(setup_with_interaction)
         assert "environment='eta_ctrl.envs.PyomoEnv'" in result
-        assert "agent='eta_ctrl.agents.MathSolver'" in result
+        assert "agent='eta_ctrl.agents.MpcAgent'" in result
 
     def test_repr_shows_interaction_env_class_name(self, setup_with_interaction):
         assert "interaction_env='PyomoEnv'" in repr(setup_with_interaction)
@@ -203,10 +203,10 @@ class TestConfigStringRepresentations:
     def test_str_contains_env_and_agent(self, config):
         result = str(config)
         assert "env=PyomoEnv" in result
-        assert "agent=MathSolver" in result
+        assert "agent=MpcAgent" in result
 
     def test_str_exact(self, config):
-        assert str(config) == "Config 'test_config' (env=PyomoEnv, agent=MathSolver)"
+        assert str(config) == "Config 'test_config' (env=PyomoEnv, agent=MpcAgent)"
 
     # --- __repr__ ---
 

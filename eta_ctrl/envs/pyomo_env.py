@@ -30,7 +30,7 @@ log = getLogger(__name__)
 
 
 class PyomoEnv(BaseEnv, abc.ABC):
-    """Base class for mathematical MPC models. This class can be used in conjunction with the MathSolver agent.
+    """Base class for mathematical MPC models. This class can be used in conjunction with the MpcAgent agent.
     You need to implement the *_model* method in a subclass and return a *pyomo.AbstractModel* from it.
 
     :param env_id: Identification for the environment, useful when creating multiple environments.

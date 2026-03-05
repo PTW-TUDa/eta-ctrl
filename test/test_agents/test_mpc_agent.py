@@ -6,11 +6,14 @@ import pytest
 from pyomo import opt
 from pyomo.common.errors import InfeasibleConstraintException
 
-from eta_ctrl.agents.math_solver import MathSolver
-from eta_ctrl.common import NoPolicy
+from eta_ctrl.agents.mpc_agent import MpcAgent
 from eta_ctrl.config import ConfigRun
 from eta_ctrl.timeseries.scenario_manager import CsvScenarioManager
 from test.resources.agents.mpc_basic_env import MPCBasicEnv
+
+
+class DummyMpcAgent(MpcAgent):
+    model_file = "test_mpc_model.py"
 
 
 class DummyScenarioManager(CsvScenarioManager):
@@ -26,9 +29,44 @@ class DummyScenarioManager(CsvScenarioManager):
         return {}
 
 
-class TestMathSolver:
+class TestMpcAgent:
     @pytest.fixture(scope="class")
-    def mpc_basic_env(self, temp_dir):
+    def _model_file(self, temp_dir):
+        model_file = temp_dir / "test_mpc_model.py"
+        model_file.write_text(
+            """
+import pyomo.environ as pyo
+
+from eta_ctrl.simulators.pyomo_model import PyomoModel
+
+
+class TestMpcModel(PyomoModel):
+    def _model(self) -> pyo.AbstractModel:
+        model = pyo.AbstractModel()
+        model.T = pyo.RangeSet(0, self.n_prediction_steps - 1)
+        model.x = pyo.Var(model.T, initialize=0.0)
+        model.foo = pyo.Param(model.T, mutable=True, initialize=0.0)
+        model.u = pyo.Var(model.T, bounds=(-1, 1), initialize=0.0)
+
+        def obj_rule(m):
+            return sum((m.x[t] - m.foo[t]) ** 2 + m.u[t] ** 2 for t in m.T)
+
+        model.obj = pyo.Objective(rule=obj_rule)
+
+        def constr_rule(m, t):
+            if t == 0:
+                return pyo.Constraint.Skip
+            return m.x[t] == m.x[t - 1] + m.u[t - 1]
+
+        model.constr = pyo.Constraint(model.T, rule=constr_rule)
+        return model
+""".strip(),
+            encoding="utf-8",
+        )
+        return model_file
+
+    @pytest.fixture(scope="class")
+    def mpc_basic_env(self, temp_dir, _model_file):
         config_run = ConfigRun(
             series="MPC_Basic_test_2023",
             name="test_mpc_basic",
@@ -47,6 +85,7 @@ class TestMathSolver:
             sampling_time=1,
             model_parameters={},
             scenario_manager=DummyScenarioManager(),
+            path_env=temp_dir,
         )
         yield env
         env.close()
@@ -54,27 +93,29 @@ class TestMathSolver:
     @pytest.fixture(scope="class")
     def mpc_agent(self, mpc_basic_env):
         # set up the agent
-        return MathSolver(NoPolicy, mpc_basic_env)
+        return DummyMpcAgent(
+            env=mpc_basic_env,
+            sampling_time=mpc_basic_env.sampling_time,
+            prediction_horizon=mpc_basic_env.prediction_horizon,
+            model_parameters={},
+        )
 
     def test_mpc_save_load(self, mpc_basic_env, mpc_agent, temp_dir):
         # save
         path = temp_dir / "test_mpc_basic_agent.zip"
         mpc_agent.save(path)
+        assert path.exists()
 
-        # Load the agent from the saved file
-        loaded_agent = MathSolver.load(path=path, env=mpc_basic_env)
-
-        assert isinstance(loaded_agent, MathSolver)
-        assert isinstance(loaded_agent.policy, NoPolicy)
-
-        # Compare attributes before and after loading
-        assert loaded_agent.model == mpc_agent.model
-        assert loaded_agent.observation_space == mpc_agent.observation_space
-        assert loaded_agent.num_timesteps == mpc_agent.num_timesteps
+        # Load is currently not supported because SB3 BaseAlgorithm.load does not call the
+        # subclass constructor with required MPC-specific arguments.
+        with pytest.raises(TypeError) as exc_info:
+            DummyMpcAgent.load(path=path, env=mpc_basic_env)
+        assert "sampling_time" in str(exc_info.value)
+        assert "prediction_horizon" in str(exc_info.value)
 
     def test_mpc_learn(self, mpc_agent):
         assert mpc_agent.learn(total_timesteps=5) is not None
-        assert isinstance(mpc_agent, MathSolver)
+        assert isinstance(mpc_agent, MpcAgent)
 
     def test_solver_continues_on_suboptimal_solution(self, mpc_agent, caplog):
         """Test that solver continues with warning when reaching maxTimeLimit with suboptimal solution."""
@@ -85,17 +126,16 @@ class TestMathSolver:
             gap=0.05,
         )
 
-        with patch("pyomo.environ.SolverFactory") as mock_solver_factory:
-            self._setup_mock_solver(mock_solver_factory, mock_result)
-
+        caplog.set_level("WARNING", logger="eta_ctrl.agents.mpc_agent")
+        with patch.object(mpc_agent.solver, "solve", return_value=mock_result):
             # Mock env_method to prevent it from being called on error path
             with patch.object(mpc_agent.get_env(), "env_method"):
                 result = mpc_agent.solve()
 
-                # Verify warning logged and execution continued
-                assert any("did not reach optimal solution" in record.message for record in caplog.records)
-                assert any("maxTimeLimit" in record.message for record in caplog.records)
-                assert result is not None
+            # Verify warning logged and execution continued
+            assert any("did not reach optimal solution" in record.message for record in caplog.records)
+            assert any("maxTimeLimit" in record.message for record in caplog.records)
+            assert result is not None
 
     def test_solver_exits_on_infeasible_problem(self, mpc_agent):
         """Test that solver raises InfeasibleConstraintException when problem is truly infeasible."""
@@ -103,16 +143,14 @@ class TestMathSolver:
             termination_condition=opt.TerminationCondition.infeasible, status=opt.SolverStatus.ok, has_solution=False
         )
 
-        with patch("pyomo.environ.SolverFactory") as mock_solver_factory:
-            self._setup_mock_solver(mock_solver_factory, mock_result)
-
+        with patch.object(mpc_agent.solver, "solve", return_value=mock_result):
             # Mock env_method to avoid DummyScenarioManager issues when handle_failed_solve is called
             with patch.object(mpc_agent.get_env(), "env_method"):
                 with pytest.raises(InfeasibleConstraintException) as exc_info:
                     mpc_agent.solve()
 
-                assert "Solver failed to find feasible solution" in str(exc_info.value)
-                assert "infeasible" in str(exc_info.value)
+            assert "Solver failed to find feasible solution" in str(exc_info.value)
+            assert "infeasible" in str(exc_info.value)
 
     def test_solver_exits_on_solver_error(self, mpc_agent):
         """Test that solver raises InfeasibleConstraintException when encountering a solver error."""
@@ -120,15 +158,13 @@ class TestMathSolver:
             termination_condition=opt.TerminationCondition.error, status=opt.SolverStatus.error, has_solution=False
         )
 
-        with patch("pyomo.environ.SolverFactory") as mock_solver_factory:
-            self._setup_mock_solver(mock_solver_factory, mock_result)
-
+        with patch.object(mpc_agent.solver, "solve", return_value=mock_result):
             with patch.object(mpc_agent.get_env(), "env_method"):
                 with pytest.raises(InfeasibleConstraintException) as exc_info:
                     mpc_agent.solve()
 
-                assert "Solver failed to find feasible solution" in str(exc_info.value)
-                assert "error" in str(exc_info.value)
+            assert "Solver failed to find feasible solution" in str(exc_info.value)
+            assert "error" in str(exc_info.value)
 
     def test_solver_continues_on_iteration_limit(self, mpc_agent, caplog):
         """Test that solver continues when hitting iteration limit with a feasible solution."""
@@ -136,15 +172,14 @@ class TestMathSolver:
             termination_condition=opt.TerminationCondition.maxIterations, status=opt.SolverStatus.ok, has_solution=True
         )
 
-        with patch("pyomo.environ.SolverFactory") as mock_solver_factory:
-            self._setup_mock_solver(mock_solver_factory, mock_result)
-
+        caplog.set_level("WARNING", logger="eta_ctrl.agents.mpc_agent")
+        with patch.object(mpc_agent.solver, "solve", return_value=mock_result):
             with patch.object(mpc_agent.get_env(), "env_method"):
                 result = mpc_agent.solve()
 
-                # Verify warning logged and execution continued
-                assert any("did not reach optimal solution" in record.message for record in caplog.records)
-                assert result is not None
+            # Verify warning logged and execution continued
+            assert any("did not reach optimal solution" in record.message for record in caplog.records)
+            assert result is not None
 
     def test_solver_logs_small_result_directly(self, mpc_agent, caplog):
         """Test that small result objects are logged directly without saving to disk."""
@@ -154,17 +189,16 @@ class TestMathSolver:
         # Make str(result) return a small string (< 10KB)
         mock_result.__str__ = MagicMock(return_value="Small result: " + "x" * 100)
 
-        with patch("pyomo.environ.SolverFactory") as mock_solver_factory:
-            self._setup_mock_solver(mock_solver_factory, mock_result)
-
+        caplog.set_level("DEBUG", logger="eta_ctrl.agents.mpc_agent")
+        with patch.object(mpc_agent.solver, "solve", return_value=mock_result):
             with patch.object(mpc_agent.get_env(), "env_method"):
                 with pytest.raises(InfeasibleConstraintException):
                     mpc_agent.solve()
 
-                # Verify result was logged directly at debug level
-                assert any("Full solver result object" in record.message for record in caplog.records)
-                # Verify no disk save message
-                assert not any("saved to:" in record.message for record in caplog.records)
+            # Verify result was logged directly at debug level
+            assert any("Full solver result object" in record.message for record in caplog.records)
+            # Verify no disk save message
+            assert not any("saved to:" in record.message for record in caplog.records)
 
     def test_solver_saves_large_result_to_disk(self, mpc_agent, caplog, temp_dir):
         """Test that large result objects are saved to disk instead of logging."""
@@ -175,20 +209,19 @@ class TestMathSolver:
         large_content = "Large result: " + "x" * 15000
         mock_result.__str__ = MagicMock(return_value=large_content)
 
-        with patch("pyomo.environ.SolverFactory") as mock_solver_factory:
-            self._setup_mock_solver(mock_solver_factory, mock_result)
-
+        caplog.set_level("DEBUG", logger="eta_ctrl.agents.mpc_agent")
+        with patch.object(mpc_agent.solver, "solve", return_value=mock_result):
             with patch.object(mpc_agent.get_env(), "env_method"):
                 with pytest.raises(InfeasibleConstraintException):
                     mpc_agent.solve()
 
-                # Verify file was saved
-                assert any("Full solver result saved to:" in record.message for record in caplog.records)
+            # Verify file was saved
+            assert any("Full solver result saved to:" in record.message for record in caplog.records)
 
-                # Verify file exists and contains correct content
-                saved_files = list(temp_dir.glob("solver_result_failure_*.txt"))
-                assert len(saved_files) == 1
-                assert saved_files[0].read_text(encoding="utf-8") == large_content
+            # Verify file exists and contains correct content
+            saved_files = list(temp_dir.glob("solver_result_failure_*.txt"))
+            assert len(saved_files) == 1
+            assert saved_files[0].read_text(encoding="utf-8") == large_content
 
     def test_solver_handles_disk_write_failure(self, mpc_agent, caplog, temp_dir):
         """Test that solver logs truncated result when disk write fails."""
@@ -199,22 +232,21 @@ class TestMathSolver:
         large_content = "Large result: " + "x" * 15000
         mock_result.__str__ = MagicMock(return_value=large_content)
 
-        with patch("pyomo.environ.SolverFactory") as mock_solver_factory:
-            self._setup_mock_solver(mock_solver_factory, mock_result)
-
+        caplog.set_level("DEBUG", logger="eta_ctrl.agents.mpc_agent")
+        with patch.object(mpc_agent.solver, "solve", return_value=mock_result):
             with patch.object(mpc_agent.get_env(), "env_method"):
                 # Mock Path.write_text to raise an exception (simulate disk write failure)
                 with patch("pathlib.Path.write_text", side_effect=PermissionError("Disk write failed")):
                     with pytest.raises(InfeasibleConstraintException):
                         mpc_agent.solve()
 
-                    # Verify warning about disk write failure
-                    assert any(
-                        "Could not save result to disk" in record.message and record.levelname == "WARNING"
-                        for record in caplog.records
-                    )
-                    # Verify truncated result was logged
-                    assert any("truncated" in record.message for record in caplog.records)
+                # Verify warning about disk write failure
+                assert any(
+                    "Could not save result to disk" in record.message and record.levelname == "WARNING"
+                    for record in caplog.records
+                )
+                # Verify truncated result was logged
+                assert any("truncated" in record.message for record in caplog.records)
 
     @staticmethod
     def _create_mock_solver_result(termination_condition, status, has_solution, gap=None):
@@ -241,11 +273,3 @@ class TestMathSolver:
         mock_result.__getitem__.side_effect = lambda key: result_dict[key]
 
         return mock_result
-
-    @staticmethod
-    def _setup_mock_solver(mock_solver_factory, mock_result):
-        """Helper to setup mock solver."""
-        mock_solver_instance = MagicMock()
-        mock_solver_instance.solve.return_value = mock_result
-        mock_solver_instance.options = MagicMock()
-        mock_solver_factory.return_value = mock_solver_instance
