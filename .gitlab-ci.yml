@@ -26,7 +26,7 @@ include:
 
 variables:
   # Poetry settings
-  POETRY_VERSION: 2.1.1
+  POETRY_VERSION: 2.3.2
   REGISTRY_IMAGE: $CI_REGISTRY/$CI_PROJECT_PATH/poetry${POETRY_VERSION}
 
 default:

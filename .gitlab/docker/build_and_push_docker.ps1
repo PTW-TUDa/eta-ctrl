@@ -17,8 +17,8 @@ if (Test-Path $envFile) {
 }
 
 # Define variables
-$PYTHON_VERSIONS = @("3.10", "3.11", "3.12")
-$POETRY_VERSION = "2.1.1"
+$PYTHON_VERSIONS = @("3.11", "3.12")
+$POETRY_VERSION = "2.3.2"
 $DOCKERFILE_PATH = ".gitlab/docker/dockerfile"
 $REGISTRY_URL = "git-reg.ptw.maschinenbau.tu-darmstadt.de"
 $IMAGE_PATH = "eta-fabrik/public/eta-ctrl/"
