@@ -48,7 +48,7 @@ Then install Poetry with pipx:
 
 .. code-block:: console
 
-    $ pipx install poetry==2.1.1
+    $ pipx install poetry==2.3.2
 
 
 .. note::
@@ -236,11 +236,11 @@ To update the containers first you need to login in GitLab through docker:
 
 
 Then you build and upload the image from the dockerfile.
-To build an image for e.g. Python version 3.11, execute:
+To build an image for e.g. Python version 3.12, execute:
 
 .. code-block:: console
 
-    $ docker build -t git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/poetry2.1.1:py3.11 -f .gitlab/docker/dockerfile --build-args="PYTHON_VERSION=3.11" .
+    $ docker build -t git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/poetry2.3.2:py3.12 -f .gitlab/docker/dockerfile --build-args="PYTHON_VERSION=3.12" .
 
 Using tags for the images is a good practice to differentiate image versions, in case it's not used it's automatic
 labeled as *latest*. Currently there are two images for Python environments, grouped by the current Poetry version, with Python versions
@@ -250,4 +250,4 @@ The last step is to upload the images to the private docker registry.
 
 .. code-block:: console
 
-    $ docker push git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/poetry2.1.1:py3.11
+    $ docker push git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/poetry2.3.2:py3.12
