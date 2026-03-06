@@ -205,24 +205,26 @@ class StateConfig:
         #: List of variables that can be received from an external source (such as an FMU).
         self.ext_outputs: list[str] = self.df_vars.query("is_ext_output == True").index.tolist()
         #: Mapping of variable names to their external IDs.
-        self.map_ext_ids: dict[str, str] = self.df_vars[self.df_vars["ext_id"].notna()].ext_id.to_dict()
+        self.map_ext_ids: dict[str, str] = self.df_vars.loc[self.ext_inputs + self.ext_outputs, "ext_id"].to_dict()
         #: Reverse mapping of external IDs to their corresponding variable names.
         self.rev_ext_ids: dict[str, str] = {v: k for k, v in self.map_ext_ids.items()}
 
         #: List of variables that should be read from an interaction environment.
         self.interact_outputs: list[str] = self.df_vars.query("from_interact == True").index.tolist()
         #: Mapping of internal environment names to interact IDs.
-        self.map_interact_ids: dict[str, str] = self.df_vars["interact_id"].to_dict()
+        self.map_interact_ids: dict[str, str] = self.df_vars.loc[self.interact_outputs, "interact_id"].to_dict()
 
         #: List of variables which are loaded from scenario files.
         self.scenario_outputs: list[str] = self.df_vars.query("from_scenario == True").index.tolist()
         #: Mapping of internal environment names to scenario IDs.
-        self.map_scenario_ids: dict[str, str] = self.df_vars["scenario_id"].to_dict()
+        self.map_scenario_ids: dict[str, str] = self.df_vars.loc[self.scenario_outputs, "scenario_id"].to_dict()
 
+        _abort_condition_df = self.df_vars.loc[:, ["abort_condition_min", "abort_condition_max"]]
+        _abort_condition_df = _abort_condition_df.replace([np.inf, -np.inf], np.nan)
         #: List of variables that have minimum values for an abort condition.
-        self.abort_conditions_min: list[str] = self.df_vars["abort_condition_min"].dropna().index.tolist()
+        self.abort_conditions_min: list[str] = _abort_condition_df["abort_condition_min"].dropna().index.tolist()
         #: List of variables that have maximum values for an abort condition.
-        self.abort_conditions_max: list[str] = self.df_vars["abort_condition_max"].index.tolist()
+        self.abort_conditions_max: list[str] = _abort_condition_df["abort_condition_max"].dropna().index.tolist()
 
     @classmethod
     def from_file(cls, root_path: pathlib.Path, filename: str) -> Self:
