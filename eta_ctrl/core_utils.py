@@ -57,7 +57,7 @@ def vectorize_environment(
     # Create the vectorized environment
     log.debug("Trying to vectorize the environment.")
     # Ensure n is one, if the DummyVecEnv is used (it doesn't support more than one)
-    if type(vectorizer) is DummyVecEnv and n != 1:
+    if vectorizer is DummyVecEnv and n != 1:
         n = 1
         log.warning("Setting number of environments to 1 because DummyVecEnv (default) is used.")
 

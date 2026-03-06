@@ -1,6 +1,7 @@
 """Shared base test classes and fixtures for environment string representation tests."""
 
 import pathlib
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -44,8 +45,6 @@ def temp_directory_factory():
 
     # Cleanup all created directories
     for directory in directories:
-        import shutil
-
         shutil.rmtree(directory, ignore_errors=True)
 
 
@@ -146,7 +145,7 @@ def unified_env_factory(config_run_factory, state_config_factory):
                 "description": f"Test run for {env_type} environment",
             }
 
-        config_run, temp_path = config_run_factory(**config_run_params)
+        config_run, _temp_path = config_run_factory(**config_run_params)
         state_config = state_config_factory(state_config_type)
 
         # Common environment parameters

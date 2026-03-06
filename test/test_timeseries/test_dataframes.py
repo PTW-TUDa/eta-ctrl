@@ -103,7 +103,7 @@ class TestInterpolate:
         df_interpolated = df_interpolate(
             dataframe=uneven_dataframe, freq=timedelta(minutes=5), limit_direction=limit_direction
         )
-        assert np.isnan(df_interpolated.iloc[position]["Value"])
+        assert np.isnan(df_interpolated["Value"].iloc[position])
 
     @pytest.fixture
     def zero_dataframe(self):

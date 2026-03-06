@@ -7,7 +7,7 @@ from logging import getLogger
 from typing import TYPE_CHECKING
 
 from attrs import Factory, converters, define, field, fields
-from pandas.core.tools.datetimes import to_datetime
+from pandas import to_datetime
 
 from eta_ctrl.timeseries.scenario_manager import ConfigCsvScenario, CsvScenarioManager
 from eta_ctrl.util import dict_pop_any

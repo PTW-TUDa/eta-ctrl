@@ -34,7 +34,7 @@ default:
     - python
     - docker
   interruptible: true
-  image: ${REGISTRY_IMAGE}:py3.10
+  image: ${REGISTRY_IMAGE}:py3.11
   before_script:
     - python --version
     - rm -rf dist doc eta_ctrl.egg-info build
@@ -144,13 +144,8 @@ linkcheck-docs:
         path: coverage.xml
 
 # This job has test coverage report
-test3.10:
-  extends: .coverage
-
-
 test3.11:
-  extends: .test
-  image: ${REGISTRY_IMAGE}:py3.11
+  extends: .coverage
 
 test3.12:
   extends: .test

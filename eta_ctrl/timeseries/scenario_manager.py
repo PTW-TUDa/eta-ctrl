@@ -205,4 +205,4 @@ class CsvScenarioManager(ScenarioManager):
             raise IndexError(msg)
         # Choose all columns if names are not supplied
         columns = self._validate_columns(columns=names)
-        return {col: self.scenarios.iloc[n_step:end_index][col].to_numpy() for col in columns}
+        return {col: self.scenarios[col].iloc[n_step:end_index].to_numpy() for col in columns}

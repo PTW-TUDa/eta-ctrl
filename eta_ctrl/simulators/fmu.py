@@ -545,6 +545,6 @@ class FMU2MESlave(FMU2Model):
         _, time = self._solver.step(time, time + step_size)
         self.setTime(time)
         # Check for events that might have occurred during the step
-        step_event, _ = self.completedIntegratorStep()
+        _step_event, _ = self.completedIntegratorStep()
 
         return self.fmi2ok

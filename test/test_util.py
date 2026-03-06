@@ -1,11 +1,11 @@
 import json
 import logging
 import re
+import tomllib
 from datetime import timedelta
 from pathlib import Path
 
 import pytest
-import toml
 
 from eta_ctrl.util import (
     dict_search,
@@ -83,7 +83,7 @@ def test_load_config_file_fail(config_resources_path: Path):
 
 def test_load_config_file_fail2(config_resources_path: Path, monkeypatch):
     file_path = config_resources_path / "config2"
-    monkeypatch.setattr(toml, "load", lambda _: ["settings"])
+    monkeypatch.setattr(tomllib, "load", lambda _: ["settings"])
     error_msg = re.escape(f"Config file {file_path} must define a dictionary of options.")
     with pytest.raises(TypeError, match=error_msg):
         load_config(file=file_path)
