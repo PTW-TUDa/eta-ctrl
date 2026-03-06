@@ -5,6 +5,7 @@ import random
 import shutil
 
 import pytest
+from _pytest.monkeypatch import MonkeyPatch
 
 from test.test_envs.base_test_classes import (
     # Unified factory fixtures
@@ -54,8 +55,6 @@ async def stop_execution(sleep_time):
 
 @pytest.fixture(scope="class")
 def class_monkeypatch():
-    from _pytest.monkeypatch import MonkeyPatch
-
     m = MonkeyPatch()
     yield m
     m.undo()

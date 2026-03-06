@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib
 from logging import getLogger
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Self, cast
 
 import pyomo.environ as pyo
 from gymnasium import spaces
@@ -12,7 +12,6 @@ from pyomo import opt
 from pyomo.common.errors import InfeasibleConstraintException
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.vec_env import VecEnv, VecNormalize
-from typing_extensions import Self
 
 from eta_ctrl.common.sb3_extensions.policies import NoPolicy
 

@@ -13,9 +13,7 @@ from eta_ctrl.util.io_utils import load_config
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
-    from typing import Any
-
-    from typing_extensions import Self
+    from typing import Any, Self
 
     from eta_ctrl.util.type_annotations import Path
 from logging import getLogger
@@ -207,7 +205,7 @@ class StateConfig:
         #: List of variables that can be received from an external source (such as an FMU).
         self.ext_outputs: list[str] = self.df_vars.query("is_ext_output == True").index.tolist()
         #: Mapping of variable names to their external IDs.
-        self.map_ext_ids: dict[str, str] = self.df_vars.query("ext_id != None").ext_id.to_dict()
+        self.map_ext_ids: dict[str, str] = self.df_vars[self.df_vars["ext_id"].notna()].ext_id.to_dict()
         #: Reverse mapping of external IDs to their corresponding variable names.
         self.rev_ext_ids: dict[str, str] = {v: k for k, v in self.map_ext_ids.items()}
 

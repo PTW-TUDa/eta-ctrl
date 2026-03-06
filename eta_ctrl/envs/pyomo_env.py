@@ -450,7 +450,7 @@ class PyomoEnv(BaseEnv, abc.ABC):
                 msg = "Unsupported timeseries type for index conversion."
                 raise ValueError(msg)
 
-            return cts
+            return cts  # type: ignore[return-value]
 
         if isinstance(_ts, pd.DataFrame | Mapping):
             for key, t in _ts.items():
@@ -513,7 +513,7 @@ class PyomoEnv(BaseEnv, abc.ABC):
             parameter_name = str(parameter)
             if parameter_name not in updated_params:
                 # last entry is the parameter name for abstract models which are instanced
-                parameter_name = parameter_name.split(".")[-1]
+                parameter_name = parameter_name.rsplit(".", maxsplit=1)[-1]
 
             if parameter_name in updated_params:
                 if isinstance(parameter, pyo_base.param.ScalarParam | pyo_base.var.ScalarVar):

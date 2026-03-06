@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import abc
+from collections.abc import Sequence
 from logging import getLogger
 from typing import TYPE_CHECKING
 
-from eta_nexus.connections import LiveConnect
+from eta_nexus.connection_manager import ConnectionManager
 
 from eta_ctrl.envs import BaseEnv
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable
     from typing import Any
 
     from eta_ctrl.config import ConfigRun
@@ -74,7 +75,7 @@ class LiveEnv(BaseEnv, abc.ABC):
             **kwargs,
         )
         #: Instance of the Live Connector.
-        self.connection_manager: LiveConnect
+        self.connection_manager: ConnectionManager
         #: Path or Dict to initialize the live connector.
         self.connection_manager_config: Path | Sequence[Path] | dict[str, Any] | None = (
             self.path_env / f"{self.config_name}.json"
@@ -110,14 +111,18 @@ class LiveEnv(BaseEnv, abc.ABC):
             raise TypeError(msg)
 
         if isinstance(_files, dict):
-            self.connection_manager = LiveConnect.from_dict(
+            self.connection_manager = ConnectionManager.from_dict(
                 step_size=self.sampling_time,
                 max_error_count=self.max_error_count,
                 **_files,
             )
+        elif isinstance(_files, Sequence):
+            self.connection_manager = ConnectionManager.from_config(
+                *_files, step_size=self.sampling_time, max_error_count=self.max_error_count
+            )
         else:
-            self.connection_manager = LiveConnect.from_config(
-                files=_files, step_size=self.sampling_time, max_error_count=self.max_error_count
+            self.connection_manager = ConnectionManager.from_config(
+                _files, step_size=self.sampling_time, max_error_count=self.max_error_count
             )
 
     def _step(self) -> tuple[float, bool, bool, dict]:

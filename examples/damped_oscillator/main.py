@@ -61,9 +61,9 @@ def get_path() -> pathlib.Path:
 
 def plot() -> None:
     """Load results from both runs and create a plot to compare them."""
-    import matplotlib as mpl
-    import matplotlib.pyplot as plt
-    import pandas as pd
+    import matplotlib as mpl  # noqa: PLC0415
+    import matplotlib.pyplot as plt  # noqa: PLC0415
+    import pandas as pd  # noqa: PLC0415
 
     data = (
         pd.concat(

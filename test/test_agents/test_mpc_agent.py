@@ -10,6 +10,7 @@ from pyomo.common.errors import InfeasibleConstraintException
 
 from eta_ctrl.agents.mpc_agent import MpcAgent
 from eta_ctrl.envs.state import StateConfig, StateVar
+from test.resources.agents.mpc_basic_model import MPCBasicModel
 
 MODEL_IMPORT = "test.resources.agents.mpc_basic_model.MPCBasicModel"
 
@@ -31,8 +32,6 @@ class TestMpcAgent:
         )
 
     def test_model_is_loaded(self, mpc_agent):
-        from test.resources.agents.mpc_basic_model import MPCBasicModel
-
         assert isinstance(mpc_agent.model, MPCBasicModel)
         assert mpc_agent.concrete_model is mpc_agent.model.model
 

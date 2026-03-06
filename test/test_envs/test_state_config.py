@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 from gymnasium.spaces.box import Box
 from gymnasium.spaces.dict import Dict
@@ -232,8 +233,6 @@ class TestStateConfig:
         StateConfig.from_dict(state_vars)
 
     def test_from_dict_with_dataframe(self):
-        import pandas as pd
-
         state_vars = pd.DataFrame([{"name": "foo", "is_agent_action": True, "low_value": 0, "high_value": 1}])
         stateconfig = StateConfig.from_dict(state_vars)
         assert stateconfig.actions == ["foo"]

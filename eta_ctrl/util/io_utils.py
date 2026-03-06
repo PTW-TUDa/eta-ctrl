@@ -4,12 +4,13 @@ import csv
 import json
 import pathlib
 import re
+import tomllib
 from collections.abc import Callable, Mapping, Sequence
 from logging import getLogger
 from typing import TYPE_CHECKING
 
 import pandas as pd
-import toml
+import tomli_w
 import yaml
 
 if TYPE_CHECKING:
@@ -72,8 +73,8 @@ def toml_import(path: Path) -> dict[str, Any]:
     path = pathlib.Path(path)
 
     try:
-        with path.open("r") as f:
-            result = toml.load(f)
+        with path.open("rb") as f:
+            result = tomllib.load(f)
         log.info(f"TOML file {path} loaded successfully.")
     except OSError as e:
         log.exception(f"TOML file couldn't be loaded: {e.strerror}. Filename: {e.filename}")
@@ -91,8 +92,8 @@ def toml_export(path: Path, data: dict[str, Any]) -> None:
     path = pathlib.Path(path)
 
     try:
-        with path.open("w") as f:
-            toml.dump(data, f)
+        with path.open("wb") as f:
+            tomli_w.dump(data, f)
     except OSError as e:
         log.exception(f"TOML file couldn't be exported: {e.strerror}. Filename: {e.filename}")
         raise

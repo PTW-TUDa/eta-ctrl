@@ -402,9 +402,11 @@ class BaseEnv(Env, abc.ABC):
             action_val = int(action)
 
         # Check bounds
-        if action_val < space.start or action_val >= space.start + space.n:
+        space_start = int(space.start)
+        space_n = int(space.n)
+        if action_val < space_start or action_val >= space_start + space_n:
             errors.append("\nValue out of range:")
-            errors.append(f"  Valid range: [{space.start}, {space.start + space.n - 1}]")
+            errors.append(f"  Valid range: [{space_start}, {space_start + space_n - 1}]")
             errors.append(f"  Received: {action_val}")
 
         return errors

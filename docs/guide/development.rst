@@ -236,18 +236,18 @@ To update the containers first you need to login in GitLab through docker:
 
 
 Then you build and upload the image from the dockerfile.
-To build an image for e.g. Python version 3.10, execute:
+To build an image for e.g. Python version 3.11, execute:
 
 .. code-block:: console
 
-    $ docker build -t git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/poetry2.1.1:py3.10 -f .gitlab/docker/dockerfile --build-args="PYTHON_VERSION=3.10" .
+    $ docker build -t git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/poetry2.1.1:py3.11 -f .gitlab/docker/dockerfile --build-args="PYTHON_VERSION=3.11" .
 
 Using tags for the images is a good practice to differentiate image versions, in case it's not used it's automatic
-labeled as *latest*. Currently there are three images for Python environments, grouped by the current Poetry version, with Python versions
-differentiated by tags (py3.10, py3.11 and py3.12).
+labeled as *latest*. Currently there are two images for Python environments, grouped by the current Poetry version, with Python versions
+differentiated by tags (py3.11 and py3.12).
 
 The last step is to upload the images to the private docker registry.
 
 .. code-block:: console
 
-    $ docker push git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/poetry2.1.1:py3.10
+    $ docker push git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/poetry2.1.1:py3.11

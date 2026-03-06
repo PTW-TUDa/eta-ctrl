@@ -1,4 +1,5 @@
 import pathlib
+import tomllib
 
 import pytest
 
@@ -72,10 +73,8 @@ class TestSimEnvScaffolder:
 
         default_path = fmu_path.parent / f"{fmu_path.stem}_env_state_config.toml"
 
-        import toml
-
-        with pathlib.Path.open(default_path) as f:
-            toml_data = toml.load(f)
+        with pathlib.Path.open(default_path, "rb") as f:
+            toml_data = tomllib.load(f)
 
         # Check expected structure for new format
         assert "fmu_info" in toml_data
@@ -94,10 +93,8 @@ class TestSimEnvScaffolder:
 
         default_path = fmu_path.parent / f"{fmu_path.stem}_env_state_config.toml"
 
-        import toml
-
-        with pathlib.Path.open(default_path) as f:
-            toml_data = toml.load(f)
+        with pathlib.Path.open(default_path, "rb") as f:
+            toml_data = tomllib.load(f)
 
         # Check that fmu_info section exists and has expected fields
         assert "fmu_info" in toml_data
@@ -116,10 +113,8 @@ class TestSimEnvScaffolder:
 
         default_path = fmu_path.parent / f"{fmu_path.stem}_env_state_config.toml"
 
-        import toml
-
-        with pathlib.Path.open(default_path) as f:
-            toml_data = toml.load(f)
+        with pathlib.Path.open(default_path, "rb") as f:
+            toml_data = tomllib.load(f)
 
         assert len(toml_data["actions"]) > 0, "FMU should have at least one model action"
 
@@ -133,10 +128,8 @@ class TestSimEnvScaffolder:
 
         default_path = fmu_path.parent / f"{fmu_path.stem}_env_state_config.toml"
 
-        import toml
-
-        with pathlib.Path.open(default_path) as f:
-            toml_data = toml.load(f)
+        with pathlib.Path.open(default_path, "rb") as f:
+            toml_data = tomllib.load(f)
 
         assert len(toml_data["observations"]) > 0, "FMU should have at least one model observation"
 
@@ -150,10 +143,8 @@ class TestSimEnvScaffolder:
 
         default_path = fmu_path.parent / f"{fmu_path.stem}_env_state_config.toml"
 
-        import toml
-
-        with pathlib.Path.open(default_path) as f:
-            toml_data = toml.load(f)
+        with pathlib.Path.open(default_path, "rb") as f:
+            toml_data = tomllib.load(f)
 
         # Check that actions have correct structure
         for action in toml_data["actions"]:
@@ -197,10 +188,8 @@ class TestSimEnvScaffolder:
 
         default_path = fmu_path.parent / f"{fmu_path.stem}_env_state_config.toml"
 
-        import toml
-
-        with pathlib.Path.open(default_path) as f:
-            toml_data = toml.load(f)
+        with pathlib.Path.open(default_path, "rb") as f:
+            toml_data = tomllib.load(f)
 
         # Check that observations have correct structure
         for observation in toml_data["observations"]:
@@ -288,10 +277,8 @@ class TestSimEnvScaffolder:
 
         default_path = fmu_path.parent / f"{fmu_path.stem}_parameters.toml"
 
-        import toml
-
-        with pathlib.Path.open(default_path) as f:
-            toml_data = toml.load(f)
+        with pathlib.Path.open(default_path, "rb") as f:
+            toml_data = tomllib.load(f)
 
         # Check expected structure for parameter export
         assert "fmu_info" in toml_data
@@ -308,10 +295,8 @@ class TestSimEnvScaffolder:
 
         default_path = fmu_path.parent / f"{fmu_path.stem}_parameters.toml"
 
-        import toml
-
-        with pathlib.Path.open(default_path) as f:
-            toml_data = toml.load(f)
+        with pathlib.Path.open(default_path, "rb") as f:
+            toml_data = tomllib.load(f)
 
         # Check that fmu_info section exists and has expected fields
         assert "fmu_info" in toml_data
@@ -332,10 +317,8 @@ class TestSimEnvScaffolder:
 
         default_path = fmu_path.parent / f"{fmu_path.stem}_parameters.toml"
 
-        import toml
-
-        with pathlib.Path.open(default_path) as f:
-            toml_data = toml.load(f)
+        with pathlib.Path.open(default_path, "rb") as f:
+            toml_data = tomllib.load(f)
 
         # Check that parameters section exists
         assert "parameters" in toml_data
@@ -399,13 +382,11 @@ class TestSimEnvScaffolder:
         assert variables_path.exists()
         assert parameters_path.exists()
 
-        import toml
-
         # Load both files
-        with pathlib.Path.open(variables_path) as f:
-            structure_data = toml.load(f)
-        with pathlib.Path.open(parameters_path) as f:
-            parameters_data = toml.load(f)
+        with pathlib.Path.open(variables_path, "rb") as f:
+            structure_data = tomllib.load(f)
+        with pathlib.Path.open(parameters_path, "rb") as f:
+            parameters_data = tomllib.load(f)
 
         # Both should have fmu_info sections with same name
         assert structure_data["fmu_info"]["name"] == parameters_data["fmu_info"]["name"]
@@ -437,12 +418,10 @@ class TestSimEnvScaffolder:
         parameters_path = fmu_path.parent / f"{fmu_path.stem}_parameters.toml"
         structure_path = fmu_path.parent / f"{fmu_path.stem}_env_state_config.toml"
 
-        import toml
-
-        with pathlib.Path.open(parameters_path) as f:
-            parameters_data = toml.load(f)
-        with pathlib.Path.open(structure_path) as f:
-            structure_data = toml.load(f)
+        with pathlib.Path.open(parameters_path, "rb") as f:
+            parameters_data = tomllib.load(f)
+        with pathlib.Path.open(structure_path, "rb") as f:
+            structure_data = tomllib.load(f)
 
         # Get parameter names
         parameter_names = set(parameters_data["parameters"].keys())

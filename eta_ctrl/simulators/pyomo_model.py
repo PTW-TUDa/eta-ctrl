@@ -108,14 +108,14 @@ class PyomoModel:
                 for i, param_val in enumerate(list(component)):
                     component[param_val] = float(new_values[i])
                 return
-            msg = f"Received unsupported datatype {type(new_values)} for component '{component}'"  # type: ignore[unreachable]
+            msg = f"Received unsupported datatype {type(new_values)} for component '{component}'"
             raise TypeError(msg)
 
         for component in self.model.component_objects():
             component_name = str(component)
             if component_name not in updated_params:
                 # last entry is the parameter name for abstract models which are instanced
-                component_name = component_name.split(".")[-1]
+                component_name = component_name.rsplit(".", maxsplit=1)[-1]
                 if component_name not in updated_params:
                     continue
 
