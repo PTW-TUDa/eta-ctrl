@@ -157,26 +157,20 @@ class BaseEnv(Env, abc.ABC):
 
     def _init_attributes(self) -> None:
         """Initialize environment attributes that don't depend on constructor arguments."""
-
-        # Determine path of the environment file
-        # 1. Explicit override if provided, 2. Auto-detect from call stack, 3. Fallback to cwd
         detected_path: pathlib.Path | None = None
 
-        # Use explicit override if provided
         if self._path_env_override is not None:
             detected_path = self._path_env_override
         else:
-            # Try to detect path from call stack
-            for f in inspect.stack():
-                if "__class__" in f.frame.f_locals and f.frame.f_locals["__class__"] is self.__class__:
-                    detected_path = pathlib.Path(f.filename).parent
-                    break
+            try:
+                detected_path = pathlib.Path(inspect.getfile(type(self))).resolve().parent
+            except (TypeError, OSError):
+                detected_path = None
 
-        # Fallback if detection failed
         if detected_path is None:
             detected_path = pathlib.Path.cwd()
             log.warning(
-                f"Could not automatically detect environment path for {self.__class__.__name__}. "
+                f"Could not automatically detect environment path for {type(self).__name__}. "
                 f"Falling back to current working directory: {detected_path}. "
                 "Consider passing 'path_env' explicitly to the constructor if this is incorrect."
             )
