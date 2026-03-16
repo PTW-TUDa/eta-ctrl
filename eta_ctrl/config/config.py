@@ -214,11 +214,6 @@ class Config:
         )
         settings_raw["environment_specific"]["state_config"] = state_config
 
-        if "interaction_env_specific" in config:
-            settings_raw["interaction_env_specific"] = _pop_dict(config, "interaction_env_specific")
-        elif "interaction_environment_specific" in config:
-            settings_raw["interaction_env_specific"] = _pop_dict(config, "interaction_environment_specific")
-
         settings_raw["agent_specific"] = _pop_dict(config, "agent_specific")
 
         # Log unrecognized values

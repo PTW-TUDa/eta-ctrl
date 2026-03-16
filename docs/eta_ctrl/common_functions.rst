@@ -10,8 +10,7 @@ reading *ETA Ctrl* configuration files and for the logging capabilities of *ETA 
 Instantiating Environments
 --------------------------------
 Environments can be instantiated with the *vectorize_environment* function. The function will automatically wrap the
-environments with normalization wrappers and monitoring wrappers if required and it can create both interaction
-environments and normal environments.
+environments with normalization wrappers and monitoring wrappers if required.
 
 .. autofunction:: eta_ctrl.core_utils::vectorize_environment
     :no-index:

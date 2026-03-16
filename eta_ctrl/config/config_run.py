@@ -59,15 +59,6 @@ class ConfigRun:
         init=False, default=None, validator=validators.optional(validators.instance_of(str))
     )
 
-    #: Version of the secondary environment (interaction_env).
-    interaction_env_version: str | None = field(
-        init=False, default=None, validator=validators.optional(validators.instance_of(str))
-    )
-    #: Description of the secondary environment (interaction_env).
-    interaction_env_description: str | None = field(
-        init=False, default=None, validator=validators.optional(validators.instance_of(str))
-    )
-
     def __attrs_post_init__(self) -> None:
         """Add default values to the derived paths."""
         object.__setattr__(self, "series_results_path", self.results_path / self.series)
@@ -113,16 +104,6 @@ class ConfigRun:
         version, description = env.get_info()
         object.__setattr__(self, "env_version", version)
         object.__setattr__(self, "env_description", description)
-
-    def set_interaction_env_info(self, env: type[BaseEnv]) -> None:
-        """Set the interaction environment information of the optimization run to represent the given environment.
-        The information will default to None if this is never called.
-
-        :param env: The environment whose description should be used.
-        """
-        version, description = env.get_info()
-        object.__setattr__(self, "interaction_env_version", version)
-        object.__setattr__(self, "interaction_env_description", description)
 
     @property
     def paths(self) -> dict[str, pathlib.Path]:

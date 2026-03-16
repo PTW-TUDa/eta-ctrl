@@ -266,30 +266,18 @@ class PyomoEnv(BaseEnv, abc.ABC):
         self._reset_state()
         for var_name in self.state_config.observations:
             statevar = self.state_config.vars[var_name]
-            if not isinstance(statevar.interact_id, int):
-                msg = "The interact_id value for observations must be an integer."
-                raise TypeError(msg)
             value = None
 
-            # Read values from external environment (for example simulation)
-            if observations is not None and statevar.from_interact is True:
-                value = round(
-                    (observations[0][statevar.interact_id] + statevar.interact_scale_add)
-                    * statevar.interact_scale_mult,
-                    5,
-                )
-                self.state[var_name] = np.array([value])
+            # Read additional values from the mathematical model
+            for component in self.model[0].component_objects():
+                if component.name == var_name:
+                    # Get value for the component from specified index
+                    value = round(pyo.value(component[list(component.keys())[int(statevar.index)]]), 5)
+                    new_value = value if value is not None else np.nan
+                    self.state[var_name] = np.array([new_value])
+                    break
             else:
-                # Read additional values from the mathematical model
-                for component in self.model[0].component_objects():
-                    if component.name == var_name:
-                        # Get value for the component from specified index
-                        value = round(pyo.value(component[list(component.keys())[int(statevar.index)]]), 5)
-                        new_value = value if value is not None else np.nan
-                        self.state[var_name] = np.array([new_value])
-                        break
-                else:
-                    log.error(f"Specified observation value {var_name} could not be found.")
+                log.error(f"Specified observation value {var_name} could not be found.")
             updated_params[var_name] = value
             new_value = value if value is not None else float("nan")
             self.state[var_name] = np.array([new_value])

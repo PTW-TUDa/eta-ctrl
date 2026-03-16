@@ -146,7 +146,7 @@ Config section 'settings'
 The configuration options in the settings section are the following.
 
  .. note::
-    The configuration options "environment_specific", "interaction_env_specific" and "agent_specific"
+    The configuration options "environment_specific" and "agent_specific"
     are separate sections on the top level. They are loaded into the settings object as dictionaries.
     To determine, which options are valid for these sections, please look at the arguments required
     for instantiation of the agent or environment. These arguments must be specified as parameters in
@@ -173,4 +173,4 @@ docs: :py:class:`eta_ctrl.config.ConfigRun`.
 .. autoclass:: eta_ctrl.config::ConfigRun
     :members:
     :no-index:
-    :exclude-members: from_dict, set_env_info, set_interaction_env_info, create_results_folders
+    :exclude-members: from_dict, set_env_info, create_results_folders

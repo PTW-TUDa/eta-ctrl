@@ -37,9 +37,7 @@ def vectorize_environment(
     norm_wrapper_obs: bool = False,
     norm_wrapper_reward: bool = False,
 ) -> VecNormalize | VecEnv:
-    """Vectorize the environment and automatically apply normalization wrappers if configured. If the environment
-    is initialized as an interaction_env it will not have normalization wrappers and use the appropriate configuration
-    automatically.
+    """Vectorize the environment and automatically apply normalization wrappers if configured.
 
     :param env: Environment class which will be instantiated and vectorized.
     :param config_run: Configuration for a specific optimization run.

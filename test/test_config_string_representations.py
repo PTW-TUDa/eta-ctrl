@@ -35,37 +35,20 @@ class TestConfigSetupStringRepresentations:
     """Tests for ConfigSetup.__str__ and __repr__."""
 
     @pytest.fixture(scope="class")
-    def setup_with_interaction(self):
+    def config_setup(self):
         return ConfigSetup.from_dict(_fresh_setup_dict())
-
-    @pytest.fixture(scope="class")
-    def setup_no_interaction(self):
-        d = _fresh_setup_dict()
-        d.pop("interaction_env_class", None)
-        d.pop("interaction_env_package", None)
-        return ConfigSetup.from_dict(d)
 
     # --- __str__ ---
 
-    def test_str_shows_env_and_agent_names(self, setup_with_interaction):
-        assert str(setup_with_interaction) == "ConfigSetup(env=PyomoEnv, agent=MpcAgent)"
-
-    def test_str_is_identical_regardless_of_interaction_env(self, setup_no_interaction):
-        """__str__ only shows primary env and agent — interaction_env is not part of it."""
-        assert str(setup_no_interaction) == "ConfigSetup(env=PyomoEnv, agent=MpcAgent)"
+    def test_str_shows_env_and_agent_names(self, config_setup):
+        assert str(config_setup) == "ConfigSetup(env=PyomoEnv, agent=MpcAgent)"
 
     # --- __repr__ ---
 
-    def test_repr_contains_full_import_paths(self, setup_with_interaction):
-        result = repr(setup_with_interaction)
+    def test_repr_contains_full_import_paths(self, config_setup):
+        result = repr(config_setup)
         assert "environment='eta_ctrl.envs.PyomoEnv'" in result
         assert "agent='eta_ctrl.agents.MpcAgent'" in result
-
-    def test_repr_shows_interaction_env_class_name(self, setup_with_interaction):
-        assert "interaction_env='PyomoEnv'" in repr(setup_with_interaction)
-
-    def test_repr_shows_none_for_missing_interaction_env(self, setup_no_interaction):
-        assert "interaction_env=None" in repr(setup_no_interaction)
 
 
 # ---------------------------------------------------------------------------

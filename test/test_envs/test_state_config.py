@@ -60,29 +60,6 @@ class TestStateVar:
     def test_state_var_ext_id_should_be_name_by_default(self, state_var_scenario):
         assert state_var_scenario.ext_id == state_var_scenario.name
 
-    @pytest.fixture(scope="class")
-    def state_var_interact(self):
-        return StateVar(
-            name="foo",
-            is_agent_action=True,
-            low_value=0,
-            high_value=1,
-            from_interact=True,
-            interact_id=0,
-            interact_scale_add=1,
-            interact_scale_mult=2,
-        )
-
-    def test_interact_var(self, state_var_interact):
-        assert state_var_interact.name == "foo"
-        assert state_var_interact.is_agent_action is True
-        assert state_var_interact.low_value == 0
-        assert state_var_interact.high_value == 1
-        assert state_var_interact.from_interact is True
-        assert state_var_interact.interact_id == 0
-        assert state_var_interact.interact_scale_add == 1.0
-        assert state_var_interact.interact_scale_mult == 2.0
-
     def test_from_dict(self):
         dikt = {"name": "foo", "is_agent_action": True, "low_value": 0, "high_value": 1}
         state_var = StateVar.from_dict(dikt)

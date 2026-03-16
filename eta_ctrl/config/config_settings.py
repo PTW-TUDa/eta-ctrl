@@ -72,11 +72,6 @@ class ConfigSettings:
     n_episodes_play: int | None = field(default=None, converter=converters.optional(int))
     #: Number of episodes to execute when the agent is learning (default: None).
     n_episodes_learn: int | None = field(default=None, converter=converters.optional(int))
-    #: Flag to determine whether the interaction env is used or not (default: False).
-    interact_with_env: bool = field(
-        default=False,
-        converter=converters.pipe(converters.default_if_none(False), bool),  # type: ignore[misc]
-    )  # mypy currently does not recognize converters.default_if_none
     #: How often to save the model during training (default: 10 - after every ten episodes).
     save_model_every_x_episodes: int = field(
         default=10,
@@ -101,11 +96,9 @@ class ConfigSettings:
     #: Simulation steps for every sample.
     sim_steps_per_sample: int | None = field(default=None, converter=converters.optional(int))
 
-    #: Multiplier for scaling the agent actions before passing them to the environment
-    #: (especially useful with interaction environments) (default: None).
+    #: Multiplier for scaling the agent actions before passing them to the environment (default: None).
     scale_actions: float | None = field(default=None, converter=converters.optional(float))
-    #: Number of digits to round actions to before passing them to the environment
-    #: (especially useful with interaction environments) (default: None).
+    #: Number of digits to round actions to before passing them to the environment (default: None).
     round_actions: int | None = field(default=None, converter=converters.optional(int))
 
     #: Settings dictionary for the environment.
@@ -114,8 +107,6 @@ class ConfigSettings:
         converter=converters.default_if_none(Factory(dict)),  # type: ignore[misc]
         on_setattr=_env_defaults,
     )  # mypy currently does not recognize converters.default_if_none
-    #: Settings dictionary for the interaction environment (default: None).
-    interaction_env: dict[str, Any] | None = field(default=None, on_setattr=_env_defaults)
     #: Settings dictionary for the agent.
     agent: dict[str, Any] = field(
         default=Factory(dict),
@@ -134,16 +125,6 @@ class ConfigSettings:
         _fields = fields(ConfigSettings)
         _env_defaults(self, _fields.environment, self.environment)
         _agent_defaults(self, _fields.agent, self.agent)
-
-        # Set standards for interaction env settings or copy settings from environment
-        if self.interaction_env is not None:
-            _env_defaults(self, _fields.interaction_env, self.interaction_env)
-        elif self.interact_with_env is True and self.interaction_env is None:
-            log.warning(
-                "Interaction with an environment has been requested, but no section 'interaction_env_specific' "
-                "found in settings. Reusing 'environment_specific' section."
-            )
-            self.interaction_env = self.environment
 
         if self.n_episodes_play is None and self.n_episodes_learn is None:
             msg = "At least one of 'n_episodes_play' or 'n_episodes_learn' must be specified in settings."
@@ -199,7 +180,6 @@ class ConfigSettings:
         n_epsiodes_play = settings.pop("n_episodes_play", None)
         n_episodes_learn = settings.pop("n_episodes_learn", None)
 
-        interact_with_env = settings.pop("interact_with_env", False)
         save_model_every_x_episodes = settings.pop("save_model_every_x_episodes", None)
         plot_interval = settings.pop("plot_interval", None)
 
@@ -217,8 +197,8 @@ class ConfigSettings:
         sampling_time = settings.pop("sampling_time", None)
 
         sim_steps_per_sample = settings.pop("sim_steps_per_sample", None)
-        scale_actions = dict_pop_any(settings, "scale_interaction_actions", "scale_actions", fail=False, default=None)
-        round_actions = dict_pop_any(settings, "round_interaction_actions", "round_actions", fail=False, default=None)
+        scale_actions = dict_pop_any(settings, "scale_actions", fail=False, default=None)
+        round_actions = dict_pop_any(settings, "round_actions", fail=False, default=None)
 
         if "environment_specific" not in dikt:
             log.error("'environment_specific' section not defined in settings.")
@@ -229,10 +209,6 @@ class ConfigSettings:
             log.error("'agent_specific' section not defined in settings.")
             errors = True
         agent = dikt.pop("agent_specific", None)
-
-        interaction_env = dict_pop_any(
-            dikt, "interaction_env_specific", "interaction_environment_specific", fail=False, default=None
-        )
 
         log_to_file = settings.pop("log_to_file", False)
         use_random_time_slice: bool = settings.pop("use_random_time_slice", False)
@@ -254,7 +230,6 @@ class ConfigSettings:
             n_environments=n_environments,
             n_episodes_play=n_epsiodes_play,
             n_episodes_learn=n_episodes_learn,
-            interact_with_env=interact_with_env,
             save_model_every_x_episodes=save_model_every_x_episodes,
             plot_interval=plot_interval,
             scenario_time_begin=scenario_time_begin,
@@ -267,7 +242,6 @@ class ConfigSettings:
             round_actions=round_actions,
             environment=environment,
             agent=agent,
-            interaction_env=interaction_env,
             log_to_file=log_to_file,
         )
 

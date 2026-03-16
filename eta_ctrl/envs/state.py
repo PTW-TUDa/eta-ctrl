@@ -39,7 +39,7 @@ class StateVar(BaseModel):
     #: Should the state log of this episode be added to state_log_longtime? (default: True).
     add_to_state_log: bool = True
 
-    #: Name of the variable in the external interaction model
+    #: Name of the variable in the external model
     #: (e.g.: environment or FMU) (default: StateVar.name if (is_ext_input or is_ext_output) else None).
     ext_id: str | None = None
     #: Should this variable be passed to the external model as an input? (default: False).
@@ -50,15 +50,6 @@ class StateVar(BaseModel):
     ext_scale_add: float = 0.0
     #: Value to multiply to the output from an external model (default: 1.0).
     ext_scale_mult: float = 1.0
-
-    #: Name or identifier (order) of the variable in an interaction environment (default: None).
-    interact_id: int | None = None
-    #: Should this variable be read from the interaction environment? (default: False).
-    from_interact: bool = False
-    #: Value to add to the value read from an interaction (default: 0.0).
-    interact_scale_add: float = 0.0
-    #: Value to multiply to the value read from  an interaction (default: 1.0).
-    interact_scale_mult: float = 1.0
 
     #: Name of the scenario variable, this value should be read from (default: None).
     scenario_id: str | None = None
@@ -172,9 +163,8 @@ class StateStructure(BaseModel):
 
 class StateConfig:
     """The configuration for the action and observation spaces. The values are used to control which variables are
-    part of the action space and observation space. Additionally, the parameters can specify abort conditions
-    and the handling of values from interaction environments or from simulation. Therefore, the *StateConfig*
-    is very important for the functionality of EtaCtrl.
+    part of the action space and observation space. Therefore, the *StateConfig* is very important
+    for the functionality of EtaCtrl.
     """
 
     def __init__(self, *state_vars: StateVar, source_file: pathlib.Path | None = None) -> None:
@@ -208,11 +198,6 @@ class StateConfig:
         self.map_ext_ids: dict[str, str] = self.df_vars.loc[self.ext_inputs + self.ext_outputs, "ext_id"].to_dict()
         #: Reverse mapping of external IDs to their corresponding variable names.
         self.rev_ext_ids: dict[str, str] = {v: k for k, v in self.map_ext_ids.items()}
-
-        #: List of variables that should be read from an interaction environment.
-        self.interact_outputs: list[str] = self.df_vars.query("from_interact == True").index.tolist()
-        #: Mapping of internal environment names to interact IDs.
-        self.map_interact_ids: dict[str, str] = self.df_vars.loc[self.interact_outputs, "interact_id"].to_dict()
 
         #: List of variables which are loaded from scenario files.
         self.scenario_outputs: list[str] = self.df_vars.query("from_scenario == True").index.tolist()

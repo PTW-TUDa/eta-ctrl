@@ -64,11 +64,8 @@ class TestConfig:
         assert log_msg in caplog.messages
 
     def test_build_config_altname(self, config_dict: dict, caplog, config_resources_path):
-        config_dict["interaction_environment_specific"] = {"foo": "bar"}
-        config_dict.pop("interaction_env_specific", None)
         config_dict["agentspecific"] = {"solver_name": "foobar"}
-        config = Config._from_dict(config_dict, config_name="", root_path=config_resources_path)
-        assert config.settings.interaction_env["foo"] == "bar"
+        Config._from_dict(config_dict, config_name="", root_path=config_resources_path)
         log_msg = (
             "Specified configuration value 'agentspecific' in the setup section of the configuration "
             "was not recognized and is ignored."
@@ -98,8 +95,6 @@ class TestConfig:
 
 class TestConfigSetup:
     missing_classes_fail = [
-        "interaction_env_class",
-        "interaction_env_package",
         "vectorizer_class",
         "vectorizer_package",
         "policy_class",

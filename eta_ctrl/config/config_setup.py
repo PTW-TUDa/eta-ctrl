@@ -53,10 +53,6 @@ class ConfigSetup:
     environment_import: str = field(on_setattr=_get_class)
     #: Imported Environment class (automatically determined from environment_import).
     environment_class: type[BaseEnv] = field(init=False)
-    #: Import description string for the interaction environment (default: None).
-    interaction_env_import: str | None = field(default=None, on_setattr=_get_class)
-    #: Interaction environment class (default: None) (automatically determined from interaction_env_import).
-    interaction_env_class: type[BaseEnv] | None = field(init=False, default=None)
 
     #: Import description string for the environment vectorizer
     #: (default: stable_baselines3.common.vec_env.dummy_vec_env.DummyVecEnv).
@@ -91,7 +87,6 @@ class ConfigSetup:
         _fields = fields(ConfigSetup)
         _get_class(self, _fields.agent_import, self.agent_import)
         _get_class(self, _fields.environment_import, self.environment_import)
-        _get_class(self, _fields.interaction_env_import, self.interaction_env_import)
         _get_class(self, _fields.vectorizer_import, self.vectorizer_import)
         _get_class(self, _fields.policy_import, self.policy_import)
 
@@ -103,11 +98,7 @@ class ConfigSetup:
 
     def __repr__(self) -> str:
         """Developer-friendly string representation of ConfigSetup."""
-        interaction = self.interaction_env_class.__name__ if self.interaction_env_class is not None else None
-        return (
-            f"ConfigSetup(environment='{self.environment_import}', agent='{self.agent_import}', "
-            f"interaction_env={interaction!r})"
-        )
+        return f"ConfigSetup(environment='{self.environment_import}', agent='{self.agent_import}'"
 
     @classmethod
     def from_dict(cls, dikt: dict[str, Any]) -> ConfigSetup:
@@ -145,7 +136,6 @@ class ConfigSetup:
         agent_import = get_import("agent", required=True)
         environment_import = get_import("environment", required=True)
 
-        interaction_env_import = get_import("interaction_env")
         vectorizer_import = get_import("vectorizer")
         policy_import = get_import("policy")
 
@@ -168,7 +158,6 @@ class ConfigSetup:
         return ConfigSetup(
             agent_import=agent_import,
             environment_import=environment_import,
-            interaction_env_import=interaction_env_import,
             vectorizer_import=vectorizer_import,
             policy_import=policy_import,
             monitor_wrapper=monitor_wrapper,
