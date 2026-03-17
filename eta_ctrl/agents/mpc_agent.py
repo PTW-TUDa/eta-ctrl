@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import importlib
 from logging import getLogger
 from pathlib import Path
 from typing import TYPE_CHECKING, Self, cast
@@ -14,6 +13,7 @@ from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.vec_env import VecEnv, VecNormalize
 
 from eta_ctrl.common.sb3_extensions.policies import NoPolicy
+from eta_ctrl.simulators import PyomoModel
 
 if TYPE_CHECKING:
     from typing import Any
@@ -21,8 +21,6 @@ if TYPE_CHECKING:
     import numpy as np
     from stable_baselines3.common.policies import BasePolicy
     from stable_baselines3.common.type_aliases import MaybeCallback
-
-    from eta_ctrl.simulators import PyomoModel
 
 log = getLogger(__name__)
 
@@ -98,10 +96,8 @@ class MpcAgent(BaseAlgorithm):
         #: of solution values will be used).
         self.action_index = action_index
 
-        module_path, cls_name = model_import.rsplit(".", 1)
-        target_class: type[PyomoModel] = getattr(importlib.import_module(module_path), cls_name)
-
-        self.model: PyomoModel = target_class(
+        self.model: PyomoModel = PyomoModel.load_from_import(
+            model_import,
             model_parameters=kwargs.pop("model_parameters", None),
             sampling_time=sampling_time,
             prediction_horizon=prediction_horizon,
