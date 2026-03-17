@@ -7,6 +7,7 @@ import pyomo.environ as pyo
 import pytest
 from pyomo import opt
 from pyomo.common.errors import InfeasibleConstraintException
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 from eta_ctrl.agents.mpc_agent import MpcAgent
 from eta_ctrl.envs.state import StateConfig, StateVar
@@ -15,32 +16,60 @@ from test.resources.agents.mpc_basic_model import MPCBasicModel
 MODEL_IMPORT = "test.resources.agents.mpc_basic_model.MPCBasicModel"
 
 
-class TestMpcAgent:
-    @pytest.fixture(scope="class")
-    def mpc_agent(self, unified_env_factory):
-        state_config = StateConfig(
-            StateVar(name="u", is_agent_action=True, low_value=-5, high_value=5),
-            StateVar(name="x0", is_agent_observation=True),
-        )
-        env = unified_env_factory(state_config=state_config)
+@pytest.fixture(scope="module")
+def mpc_agent_factory():
+    def factory(env=None, sampling_time=1, prediction_horizon=10):
         return MpcAgent(
             env=env,
-            sampling_time=1,
-            prediction_horizon=10,
+            sampling_time=sampling_time,
+            prediction_horizon=prediction_horizon,
             model_import=MODEL_IMPORT,
             solver_name="cplex_direct",
         )
+
+    return factory
+
+
+class TestMpcAgent:
+    # Tests that use mpc_agent_factory directly
+    def test_no_env(self, mpc_agent_factory):
+        with pytest.raises(AttributeError):
+            mpc_agent_factory()
+
+    def test_no_vec_normalize(self, mpc_agent_factory, unified_env_factory):
+        vec_normalize = VecNormalize(DummyVecEnv([unified_env_factory]))
+        msg = "The MPC agent does not allow the use of normalized environments."
+        with pytest.raises(TypeError, match=msg):
+            mpc_agent_factory(env=vec_normalize)
+
+    @pytest.fixture(scope="class")
+    def mpc_agent(self, mpc_agent_factory, unified_env_factory):
+        env = unified_env_factory()
+        return mpc_agent_factory(env=env)
 
     def test_model_is_loaded(self, mpc_agent):
         assert isinstance(mpc_agent.model, MPCBasicModel)
         assert mpc_agent.concrete_model is mpc_agent.model.model
 
-    def test_actions_order(self, mpc_agent):
-        assert mpc_agent.actions_order == ["u"]
-
     def test_learn_returns_self(self, mpc_agent):
         result = mpc_agent.learn(total_timesteps=5)
         assert result is mpc_agent
+
+
+class TestMpcAgentSolve:
+    """Has a StateConfig matching the MPCBasicModel"""
+
+    @pytest.fixture(scope="class")
+    def mpc_agent(self, mpc_agent_factory, unified_env_factory):
+        state_config = StateConfig(
+            StateVar(name="u", is_agent_action=True, low_value=-5, high_value=5),
+            StateVar(name="x0", is_agent_observation=True),
+        )
+        env = unified_env_factory(state_config=state_config)
+        return mpc_agent_factory(env)
+
+    def test_actions_order(self, mpc_agent):
+        assert mpc_agent.actions_order == ["u"]
 
     def test_solve_produces_optimal_solution(self, mpc_agent):
         """Test that solve() returns the correct optimal solution using a real solver.
@@ -61,6 +90,21 @@ class TestMpcAgent:
         actions, _ = mpc_agent.predict(observation={"x0": np.array([[x0]])})
         assert actions.item() == pytest.approx(expected, abs=1e-2)
 
+    def test_predict_value_error(self, mpc_agent):
+        concrete_model = mpc_agent.model.model
+        concrete_model.test_var = pyo.Var()
+        concrete_model.test_var_indexed = pyo.Var(concrete_model.T)
+        msg = "Couldn't fetch the value for action 'test_var_indexed' in the PyomoModel MPCBasicModel"
+        with pytest.raises(ValueError, match=msg):
+            mpc_agent.predict(observation={"x0": np.array([[0]])})
+
+
+class TestMpcAgentSolveFail:
+    @pytest.fixture(scope="class")
+    def mpc_agent(self, mpc_agent_factory, unified_env_factory):
+        env = unified_env_factory()
+        return mpc_agent_factory(env)
+
     def test_solver_continues_on_suboptimal_solution(self, mpc_agent, caplog):
         """Test that solver continues with warning when reaching maxTimeLimit with suboptimal solution."""
         mock_result = _create_mock_solver_result(
@@ -78,7 +122,7 @@ class TestMpcAgent:
             assert any("maxTimeLimit" in record.message for record in caplog.records)
             assert result is not None
 
-    def test_solver_exits_on_infeasible_problem(self, mpc_agent):
+    def test_solver_exits_on_infeasible_problem(self, mpc_agent, caplog):
         """Test that solver raises InfeasibleConstraintException when problem is truly infeasible."""
         mock_result = _create_mock_solver_result(
             termination_condition=opt.TerminationCondition.infeasible, status=opt.SolverStatus.ok, has_solution=False
@@ -91,9 +135,9 @@ class TestMpcAgent:
                     mpc_agent.solve()
 
             assert "Solver failed to find feasible solution" in str(exc_info.value)
-            assert "infeasible" in str(exc_info.value)
+        assert any("infeasible" in record.message for record in caplog.records)
 
-    def test_solver_exits_on_solver_error(self, mpc_agent):
+    def test_solver_exits_on_solver_error(self, mpc_agent, caplog):
         """Test that solver raises InfeasibleConstraintException when encountering a solver error."""
         mock_result = _create_mock_solver_result(
             termination_condition=opt.TerminationCondition.error, status=opt.SolverStatus.error, has_solution=False
@@ -106,7 +150,7 @@ class TestMpcAgent:
                     mpc_agent.solve()
 
             assert "Solver failed to find feasible solution" in str(exc_info.value)
-            assert "error" in str(exc_info.value)
+        assert any("error" in record.message for record in caplog.records)
 
     def test_solver_continues_on_iteration_limit(self, mpc_agent, caplog):
         """Test that solver continues when hitting iteration limit with a feasible solution."""
@@ -134,7 +178,7 @@ class TestMpcAgent:
                 with pytest.raises(InfeasibleConstraintException):
                     mpc_agent.solve()
 
-                assert any("Full solver result object" in record.message for record in caplog.records)
+                assert any("Full solver result" in record.message for record in caplog.records)
                 assert not any("saved to:" in record.message for record in caplog.records)
 
     def test_solver_saves_large_result_to_disk(self, mpc_agent, caplog, temp_dir):
