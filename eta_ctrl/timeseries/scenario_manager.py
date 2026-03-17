@@ -29,7 +29,7 @@ class ConfigCsvScenario(BaseModel):
     #: Relative path to the scenario
     path: str
 
-    #: Method of interpolation
+    #: Pandas method to use for filling missing data ["ffill", "bfill", "interpolate", "asfreq"].
     interpolation_method: FillMethod | None = None
     #: Scale factors for each columns
     scale_factors: dict[str, float] | None = None
