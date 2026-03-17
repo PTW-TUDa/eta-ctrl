@@ -180,9 +180,6 @@ class LiveEnv(BaseEnv, abc.ABC):
         :meth:`reset` is called with ``seed=None``, the RNG is not reset. When using the environment in conjunction with
         *stable_baselines3*, the vectorized environment will take care of seeding your custom environment automatically.
 
-        For Custom environments, the first line of :meth:`reset` should be ``super().reset(seed=seed)`` which implements
-        the seeding correctly.
-
         :param seed: The seed for initializing any randomized components of the state.
                      Subclasses should use this for reproducible randomness in their state init
         :param options: Additional information to specify how the environment is reset (optional,

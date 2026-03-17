@@ -313,9 +313,6 @@ class PyomoEnv(BaseEnv, abc.ABC):
         values directly from the FMU/simulator. It does not use the seed parameter since the
         initial state is determined by the simulator configuration.
 
-        For Custom environments, the first line of :meth:`reset` should be ``super().reset(seed=seed)`` which implements
-        the seeding correctly.
-
         The public reset method handles the Gymnasium interface including observation filtering
         and proper seeding mechanism.
 
