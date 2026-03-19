@@ -87,7 +87,7 @@ def prevent_state_config_loading(monkeypatch):
     monkeypatch.setattr(
         StateConfig,
         "from_file",
-        lambda root_path, filename: _DummyStateConfig(source_file=Path(root_path) / filename),
+        lambda root_path, filename, **_: _DummyStateConfig(source_file=Path(root_path) / filename),
     )
 
 

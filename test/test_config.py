@@ -27,7 +27,7 @@ class TestConfig:
         monkeypatch.setattr(
             StateConfig,
             "from_file",
-            lambda root_path, filename: _DummyStateConfig(source_file=Path(root_path) / filename),
+            lambda root_path, filename, **_: _DummyStateConfig(source_file=Path(root_path) / filename),
         )
 
     def test_from_dict(self, config_dict, config_resources_path):
@@ -91,6 +91,24 @@ class TestConfig:
             root_path=config_resources_path, config_relpath=Path(), config_name="config1", overwrite=overwrite
         )
         assert config.config_name == "config1"
+
+
+def test_automatic_prediction_horizon_filling(config_dict: dict, monkeypatch):
+    """Test that n_prediction_steps is automatically passed to the StateConfig"""
+    monkeypatch.setattr(StateConfig, "from_file", StateConfig.from_file)
+    mock_file_content = {
+        "observations": [{"name": "o1", "is_agent_observation": True, "duration": "n_prediction_steps"}]
+    }
+    monkeypatch.setattr("eta_ctrl.envs.state.load_config", lambda *args, **kwargs: mock_file_content)
+
+    dikt = {
+        "setup": config_dict["setup"],
+        "settings": {"sampling_time": 1, "episode_duration": 2, "n_episodes_play": 1},
+        "agent_specific": {"prediction_horizon": 60},
+    }
+    config = Config._from_dict(dikt, "config_test", Path())
+
+    assert config.settings.environment["state_config"].vars["o1"].duration == 61
 
 
 class TestConfigSetup:

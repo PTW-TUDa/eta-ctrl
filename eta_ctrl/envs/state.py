@@ -212,7 +212,7 @@ class StateConfig:
         self.abort_conditions_max: list[str] = _abort_condition_df["abort_condition_max"].dropna().index.tolist()
 
     @classmethod
-    def from_file(cls, root_path: pathlib.Path, filename: str) -> Self:
+    def from_file(cls, root_path: pathlib.Path, filename: str, extra_params: Mapping[str, float] | None = None) -> Self:
         """Load a StateConfig from a config file.
 
         :param file: Path of the config file.
@@ -246,23 +246,26 @@ class StateConfig:
             msg = f"Invalid StateConfig at {file} with no StateVar's"
             raise ValueError(msg)
 
-        # Defined by user in *structure.toml
-        state_params = raw_dict.get("state_parameters")
+        state_params: dict[str, float] = {}
+        if extra_params is not None:
+            state_params.update(extra_params)
 
-        if isinstance(state_params, dict):
-            log.debug(f"Using State parameters {state_params} from {file} for StateConfig.")
-            return cls.from_dict(mapping=all_states, state_params=state_params, source_file=file)
+        # Defined by user in *_state_config.toml
+        config_state_params: dict[str, float] | Any | None = raw_dict.get("state_parameters")
+        if isinstance(config_state_params, dict):
+            log.debug(f"Using State parameters {config_state_params} from {file} for StateConfig.")
+            state_params.update(config_state_params)
+        elif config_state_params is not None:
+            log.warning(f"State parameters in {file} needs to be a dict! Ignoring.")
 
-        if state_params is not None:
-            log.warning(f"State parameters in {file} need to be a dict! Ignoring.")
-        return cls.from_dict(mapping=all_states, source_file=file)
+        return cls.from_dict(mapping=all_states, source_file=file, state_params=state_params)
 
     @classmethod
     def from_dict(
         cls,
         mapping: Sequence[dict[str, Any]] | pd.DataFrame,
         *,
-        state_params: dict[str, float] | None = None,
+        state_params: Mapping[str, float] | None = None,
         **kwargs: Any,
     ) -> Self:
         """Convert a potentially incomplete StateConfig DataFrame or a list of dictionaries to the
