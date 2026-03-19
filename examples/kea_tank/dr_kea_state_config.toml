@@ -4,5 +4,5 @@ actions = [
 
 observations = [
     {name = "tank_temperature_start"},
-    {name = "energy_price", duration = 61, from_scenario = true},
+    {name = "energy_price", duration = "n_prediction_steps", from_scenario = true},
 ]

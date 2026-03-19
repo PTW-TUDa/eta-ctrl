@@ -33,11 +33,11 @@ def _pop_dict(dikt: dict, key: str) -> dict:
     return val
 
 
-def _derive_state_config(root_path: pathlib.Path, env_name: str, state_file_relpath: str | None = None) -> StateConfig:
+def _derive_state_config(env_name: str, state_file_relpath: str | None = None) -> str:
     if not state_file_relpath:
         # set default state file path based on environment class name if not provided in config
         state_file_relpath = camel_to_snake_case(env_name) + "_state_config"
-    return StateConfig.from_file(root_path=root_path, filename=state_file_relpath)
+    return state_file_relpath
 
 
 def _path_or_default(value: str | pathlib.Path | None, default: str) -> pathlib.Path:
@@ -201,20 +201,27 @@ class Config:
         settings_raw: dict[str, dict[str, Any]] = {}
         settings_raw["settings"] = _pop_dict(config, "settings")
         settings_raw["environment_specific"] = _pop_dict(config, "environment_specific")
+        settings_raw["agent_specific"] = _pop_dict(config, "agent_specific")
 
         # Create ConfigSetup
         _setup = _pop_dict(config, "setup")
         setup = ConfigSetup.from_dict(_setup)
 
         # Create StateConfig (moved to helper to lower function complexity)
-        state_config = _derive_state_config(
-            root_path=root_path,
+        state_file_relpath = _derive_state_config(
             state_file_relpath=paths.pop("state_file_relpath", None),
             env_name=setup.environment_class.__name__,
         )
-        settings_raw["environment_specific"]["state_config"] = state_config
+        extra_params = {}
+        if prediction_horizon := settings_raw["agent_specific"].get("prediction_horizon"):
+            extra_params["n_prediction_steps"] = (
+                int(prediction_horizon // settings_raw["settings"]["sampling_time"]) + 1
+            )
+        state_config = StateConfig.from_file(
+            root_path=root_path, filename=state_file_relpath, extra_params=extra_params
+        )
 
-        settings_raw["agent_specific"] = _pop_dict(config, "agent_specific")
+        settings_raw["environment_specific"]["state_config"] = state_config
 
         # Log unrecognized values
         for name in config:

@@ -3,12 +3,14 @@
 import copy
 import pathlib
 import tempfile
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
 from eta_ctrl.config import Config, ConfigRun, ConfigSettings, ConfigSetup
 from eta_ctrl.core import EtaCtrl
+from eta_ctrl.envs.state import StateConfig
 from test.resources.config.config_python import config as python_dict
 
 # ---------------------------------------------------------------------------
@@ -164,10 +166,14 @@ class TestConfigStringRepresentations:
 
     @pytest.fixture(autouse=True)
     def prevent_state_config_loading(self, monkeypatch):
-        """Patch _derive_state_config to skip all file I/O."""
+        class _DummyStateConfig:
+            def __init__(self, source_file: Path):
+                self.source_file = source_file
+
         monkeypatch.setattr(
-            "eta_ctrl.config.config._derive_state_config",
-            lambda *_, **__: MagicMock(source_file=None),
+            StateConfig,
+            "from_file",
+            lambda root_path, filename, **_: _DummyStateConfig(source_file=Path(root_path) / filename),
         )
 
     @pytest.fixture
