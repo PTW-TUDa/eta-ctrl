@@ -5,6 +5,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pyomo.environ as pyo
 import pytest
@@ -16,6 +17,20 @@ from eta_ctrl.envs.pyomo_env import PyomoEnv
 from eta_ctrl.envs.sim_env import SimEnv
 from eta_ctrl.envs.state import StateConfig, StateVar
 from eta_ctrl.timeseries.scenario_manager import CsvScenarioManager
+
+
+class _ScenarioManagerStub:
+    """Minimal scenario manager stub for method-level tests."""
+
+    def __init__(self, value: float = 2.0, offset: int = 2) -> None:
+        self.value = value
+        self.offset = offset
+
+    def compute_episode_offset(self, _rng) -> int:
+        return self.offset
+
+    def get_scenario_state_var(self, n_step: int, state_var: StateVar):
+        return np.array([self.value + n_step + state_var.ext_scale_add])
 
 
 class DummyScenarioManager(CsvScenarioManager):
@@ -110,6 +125,23 @@ def state_config_factory():
                 StateVar(name="actual_value", is_agent_observation=True, low_value=0, high_value=100),
                 StateVar(name="error_signal", is_agent_observation=True, low_value=-50, high_value=50),
             ),
+            "method_test": lambda: StateConfig(
+                StateVar(name="act", is_agent_action=True, low_value=0.0, high_value=10.0),
+                StateVar(name="obs", is_agent_observation=True, low_value=-10.0, high_value=100.0),
+                StateVar(
+                    name="ext_in_state", is_ext_input=True, ext_id="ext.in", ext_scale_add=10.0, ext_scale_mult=2.0
+                ),
+                StateVar(
+                    name="ext_out_state", is_ext_output=True, ext_id="ext.out", ext_scale_add=1.0, ext_scale_mult=3.0
+                ),
+                StateVar(name="scen", from_scenario=True, ext_scale_add=2.0, ext_scale_mult=4.0),
+            ),
+            "validation": lambda: StateConfig(
+                StateVar(name="a1", is_agent_action=True, low_value=-1.0, high_value=2.0),
+                StateVar(name="a2", is_agent_action=True, low_value=0.0, high_value=5.0),
+                StateVar(name="a3", is_agent_action=True, low_value=-10.0, high_value=10.0),
+                StateVar(name="obs", is_agent_observation=True, low_value=0.0, high_value=100.0),
+            ),
         }
 
         if config_type not in config_map:
@@ -191,7 +223,12 @@ def unified_env_factory(config_run_factory, state_config_factory):
                 config_name=config_name,
                 max_errors=max_errors,
             )
-        error_msg = f"Unknown env_type: {env_type}. Supported types: base, pyomo, sim, live"
+        if env_type == "method":
+            env = _MethodTestEnv(**{**common_params, **env_specific_params})
+            env.scenario_manager = _ScenarioManagerStub()
+            env._scenario_rng = np.random.default_rng(0)
+            return env
+        error_msg = f"Unknown env_type: {env_type}. Supported types: base, pyomo, sim, live, method"
         raise ValueError(error_msg)
 
     return _create_environment
@@ -215,11 +252,6 @@ class TestBaseEnv(BaseEnv):
     def _reset(self, *, seed=None, options=None):
         """Implement abstract _reset method."""
         return {}
-
-    def step(self, action):
-        self.n_steps += 1
-        self.n_steps_longtime += 1
-        return {}, 0.0, False, self._truncated(), {}
 
     def close(self):
         pass
@@ -290,22 +322,6 @@ class TestSimEnv(SimEnv):
         # Override path_env for testing
         self.path_env = pathlib.Path(tempfile.gettempdir())
 
-    def _step(self):
-        """Implement abstract _step method."""
-        return 0.0, False, False, {}
-
-    def _reset(self, *, seed=None, options=None):
-        """Implement abstract _reset method."""
-        return {}
-
-    def step(self, action):
-        self.n_steps += 1
-        self.n_steps_longtime += 1
-        return {}, 0.0, False, False, {}
-
-    def close(self):
-        pass
-
     def render(self):
         pass
 
@@ -330,19 +346,28 @@ class TestLiveEnv(LiveEnv):
         self._config_name = kwargs.pop("config_name", "test_config")
         super().__init__(*args, **kwargs)
 
+    def render(self):
+        pass
+
+
+class _MethodTestEnv(BaseEnv):
+    """BaseEnv subclass with non-trivial _step/_reset for method-level tests."""
+
+    @property
+    def version(self):
+        return "v1.0.0"
+
+    @property
+    def description(self):
+        return "BaseEnv method test env"
+
     def _step(self):
-        """Implement abstract _step method."""
-        return 0.0, False, False, {}
+        self.state["obs"] = np.array([float(self.state["act"].item())])
+        return 1.0, False, False, {"source": "_step"}
 
     def _reset(self, *, seed=None, options=None):
-        """Implement abstract _reset method."""
-        return {}
-
-    def step(self, action):
-        """Minimal step implementation for testing."""
-        self.n_steps += 1
-        self.n_steps_longtime += 1
-        return {}, 0.0, False, False, {}
+        self.state["obs"] = np.array([5.0])
+        return {"reset": True}
 
     def close(self):
         pass
