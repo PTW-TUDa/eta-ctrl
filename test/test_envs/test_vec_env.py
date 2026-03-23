@@ -72,8 +72,9 @@ class TestScenarioVecEnv:
         assert env0.state["scen1"].item() == 2 * 1
         assert env1.state["scen1"].item() == 2 * 7
 
-        # Let environments reset, start new episode
-        scenario_vec_env.step(np.array([[], []]))
+        # Advance one step and explicitly reset to start a new episode
+        scenario_vec_env.step(np.array([[], []], dtype=np.float32))
+        scenario_vec_env.reset()
         assert env0.n_steps == 0
         assert env1.n_steps == 0
 
@@ -108,8 +109,9 @@ class TestScenarioVecEnv:
         assert env0.state["scen1"].item() == 2 * 0
         assert env1.state["scen1"].item() == 2 * 0
 
-        # Let environments reset, start new episode
-        scenario_vec_env.step(np.array([[], []]))
+        # Advance one step and explicitly reset to start a new episode
+        scenario_vec_env.step(np.array([[], []], dtype=np.float32))
+        scenario_vec_env.reset()
         assert env0.n_steps == 0
         assert env1.n_steps == 0
 
