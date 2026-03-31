@@ -2,23 +2,20 @@ from __future__ import annotations
 
 import inspect
 import pathlib
+from logging import getLogger
 from typing import TYPE_CHECKING
 
-import torch as th
-
 from eta_ctrl.util import dict_get_any
-
-from .sb3_extensions import processors
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
     from typing import Any
 
+    import torch as th
     from stable_baselines3.common.vec_env import VecEnv, VecNormalize
 
     from eta_ctrl.envs import BaseEnv
     from eta_ctrl.util.type_annotations import Path
-from logging import getLogger
 
 log = getLogger(__name__)
 
@@ -55,6 +52,10 @@ def deserialize_net_arch(
     :param device: Torch device to use for training the network.
     :return: Sequential torch network.
     """
+    import torch as th  # noqa: PLC0415
+
+    from .sb3_extensions import processors  # noqa: PLC0415
+
     network = th.nn.Sequential()
     _features = in_features
 
