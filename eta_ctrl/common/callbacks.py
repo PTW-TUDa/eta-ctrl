@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from stable_baselines3.common.callbacks import BaseCallback, CallbackList
-
 if TYPE_CHECKING:
+    from stable_baselines3.common.callbacks import CallbackList
     from stable_baselines3.common.type_aliases import MaybeCallback
 
     from eta_ctrl.envs import BaseEnv
@@ -52,6 +51,8 @@ def merge_callbacks(*args: MaybeCallback) -> CallbackList:
     :param args: List of callbacks.
     :return: CallbackList object which merges all callbacks.
     """
+    from stable_baselines3.common.callbacks import BaseCallback, CallbackList  # noqa: PLC0415
+
     cb_list = []
     for cb in args:
         if isinstance(cb, BaseCallback):

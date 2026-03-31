@@ -2,16 +2,18 @@ from __future__ import annotations
 
 import datetime
 from os import PathLike
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
-from stable_baselines3.common.type_aliases import (  # noqa:F401
-    GymEnv,
-    GymObs as ObservationType,
-    GymResetReturn as ResetResult,
-    GymStepReturn as StepResult,
-    MaybeCallback,
-)
+
+if TYPE_CHECKING:
+    from stable_baselines3.common.type_aliases import (
+        GymEnv,  # noqa: F401
+        GymObs as ObservationType,  # noqa: F401
+        GymResetReturn as ResetResult,  # noqa: F401
+        GymStepReturn as StepResult,  # noqa: F401
+        MaybeCallback,  # noqa: F401
+    )
 
 # Other custom types:
 Path = str | PathLike

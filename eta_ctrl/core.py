@@ -6,8 +6,6 @@ from logging import getLogger
 from typing import TYPE_CHECKING
 
 import numpy as np
-from stable_baselines3.common.callbacks import CheckpointCallback
-from stable_baselines3.common.vec_env import VecNormalize
 
 from eta_ctrl.common import (
     CallbackEnvironment,
@@ -31,7 +29,7 @@ if TYPE_CHECKING:
 
     from stable_baselines3.common.base_class import BaseAlgorithm
     from stable_baselines3.common.type_aliases import MaybeCallback
-    from stable_baselines3.common.vec_env import VecEnv
+    from stable_baselines3.common.vec_env import VecEnv, VecNormalize
     from stable_baselines3.common.vec_env.base_vec_env import VecEnvObs
 
     from eta_ctrl.util.type_annotations import Path
@@ -307,6 +305,8 @@ class EtaCtrl:
             # Set the seed for the environments before starting to learn
             self.environments.seed(self.config.settings.seed)
 
+            from stable_baselines3.common.callbacks import CheckpointCallback  # noqa: PLC0415
+
             callback_learn = merge_callbacks(
                 CheckpointCallback(
                     save_freq=save_freq,
@@ -340,6 +340,8 @@ class EtaCtrl:
             # Save model
             log.debug(f"Saving model to file: {self.config_run.run_model_path}.")
             self.model.save(self.config_run.run_model_path)
+            from stable_baselines3.common.vec_env import VecNormalize  # noqa: PLC0415
+
             if isinstance(self.environments, VecNormalize):
                 log.debug(f"Saving environment normalization data to file: {self.config_run.vec_normalize_path}.")
                 self.environments.save(str(self.config_run.vec_normalize_path))

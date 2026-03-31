@@ -5,14 +5,12 @@ import pathlib
 from functools import partial
 from typing import TYPE_CHECKING
 
-from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor, VecNormalize
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from gymnasium import Env
     from stable_baselines3.common.base_class import BaseAlgorithm, BasePolicy
-    from stable_baselines3.common.vec_env import VecEnv
+    from stable_baselines3.common.vec_env import DummyVecEnv, VecEnv, VecNormalize
 
     from eta_ctrl.config import ConfigRun
     from eta_ctrl.envs import BaseEnv
@@ -28,7 +26,7 @@ def vectorize_environment(
     env_settings: EnvSettings,
     callback: Callable[[BaseEnv], None],
     verbose: int = 2,
-    vectorizer: type[DummyVecEnv] = DummyVecEnv,
+    vectorizer: type[DummyVecEnv] | None = None,
     n: int = 1,
     seed: int | None = None,
     *,
@@ -52,6 +50,11 @@ def vectorize_environment(
     :param norm_wrapper_reward: Flag to determine whether rewards from the environments should be normalized.
     :return: Vectorized environments, possibly also wrapped in a normalizer.
     """
+    from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor, VecNormalize  # noqa: PLC0415
+
+    if vectorizer is None:
+        vectorizer = DummyVecEnv
+
     # Create the vectorized environment
     log.debug("Trying to vectorize the environment.")
     # Ensure n is one, if the DummyVecEnv is used (it doesn't support more than one)
