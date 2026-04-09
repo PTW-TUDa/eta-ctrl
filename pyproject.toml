@@ -1,7 +1,7 @@
 [project]
 name = "eta-ctrl"
 version = "0.2.0"
-description = "A framework for researching energy optimization of factory operations."
+description = "A modular framework for rolling-horizon operational control using a Gym-compatible agent–environment abstraction. The framework enables integration of optimization-based agents (Pyomo), reinforcement learning agents (Stable-Baselines3), heuristic search methods, and rule-based controllers. Environments can be instantiated from FMI-compliant simulations, mathematical models, or real-world system interfaces."
 license = "BSD-2-Clause"
 readme = "README.rst"
 requires-python = ">=3.11,<3.13"
@@ -15,10 +15,21 @@ maintainers = [
   {name= "Julius Balzer", email = "julius.balzer@stud.tu-darmstadt.de"}
 ]
 keywords = [
-  "rolling horizon optimization",
-  "simulators",
-  "industrial energy optimization"
-]
+    "rolling horizon control",
+    "model predictive control (MPC)",
+    "reinforcement learning",
+    "optimization-based control",
+    "rule-based control",
+    "Pyomo",
+    "Stable-Baselines3",
+    "Gym interface",
+    "Functional Mock-up Interface FMI",
+    "cyber-physical systems",
+    "industrial energy systems",
+    "real-time control",
+    "simulation and co-simulation",
+    "eta factory"]
+
 dependencies = [
     "attrs (>=25.3.0,<27.0.0)",
     "python-dateutil (>=2.9.0,<3.0.0)",
@@ -233,5 +244,5 @@ ignore-words-list = ["Temperatur"]
 quiet-level = 3
 
 [build-system]
-requires = ["poetry-core>=2.0"]
+requires = ["poetry-core>=2.2"]
 build-backend = "poetry.core.masonry.api"

@@ -1,5 +1,7 @@
 ETA Ctrl Framework
 ######################
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.18670778.svg
+  :target: https://doi.org/10.5281/zenodo.18670778
 
 The `ETA Ctrl` framework provides a standardized interface for developing digital twins of factories or machines in a factory.
 It is designed to facilitate rolling horizon optimization, simulation, and interaction with factory systems.
@@ -66,16 +68,9 @@ Contributing
 
 Please read the `development guide <https://eta-ctrl.readthedocs.io/en/latest/guide/development.html>`_ before starting development on *ETA Ctrl*
 
+Citing this Project
+*********************
 
-Citing this Project / Authors
-******************************
+For referencing this package in academic work, please refer to `CITATION.cff`.
 
-See `AUTHORS.rst` for a full list of contributors.
-
-Please cite this repository as:
-
-  .. code-block::
-
-    Grosch, B., Ranzau, H., Dietrich, B., Kohne, T., Fuhrländer-Völker, D., Sossenheimer, J., Lindner, M., Weigold, M.
-    A framework for researching energy optimization of factory operations.
-    Energy Inform 5 (Suppl 1), 29 (2022). https://doi.org/10.1186/s42162-022-00207-6
+See `AUTHORS.rst` for a list of further contributors.
