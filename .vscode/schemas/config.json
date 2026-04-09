@@ -1,0 +1,452 @@
+{
+    "$defs": {
+        "ConfigCsvScenario": {
+            "additionalProperties": false,
+            "properties": {
+                "path": {
+                    "title": "Path",
+                    "type": "string"
+                },
+                "interpolation_method": {
+                    "anyOf": [
+                        {
+                            "enum": [
+                                "ffill",
+                                "bfill",
+                                "interpolate",
+                                "asfreq"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Interpolation Method"
+                },
+                "scale_factors": {
+                    "anyOf": [
+                        {
+                            "additionalProperties": {
+                                "type": "number"
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Scale Factors"
+                },
+                "prefix": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Prefix"
+                },
+                "infer_datetime_cols": {
+                    "anyOf": [
+                        {
+                            "enum": [
+                                "string",
+                                "dates"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "maxItems": 2,
+                            "minItems": 2,
+                            "prefixItems": [
+                                {
+                                    "type": "integer"
+                                },
+                                {
+                                    "type": "integer"
+                                }
+                            ],
+                            "type": "array"
+                        }
+                    ],
+                    "default": "dates",
+                    "description": "Methof of datetime parsing",
+                    "title": "Infer Datetime Cols"
+                },
+                "time_conversion_str": {
+                    "default": "%Y-%m-%d %H:%M",
+                    "title": "Time Conversion Str",
+                    "type": "string"
+                },
+                "rename_cols": {
+                    "anyOf": [
+                        {
+                            "additionalProperties": {
+                                "type": "string"
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Rename Cols"
+                },
+                "scenarios_path": {
+                    "anyOf": [
+                        {
+                            "format": "path",
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Scenarios Path"
+                }
+            },
+            "required": [
+                "path"
+            ],
+            "title": "ConfigCsvScenario",
+            "type": "object"
+        },
+        "ConfigPaths": {
+            "additionalProperties": false,
+            "properties": {
+                "state_file_relpath": {
+                    "anyOf": [
+                        {
+                            "format": "path",
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Relative path to the state_config file (default: [environment_classname]_state_config).\nThe method :py:meth:`~eta_ctrl.envs.StateConfig.from_file` will first try at the root path,\nthen search in the /environment folder if not successful.",
+                    "title": "State File Relpath"
+                },
+                "results_relpath": {
+                    "default": "results",
+                    "description": "Relative path to the results folder.",
+                    "format": "path",
+                    "title": "Results Relpath",
+                    "type": "string"
+                },
+                "scenarios_relpath": {
+                    "default": "scenarios",
+                    "description": "Relative path to the scenarios folder.",
+                    "format": "path",
+                    "title": "Scenarios Relpath",
+                    "type": "string"
+                }
+            },
+            "title": "ConfigPaths",
+            "type": "object"
+        },
+        "ConfigSettings": {
+            "additionalProperties": true,
+            "description": "Helper class, which is part of `Config`, for settings parameters.",
+            "properties": {
+                "seed": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Seed for random sampling (default: None).",
+                    "title": "Seed"
+                },
+                "verbose": {
+                    "default": 2,
+                    "description": "Logging verbosity of the framework (default: 2).",
+                    "maximum": 3,
+                    "minimum": 0,
+                    "title": "Verbose",
+                    "type": "integer"
+                },
+                "n_environments": {
+                    "default": 1,
+                    "description": "Number of vectorized environments to instantiate (if not using DummyVecEnv) (default: 1).",
+                    "minimum": 1,
+                    "title": "N Environments",
+                    "type": "integer"
+                },
+                "n_episodes_play": {
+                    "anyOf": [
+                        {
+                            "minimum": 1,
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": 1,
+                    "description": "Number of episodes to execute when the agent is playing (default: None).",
+                    "title": "N Episodes Play"
+                },
+                "n_episodes_learn": {
+                    "anyOf": [
+                        {
+                            "minimum": 1,
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": 1,
+                    "description": "Number of episodes to execute when the agent is learning (default: None).",
+                    "title": "N Episodes Learn"
+                },
+                "save_model_every_x_episodes": {
+                    "default": 10,
+                    "description": "How often to save the model during training (default: 10 - after every ten episodes).",
+                    "minimum": 1,
+                    "title": "Save Model Every X Episodes",
+                    "type": "integer"
+                },
+                "plot_interval": {
+                    "default": 10,
+                    "description": "How many episodes to pass between each render call (default: 10 - after every ten episodes).",
+                    "minimum": 1,
+                    "title": "Plot Interval",
+                    "type": "integer"
+                },
+                "scenario_time_begin": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Beginning time of the scenario.",
+                    "title": "Scenario Time Begin"
+                },
+                "scenario_time_end": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Ending time of the scenario.",
+                    "title": "Scenario Time End"
+                },
+                "use_random_time_slice": {
+                    "default": false,
+                    "description": "Boolean flag whether to use a random time slice when the difference of\nscenario_time_end and scenario_time_begin is greater than the episode duration (default: False).",
+                    "title": "Use Random Time Slice",
+                    "type": "boolean"
+                },
+                "sampling_time": {
+                    "description": "Duration between time samples in seconds (can be a float value).",
+                    "exclusiveMinimum": 0,
+                    "title": "Sampling Time",
+                    "type": "number"
+                },
+                "episode_duration": {
+                    "description": "Duration of an episode in seconds (can be a float value).",
+                    "exclusiveMinimum": 0,
+                    "title": "Episode Duration",
+                    "type": "number"
+                },
+                "prediction_horizon": {
+                    "anyOf": [
+                        {
+                            "exclusiveMinimum": 0,
+                            "type": "number"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Total duration of one prediction/optimization run when used with the MPC agent.",
+                    "title": "Prediction Horizon"
+                },
+                "sim_steps_per_sample": {
+                    "anyOf": [
+                        {
+                            "minimum": 1,
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Simulation steps for every sample.",
+                    "title": "Sim Steps Per Sample"
+                },
+                "scale_actions": {
+                    "anyOf": [
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Multiplier for scaling the agent actions before passing them to the environment (default: None).",
+                    "title": "Scale Actions"
+                },
+                "round_actions": {
+                    "anyOf": [
+                        {
+                            "minimum": 1,
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Number of digits to round actions to before passing them to the environment (default: None).",
+                    "title": "Round Actions"
+                },
+                "env": {
+                    "additionalProperties": true,
+                    "description": "Settings dictionary for specifically the environment.",
+                    "title": "Env",
+                    "type": "object"
+                },
+                "agent": {
+                    "additionalProperties": true,
+                    "description": "Settings dictionary for specifically the agent.",
+                    "title": "Agent",
+                    "type": "object"
+                },
+                "log_to_file": {
+                    "default": true,
+                    "description": "Flag which is true if the log output should be written to a file (default: True).",
+                    "title": "Log To File",
+                    "type": "boolean"
+                },
+                "scenario_files": {
+                    "anyOf": [
+                        {
+                            "items": {
+                                "$ref": "#/$defs/ConfigCsvScenario"
+                            },
+                            "type": "array"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Scenario Files"
+                }
+            },
+            "required": [
+                "sampling_time",
+                "episode_duration"
+            ],
+            "title": "ConfigSettings",
+            "type": "object"
+        },
+        "ConfigSetup": {
+            "additionalProperties": false,
+            "description": "Helper class, which is part of `Config`, for import and setup parameters.",
+            "properties": {
+                "agent_import": {
+                    "description": "Import description string for the agent class.",
+                    "title": "Agent Import",
+                    "type": "string"
+                },
+                "environment_import": {
+                    "description": "Import description string for the environment class.",
+                    "title": "Environment Import",
+                    "type": "string"
+                },
+                "vectorizer_import": {
+                    "default": "stable_baselines3.common.vec_env.dummy_vec_env.DummyVecEnv",
+                    "description": "Import description string for the environment vectorizer\n(default: stable_baselines3.common.vec_env.dummy_vec_env.DummyVecEnv).",
+                    "title": "Vectorizer Import",
+                    "type": "string"
+                },
+                "policy_import": {
+                    "default": "eta_ctrl.common.NoPolicy",
+                    "description": "Import description string for the policy class (default: eta_ctrl.agents.common.NoPolicy).",
+                    "title": "Policy Import",
+                    "type": "string"
+                },
+                "monitor_wrapper": {
+                    "default": false,
+                    "description": "Flag which is true if the environment should be wrapped for monitoring (default: False).",
+                    "title": "Monitor Wrapper",
+                    "type": "boolean"
+                },
+                "norm_wrapper_obs": {
+                    "default": false,
+                    "description": "Flag which is true if the observations should be normalized (default: False).",
+                    "title": "Norm Wrapper Obs",
+                    "type": "boolean"
+                },
+                "norm_wrapper_reward": {
+                    "default": false,
+                    "description": "Flag which is true if the rewards should be normalized (default: False).",
+                    "title": "Norm Wrapper Reward",
+                    "type": "boolean"
+                },
+                "tensorboard_log": {
+                    "default": false,
+                    "description": "Flag to enable tensorboard logging (default: False).",
+                    "title": "Tensorboard Log",
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "agent_import",
+                "environment_import"
+            ],
+            "title": "ConfigSetup",
+            "type": "object"
+        }
+    },
+    "additionalProperties": false,
+    "description": "Configuration for the optimization, which can be loaded from a JSON, TOML, or YAML file.\n\nHolds the config name and path configuration, remaining data is split up in `ConfigSetup` and `ConfigSettings`.\nShould be instantiated via the .from_file() method.",
+    "properties": {
+        "paths": {
+            "$ref": "#/$defs/ConfigPaths",
+            "description": "Optimization run paths."
+        },
+        "setup": {
+            "$ref": "#/$defs/ConfigSetup",
+            "description": "Optimization run setup."
+        },
+        "settings": {
+            "$ref": "#/$defs/ConfigSettings",
+            "description": "Optimization run settings."
+        }
+    },
+    "required": [
+        "setup",
+        "settings"
+    ],
+    "title": "Config",
+    "type": "object"
+}

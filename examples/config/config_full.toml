@@ -1,0 +1,33 @@
+[setup]
+environment_import = "eta_ctrl.envs.PyomoEnv"
+agent_import = "eta_ctrl.agents.MpcAgent"
+vectorizer_import = "stable_baselines3.common.vec_env.dummy_vec_env.DummyVecEnv"
+policy_import = "eta_ctrl.common.NoPolicy"
+
+[paths]
+results_relpath = "results"
+scenarios_relpath = "scenarios"
+
+[settings]
+sampling_time = 10
+episode_duration = 600
+n_episodes_play = 1
+verbose = 2
+seed = 123
+prediction_horizon = 1200
+scenario_time_begin = "2026-03-18 00:00"
+scenario_time_end = "2026-03-18 00:50"
+scenario_files = [
+   {path = "electricity_price_test.csv", interpolation_method = "ffill"}
+]
+
+[settings.environment]
+sim_steps_per_sample = 1
+
+[settings.environment.model_parameters]
+N = 5
+n_start = 1
+
+[settings.agent]
+action_index = 1
+solver_name = "cplex_direct"

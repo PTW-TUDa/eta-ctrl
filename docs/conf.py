@@ -31,6 +31,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.autosummary",
     "sphinx_copybutton",
+    "sphinxcontrib.autodoc_pydantic",
 ]
 
 # List of patterns, relative to source directory, that match files and
@@ -74,3 +75,9 @@ linkcheck_allowed_redirects = {
     r"https://stable-baselines3.readthedocs.io/": r"https://stable-baselines3.readthedocs.io/en/master/",
 }
 linkcheck_anchors_ignore_for_url = (r"https://docs.python.org/",)
+
+# autodoc pydantic settings
+autodoc_pydantic_model_show_json = True
+autodoc_pydantic_model_show_config_summary = False
+autodoc_pydantic_model_show_field_summary = False
+autodoc_pydantic_model_show_validator_summary = False

@@ -58,6 +58,13 @@ Please read the development guide before starting development on *ETA Ctrl*: :re
     /util/util
 
 .. toctree::
+    :maxdepth: 1
+    :hidden:
+    :caption: Migration Guides
+
+    /migration/config
+
+.. toctree::
     :maxdepth: 2
     :hidden:
     :caption: API Documentation

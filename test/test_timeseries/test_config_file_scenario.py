@@ -93,7 +93,7 @@ def prevent_state_config_loading(monkeypatch):
 
 @pytest.fixture
 def config(config_resources_path):
-    return Config._from_dict(config=copy.deepcopy(python_dict), config_name="test", root_path=config_resources_path)
+    return Config(**copy.deepcopy(python_dict), root_path=config_resources_path, config_file_relpath=Path())
 
 
 def test_init_from_config(config: Config):

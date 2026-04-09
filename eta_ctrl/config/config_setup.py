@@ -2,175 +2,93 @@ from __future__ import annotations
 
 import importlib
 from logging import getLogger
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from attrs import converters, define, field, fields
+from pydantic import BaseModel, ConfigDict, Field, GetJsonSchemaHandler, model_validator
+from stable_baselines3.common.base_class import BaseAlgorithm, BasePolicy
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv
+
+from eta_ctrl.envs import BaseEnv
 
 if TYPE_CHECKING:
-    from typing import Any
-
-    from attrs import Attribute
-    from stable_baselines3.common.base_class import BaseAlgorithm, BasePolicy
-    from stable_baselines3.common.vec_env import DummyVecEnv
-
-    from eta_ctrl.envs import BaseEnv
+    from pydantic.json_schema import JsonSchemaValue
 
 
 log = getLogger(__name__)
 
 
-def _get_class(instance: ConfigSetup, attrib: Attribute, new_value: str | None) -> str | None:
-    """Find module and class name and import the specified class."""
-    if new_value is not None:
-        module, cls_name = new_value.rsplit(".", 1)
-        try:
-            cls = getattr(importlib.import_module(module), cls_name)
-        except ModuleNotFoundError as e:
-            msg = f"Could not find module '{e.name}'. While importing class '{cls_name}' from '{attrib.name}' value."
-            raise ModuleNotFoundError(msg) from e
-        except AttributeError as e:
-            msg = (
-                f"Could not find class '{cls_name}' in module '{module}'. "
-                f"While importing class '{cls_name}' from '{attrib.name}' value."
-            )
-            raise AttributeError(msg) from e
-
-        cls_attr_name = f"{attrib.name.rsplit('_', 1)[0]}_class"
-        setattr(instance, cls_attr_name, cls)
-
-    return new_value
+def _import_class(import_path: str, expected_base: type) -> type:
+    """Import a class from *import_path* and verify it is a subclass of *expected_base*."""
+    module, cls_name = import_path.rsplit(".", 1)
+    cls = getattr(importlib.import_module(module), cls_name)
+    if not issubclass(cls, expected_base):
+        msg = f"'{import_path}' resolved to {cls}, which is not a subclass of {expected_base.__name__}"
+        raise TypeError(msg)
+    return cls
 
 
-@define(frozen=False, kw_only=True, repr=False)
-class ConfigSetup:
-    """Configuration options as specified in the "setup" section of the configuration file."""
+class ConfigSetup(BaseModel):
+    """Helper class, which is part of `Config`, for import and setup parameters."""
 
-    #: Import description string for the agent class.
-    agent_import: str = field(on_setattr=_get_class)
-    #: Agent class (automatically determined from agent_import).
-    agent_class: type[BaseAlgorithm] = field(init=False)
-    #: Import description string for the environment class.
-    environment_import: str = field(on_setattr=_get_class)
-    #: Imported Environment class (automatically determined from environment_import).
-    environment_class: type[BaseEnv] = field(init=False)
+    model_config = ConfigDict(frozen=True, extra="forbid", use_attribute_docstrings=True)
 
-    #: Import description string for the environment vectorizer
-    #: (default: stable_baselines3.common.vec_env.dummy_vec_env.DummyVecEnv).
-    vectorizer_import: str = field(
-        default="stable_baselines3.common.vec_env.dummy_vec_env.DummyVecEnv",
-        on_setattr=_get_class,
-        converter=converters.default_if_none(  # type: ignore[misc]
-            "stable_baselines3.common.vec_env.dummy_vec_env.DummyVecEnv"
-        ),
-    )  # mypy currently does not recognize converters.default_if_none
-    #: Environment vectorizer class  (automatically determined from vectorizer_import).
-    vectorizer_class: type[DummyVecEnv] = field(init=False)
-    #: Import description string for the policy class (default: eta_ctrl.agents.common.NoPolicy).
-    policy_import: str = field(
-        default="eta_ctrl.common.NoPolicy",
-        on_setattr=_get_class,
-        converter=converters.default_if_none("eta_ctrl.common.NoPolicy"),  # type: ignore[misc]
-    )  # mypy currently does not recognize converters.default_if_none
-    #: Policy class (automatically determined from policy_import).
-    policy_class: type[BasePolicy] = field(init=False)
+    agent_import: str
+    """Import description string for the agent class."""
+    agent_class: type[BaseAlgorithm] = Field(exclude=True)
+    """Agent class (automatically determined from agent_import)."""
+    environment_import: str
+    """Import description string for the environment class."""
+    environment_class: type[BaseEnv] = Field(exclude=True)
+    """Imported Environment class (automatically determined from environment_import)."""
 
-    #: Flag which is true if the environment should be wrapped for monitoring (default: False).
-    monitor_wrapper: bool = field(default=False, converter=bool)
-    #: Flag which is true if the observations should be normalized (default: False).
-    norm_wrapper_obs: bool = field(default=False, converter=bool)
-    #: Flag which is true if the rewards should be normalized (default: False).
-    norm_wrapper_reward: bool = field(default=False, converter=bool)
-    #: Flag to enable tensorboard logging (default: False).
-    tensorboard_log: bool = field(default=False, converter=bool)
+    vectorizer_import: str = "stable_baselines3.common.vec_env.dummy_vec_env.DummyVecEnv"
+    """Import description string for the environment vectorizer
+    (default: stable_baselines3.common.vec_env.dummy_vec_env.DummyVecEnv)."""
+    vectorizer_class: type[DummyVecEnv | SubprocVecEnv] = Field(exclude=True)
+    """Environment vectorizer class (automatically determined from vectorizer_import)."""
 
-    def __attrs_post_init__(self) -> None:
-        _fields = fields(ConfigSetup)
-        _get_class(self, _fields.agent_import, self.agent_import)
-        _get_class(self, _fields.environment_import, self.environment_import)
-        _get_class(self, _fields.vectorizer_import, self.vectorizer_import)
-        _get_class(self, _fields.policy_import, self.policy_import)
+    policy_import: str = "eta_ctrl.common.NoPolicy"
+    """Import description string for the policy class (default: eta_ctrl.agents.common.NoPolicy)."""
+    policy_class: type[BasePolicy] = Field(exclude=True)
+    """Policy class (automatically determined from policy_import)."""
+
+    monitor_wrapper: bool = False
+    """Flag which is true if the environment should be wrapped for monitoring (default: False)."""
+    norm_wrapper_obs: bool = False
+    """Flag which is true if the observations should be normalized (default: False)."""
+    norm_wrapper_reward: bool = False
+    """Flag which is true if the rewards should be normalized (default: False)."""
+    tensorboard_log: bool = False
+    """Flag to enable tensorboard logging (default: False)."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _resolve_classes(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        data = dict(data)
+        data["agent_class"] = _import_class(data["agent_import"], BaseAlgorithm)
+        data["environment_class"] = _import_class(data["environment_import"], BaseEnv)
+        data["vectorizer_class"] = _import_class(
+            data.get("vectorizer_import", "stable_baselines3.common.vec_env.dummy_vec_env.DummyVecEnv"),
+            VecEnv,
+        )
+        data["policy_class"] = _import_class(
+            data.get("policy_import", "eta_ctrl.common.NoPolicy"),
+            BasePolicy,
+        )
+        return data
+
+    @classmethod
+    def __get_pydantic_json_schema__(cls, core_schema: Any, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
+        json_schema = handler(core_schema)
+        # Remove resolved class fields — these are set automatically from the _import fields
+        for field in ("agent_class", "environment_class", "vectorizer_class", "policy_class"):
+            json_schema.get("properties", {}).pop(field, None)
+            if "required" in json_schema:
+                json_schema["required"] = [r for r in json_schema["required"] if r != field]
+        return json_schema
 
     def __str__(self) -> str:
         """Human-readable string representation of ConfigSetup."""
-        env_class = self.environment_class.__name__
-        agent_class = self.agent_class.__name__
-        return f"ConfigSetup(env={env_class}, agent={agent_class})"
-
-    def __repr__(self) -> str:
-        """Developer-friendly string representation of ConfigSetup."""
-        return f"ConfigSetup(environment='{self.environment_import}', agent='{self.agent_import}'"
-
-    @classmethod
-    def from_dict(cls, dikt: dict[str, Any]) -> ConfigSetup:
-        errors = []
-
-        def get_import(name: str, required: bool = False) -> str | Any:
-            """Get import string or combination of package and class name from dictionary.
-            :param name: Name of the configuration value.
-            :param required: Flag to determine if the value is required.
-            """
-            nonlocal errors, dikt
-            import_value = dikt.pop(f"{name}_import", None)
-            package_value = dikt.pop(f"{name}_package", None)
-            class_value = dikt.pop(f"{name}_class", None)
-            # Check import
-            if import_value is not None:
-                return import_value
-
-            # Check package and class
-            if package_value is not None and class_value is not None:
-                return f"{package_value}.{class_value}"
-
-            # If only one of package and class is specified, raise error
-            if (package_value is None) ^ (class_value is None):
-                msg = f"Only one of '{name}_package' and '{name}_class' is specified."
-                log.info(msg)
-
-            # Raise error if required value is missing
-            if required:
-                msg = f"'{name}_import' or both of '{name}_package' and '{name}_class' parameters must be specified."
-                log.error(msg)
-                errors.append(name)
-            return None
-
-        agent_import = get_import("agent", required=True)
-        environment_import = get_import("environment", required=True)
-
-        vectorizer_import = get_import("vectorizer")
-        policy_import = get_import("policy")
-
-        monitor_wrapper = dikt.pop("monitor_wrapper", None)
-        norm_wrapper_obs = dikt.pop("norm_wrapper_obs", None)
-        norm_wrapper_reward = dikt.pop("norm_wrapper_reward", None)
-        tensorboard_log = dikt.pop("tensorboard_log", None)
-
-        # Log configuration values which were not recognized.
-        if dikt:
-            msg = "Following values were not recognized in the config setup section and are ignored: "
-            msg += ", ".join(dikt.keys())
-            log.warning(msg)
-
-        if errors:
-            msg = "Not all required values were found in setup section (see log). Could not load config file. "
-            msg += f"Missing values: {', '.join(errors)}"
-            raise ValueError(msg)
-
-        return ConfigSetup(
-            agent_import=agent_import,
-            environment_import=environment_import,
-            vectorizer_import=vectorizer_import,
-            policy_import=policy_import,
-            monitor_wrapper=monitor_wrapper,
-            norm_wrapper_obs=norm_wrapper_obs,
-            norm_wrapper_reward=norm_wrapper_reward,
-            tensorboard_log=tensorboard_log,
-        )
-
-    def __getitem__(self, name: str) -> Any:
-        return getattr(self, name)
-
-    def __setitem__(self, name: str, value: Any) -> None:
-        if not hasattr(self, name):
-            msg = f"The key {name} does not exist - it cannot be set."
-            raise KeyError(msg)
-        setattr(self, name, value)
+        return f"ConfigSetup(env={self.environment_class.__name__}, agent={self.agent_class.__name__})"

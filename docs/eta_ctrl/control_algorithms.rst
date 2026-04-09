@@ -28,7 +28,7 @@ by *BaseAlgorithm* will be passed on to the solver. This allows free configurati
 Rule Based Agent (Base Class)
 ---------------------------------------
 The rule based agent is a base class which facilitates the creation of simple rule based agents. To use it, you need
-to implement the :py:class:`eta_ctrl.agents.RuleBased.control_rules` method. The *control_rules* method
+to implement the :py:meth:`eta_ctrl.agents.RuleBased.control_rules` method. The *control_rules* method
 takes the array of observations from the environment and determines an array of actions based on them.
 
 .. autoclass:: eta_ctrl.agents::RuleBased

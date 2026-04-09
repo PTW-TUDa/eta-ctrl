@@ -212,7 +212,9 @@ class StateConfig:
         self.abort_conditions_max: list[str] = _abort_condition_df["abort_condition_max"].dropna().index.tolist()
 
     @classmethod
-    def from_file(cls, root_path: pathlib.Path, filename: str, extra_params: Mapping[str, float] | None = None) -> Self:
+    def from_file(
+        cls, root_path: pathlib.Path, filename: Path, extra_params: Mapping[str, float] | None = None
+    ) -> Self:
         """Load a StateConfig from a config file.
 
         :param file: Path of the config file.

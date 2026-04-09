@@ -128,34 +128,30 @@ Config section 'setup'
 ^^^^^^^^^^^^^^^^^^^^^^^^
 The settings configured in the setup section are the following:
 
-.. autoclass:: eta_ctrl.config::ConfigSetup
-    :members:
+.. autopydantic_model:: eta_ctrl.config.config_setup::ConfigSetup
     :no-index:
-    :exclude-members: from_dict
+
 
 Config section 'paths'
 ^^^^^^^^^^^^^^^^^^^^^^^^
 The optional paths section can contain the following optional relative paths:
 
-.. autoattribute:: eta_ctrl.config::Config.results_relpath
-.. autoattribute:: eta_ctrl.config::Config.scenarios_relpath
-.. autoattribute:: eta_ctrl.config::Config.state_file_relpath
+.. autopydantic_model:: eta_ctrl.config.config_paths::ConfigPaths
+    :no-index:
 
 Config section 'settings'
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 The configuration options in the settings section are the following.
 
  .. note::
-    The configuration options "environment_specific" and "agent_specific"
-    are separate sections on the top level. They are loaded into the settings object as dictionaries.
+    The configuration options "environment" and "agent" are separate sections.
+    They are loaded into the settings object as dictionaries.
     To determine, which options are valid for these sections, please look at the arguments required
     for instantiation of the agent or environment. These arguments must be specified as parameters in
     the corresponding section.
 
-.. autoclass:: eta_ctrl.config::ConfigSettings
-    :members:
+.. autopydantic_model:: eta_ctrl.config.config_settings::ConfigSettings
     :no-index:
-    :exclude-members: from_dict
 
 Configuration for optimization runs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

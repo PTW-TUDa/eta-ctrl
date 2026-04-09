@@ -23,52 +23,65 @@ log = logging.getLogger(__name__)
 
 
 class ConfigCsvScenario(BaseModel):
-    #: :meta private:
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, use_attribute_docstrings=True)
 
-    #: Relative path to the scenario
     path: str
+    """Relative path to the scenario."""
 
-    #: Pandas method to use for filling missing data ["ffill", "bfill", "interpolate", "asfreq"].
     interpolation_method: FillMethod | None = None
-    #: Scale factors for each columns
-    scale_factors: dict[str, float] | None = None
-    #: Prefix for all column names
-    prefix: str | None = None
-    #: Setting how the datetime values should be converted.
-    #: When set to string it uses the format from ``time_conversion_str``,
-    #: when set to 'dates' it will use pandas to determine the datetime.
-    #: If a two-tuple (row, col) is given, data from the specified field in the data files
-    #: will be used to determine the date format
-    infer_datetime_cols: InferDatetimeType | tuple[int, int] = "dates"
-    #: Time conversion string used when ``infer_datetime_cols`` is set to 'string'
-    #: Should specify the format for Python ``strptime``
-    time_conversion_str: str = "%Y-%m-%d %H:%M"
-    #: Dictionary for renaming column names
-    #:
-    #:  .. note::
-    #:
-    #:    The column names are stripped of illegal characters and underscores are added in place of spaces.
-    #:    "Water Temperature #2 [°C]" becomes "Water_Temperature_2_C". If you want to rename the column,
-    #:    you need to specify the processed name, for example: {"Water_Temperature_2_C": "T_W"}.
-    rename_cols: dict[str, str] | None = None
+    """Pandas method to use for filling missing data ["ffill", "bfill", "interpolate", "asfreq"]."""
 
-    #: Directory for the scenarios.
-    #: Not included in config declaration, passed by main Config object
-    scenarios_path: Path = Field(exclude=True)
+    scale_factors: dict[str, float] | None = None
+    """Scale factors for each column."""
+
+    prefix: str | None = None
+    """Prefix for all column names."""
+
+    infer_datetime_cols: InferDatetimeType | tuple[int, int] = Field(
+        default="dates", description="Methof of datetime parsing"
+    )
+    """Setting how the datetime values should be converted.
+
+    When set to string it uses the format from ``time_conversion_str``,
+    when set to 'dates' it will use pandas to determine the datetime.
+    If a two-tuple (row, col) is given, data from the specified field in the data files
+    will be used to determine the date format.
+    """
+
+    time_conversion_str: str = "%Y-%m-%d %H:%M"
+    """Time conversion string used when ``infer_datetime_cols`` is set to 'string'.
+
+    Should specify the format for Python ``strptime``.
+    """
+
+    rename_cols: dict[str, str] | None = None
+    """Dictionary for renaming column names.
+
+    .. note::
+
+       The column names are stripped of illegal characters and underscores are added in place of spaces.
+       "Water Temperature #2 [°C]" becomes "Water_Temperature_2_C". If you want to rename the column,
+       you need to specify the processed name, for example: {"Water_Temperature_2_C": "T_W"}.
+    """
+
+    scenarios_path: Path | None = Field(default=None, exclude=True)
+    """Directory for the scenarios. Not included in config declaration, passed by main Config object."""
 
     def model_post_init(self, _: Any) -> None:
         """Ensure that the CSV file exists.
 
         :raises FileNotFoundError: If file does not exist.
         """
-        if not self.abs_path.exists():
+        if self.scenarios_path is not None and not self.abs_path.exists():
             msg = "Scenario file does not exist"
             raise FileNotFoundError(msg)
 
     @property
     def abs_path(self) -> Path:
         """Absolute file path of the scenario."""
+        if self.scenarios_path is None:
+            msg = f"Relative path is not set for file {self.path}"
+            raise AttributeError(msg)
         return (self.scenarios_path / self.path).resolve()
 
 

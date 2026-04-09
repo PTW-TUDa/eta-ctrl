@@ -1,28 +1,22 @@
 {
     "setup": {
-        "environment_package": "examples.damped_oscillator.damped_oscillator",
-        "environment_class": "DampedOscillatorEnv",
-        "agent_package": "examples.damped_oscillator.controller",
-        "agent_class": "DampedOscillatorControl"
+        "environment_import": "examples.damped_oscillator.damped_oscillator.DampedOscillatorEnv",
+        "agent_import": "examples.damped_oscillator.controller.DampedOscillatorControl"
     },
-    "paths": {
-        "state_relpath": "."
-    },
+
     "settings": {
         "sampling_time": 0.5,
         "episode_duration": 100,
-        "sim_steps_per_sample": 5,
         "n_episodes_play": 1,
         "n_environments": 1,
         "verbose": 2,
         "seed": 123,
-        "log_to_file": true
-    },
-    "environment_specific": {
-    },
-    "agent_specific": {
-        "p": 0.08,
-        "i": 0.3,
-        "d": 0.35
+        "log_to_file": true,
+        "sim_steps_per_sample": 5,
+        "agent": {
+            "p": 0.08,
+            "i": 0.3,
+            "d": 0.35
+        }
     }
 }
