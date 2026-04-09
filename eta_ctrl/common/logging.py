@@ -50,7 +50,7 @@ def log_run_info(config: Config, config_run: ConfigRun) -> None:
                 return repr(o)
 
         try:
-            json.dump({**asdict(config_run), **asdict(config)}, f, indent=4, cls=Encoder)
+            json.dump({**asdict(config_run), **config.model_dump()}, f, indent=4, cls=Encoder)
             log.info("Log file successfully created.")
         except TypeError:
             log.warning("Log file could not be created because of non-serializable input in config.")

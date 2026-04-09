@@ -24,7 +24,7 @@ def experiment(overwrite: dict[str, Any] | None = None) -> None:
     """
     root_path = pathlib.Path(__file__).parent
     env_path = root_path / "environment"
-    overwrite = {"environment_specific": {"path_env": env_path.absolute()}}
+    overwrite = {"settings": {"environment": {"path_env": env_path.absolute()}}}
     experiment = EtaCtrl(root_path=root_path, config_overwrite=overwrite, config_relpath=".", config_name="config.toml")
     experiment.play(series_name="kea_tank_pyomo_sim", run_name="example_run")
 

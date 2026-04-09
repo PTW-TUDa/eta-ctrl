@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
     from gymnasium import Env
     from stable_baselines3.common.base_class import BaseAlgorithm, BasePolicy
-    from stable_baselines3.common.vec_env import DummyVecEnv, VecEnv, VecNormalize
+    from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv, VecNormalize
 
     from eta_ctrl.config import ConfigRun
     from eta_ctrl.envs import BaseEnv
@@ -26,7 +26,7 @@ def vectorize_environment(
     env_settings: EnvSettings,
     callback: Callable[[BaseEnv], None],
     verbose: int = 2,
-    vectorizer: type[DummyVecEnv] | None = None,
+    vectorizer: type[DummyVecEnv | SubprocVecEnv] | None = None,
     n: int = 1,
     seed: int | None = None,
     *,

@@ -46,7 +46,8 @@ optional-dependencies.examples = [
 optional-dependencies.docs = [
     "sphinx (>=8.0.0,<10.0.0)",
     "sphinx-rtd-theme (>=3.0.0,<4.0.0)",
-    "sphinx-copybutton (>=0.5.2,<1.0.0)"
+    "sphinx-copybutton (>=0.5.2,<1.0.0)",
+    "autodoc-pydantic (>=2.2.0,<3.0.0)",
 ]
 [project.urls]
     Homepage = "https://www.ptw.tu-darmstadt.de"
@@ -91,6 +92,7 @@ cplex = "*"
 sphinx = "*"
 sphinx-rtd-theme = "*"
 sphinx-copybutton = "*"
+autodoc-pydantic = "*"
 
 [tool.poetry.group.dev.dependencies]
 # Dev install assumes poetry, so pip compatibility is not needed

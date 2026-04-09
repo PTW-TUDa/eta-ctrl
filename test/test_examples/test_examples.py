@@ -25,8 +25,10 @@ class TestPendulumExample:
         ex_pendulum_conventional(
             experiment_path,
             {
-                "settings": {"log_to_file": False},
-                "environment_specific": {"do_render": False},
+                "settings": {
+                    "log_to_file": False,
+                    "environment": {"do_render": False},
+                },
             },
         )
 
@@ -38,7 +40,7 @@ class TestPendulumExample:
                     # SubprocVecEnv spawns Windows subprocesses which deadlock in pytest and
                     # keep model/log files open after learn(), causing PermissionError in play().
                     # DummyVecEnv runs everything in-process, which is correct for testing.
-                    "vectorizer_class": "DummyVecEnv",
+                    "vectorizer_import": "stable_baselines3.common.vec_env.DummyVecEnv",
                     "tensorboard_log": False,
                 },
                 "settings": {
@@ -46,8 +48,8 @@ class TestPendulumExample:
                     "save_model_every_x_episodes": 2,
                     "n_environments": 1,
                     "log_to_file": False,
+                    "environment": {"do_render": False},
                 },
-                "environment_specific": {"do_render": False},
             },
         )
 

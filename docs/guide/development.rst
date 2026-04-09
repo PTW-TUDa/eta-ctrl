@@ -196,6 +196,13 @@ This creates a folder named *_build* (inside the *docs* folder) which allows the
 be previewed locally. This folder will not be committed to git. Re-execute this command each
 time you edit the documentation to see the changes (you may have to refresh the HTML page).
 
+.. tip::
+
+    Instead of manually refreshing, you can use the `Live Server
+    <https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer>`_ extension
+    for VS Code (``ritwickdey.liveserver``). Open ``docs/_build/html/index.html`` and click
+    **Go Live** in the status bar. The browser tab will reload automatically each time you
+    rebuild the documentation.
 
 If you have problems using sphinx see :ref:`sphinx_not_found`.
 

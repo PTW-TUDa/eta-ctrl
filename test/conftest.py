@@ -61,8 +61,13 @@ def class_monkeypatch():
 
 
 @pytest.fixture(scope="session")
-def resources_path():
-    return pathlib.Path(__file__).parent / "resources"
+def root_path():
+    return pathlib.Path(__file__).parent.parent
+
+
+@pytest.fixture(scope="session")
+def resources_path(root_path):
+    return root_path / "test" / "resources"
 
 
 @pytest.fixture(scope="session")
