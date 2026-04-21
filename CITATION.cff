@@ -32,8 +32,7 @@ identifiers:
   - type: doi
     value: 10.5281/zenodo.19450642
     description: Repository
-repository-code: 'https://github.com/PTW-TUDa/heat-exchanger-control'
-repository: 'https://github.com/PTW-TUDa/eta-ctrl'
+repository-code: 'https://github.com/PTW-TUDa/eta-ctrl'
 abstract: >-
   A modular framework for rolling-horizon operational control using a Gym-compatible agent–environment abstraction. The framework enables integration of optimization-based agents (Pyomo), reinforcement learning agents (Stable-Baselines3), heuristic search methods, and rule-based controllers. Environments can be instantiated from FMI-compliant simulations, mathematical models, or real-world system interfaces.
 keywords:
