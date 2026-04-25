@@ -1,6 +1,6 @@
 {
     "setup": {
-        "environment_import": "eta_ctrl.envs.PyomoEnv",
+        "environment_import": "eta_ctrl.envs.PyomoSimEnv",
         "agent_import": "eta_ctrl.agents.MpcAgent",
         "vectorizer_import": "stable_baselines3.common.vec_env.dummy_vec_env.DummyVecEnv",
         "policy_import": "eta_ctrl.common.NoPolicy"

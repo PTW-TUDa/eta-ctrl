@@ -14,6 +14,7 @@ from stable_baselines3.common.vec_env import VecEnv, VecNormalize
 
 from eta_ctrl.common.sb3_extensions.policies import NoPolicy
 from eta_ctrl.simulators import PyomoModel
+from eta_ctrl.util.utils import import_class_from_module
 
 if TYPE_CHECKING:
     from typing import Any
@@ -96,8 +97,9 @@ class MpcAgent(BaseAlgorithm):
         #: of solution values will be used).
         self.action_index = action_index
 
-        self.model: PyomoModel = PyomoModel.load_from_import(
-            model_import,
+        target_class: type[PyomoModel] = import_class_from_module(model_import, base_class=PyomoModel)
+
+        self.model: PyomoModel = target_class(
             model_parameters=kwargs.pop("model_parameters", None),
             sampling_time=sampling_time,
             prediction_horizon=prediction_horizon,

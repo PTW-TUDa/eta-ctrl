@@ -5,7 +5,8 @@ from logging import getLogger
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, Field, GetJsonSchemaHandler, model_validator
-from stable_baselines3.common.base_class import BaseAlgorithm, BasePolicy
+from stable_baselines3.common.base_class import BaseAlgorithm
+from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv
 
 from eta_ctrl.envs import BaseEnv

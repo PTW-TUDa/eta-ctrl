@@ -3,9 +3,7 @@
 import inspect
 from datetime import datetime
 
-from eta_ctrl.envs.live_env import LiveEnv
-from eta_ctrl.envs.pyomo_env import PyomoEnv
-from eta_ctrl.envs.sim_env import SimEnv
+from eta_ctrl.envs import LiveEnv, PyomoSimEnv, SimEnv
 
 
 class TestEnvironmentStringRepresentationIntegration:
@@ -16,16 +14,16 @@ class TestEnvironmentStringRepresentationIntegration:
         # Test that methods exist and are not just inherited from object
 
         # Check that the methods exist
-        assert hasattr(PyomoEnv, "__str__")
-        assert hasattr(PyomoEnv, "__repr__")
+        assert hasattr(PyomoSimEnv, "__str__")
+        assert hasattr(PyomoSimEnv, "__repr__")
         assert hasattr(SimEnv, "__str__")
         assert hasattr(SimEnv, "__repr__")
         assert hasattr(LiveEnv, "__str__")
         assert hasattr(LiveEnv, "__repr__")
 
         # Check that they're actually implemented (not just object.__str__)
-        assert PyomoEnv.__str__ is not object.__str__
-        assert PyomoEnv.__repr__ is not object.__repr__
+        assert PyomoSimEnv.__str__ is not object.__str__
+        assert PyomoSimEnv.__repr__ is not object.__repr__
         assert SimEnv.__str__ is not object.__str__
         assert SimEnv.__repr__ is not object.__repr__
         assert LiveEnv.__str__ is not object.__str__
@@ -36,12 +34,12 @@ class TestEnvironmentStringRepresentationIntegration:
         # Test that methods can be called (they should exist)
 
         # Check __str__ methods
-        assert len(inspect.signature(PyomoEnv.__str__).parameters) == 1  # just self
+        assert len(inspect.signature(PyomoSimEnv.__str__).parameters) == 1  # just self
         assert len(inspect.signature(SimEnv.__str__).parameters) == 1
         assert len(inspect.signature(LiveEnv.__str__).parameters) == 1
 
         # Check __repr__ methods
-        assert len(inspect.signature(PyomoEnv.__repr__).parameters) == 1
+        assert len(inspect.signature(PyomoSimEnv.__repr__).parameters) == 1
         assert len(inspect.signature(SimEnv.__repr__).parameters) == 1
         assert len(inspect.signature(LiveEnv.__repr__).parameters) == 1
 
@@ -65,7 +63,6 @@ class TestEnvironmentStringRepresentationIntegration:
             sampling_time=60,
             model_parameters={},
             prediction_horizon=1800.0,
-            n_prediction_steps=10,
         )
 
         sim_env = unified_env_factory(
@@ -104,7 +101,7 @@ class TestEnvironmentStringRepresentationIntegration:
 
         # Verify each has the base pattern plus specific info
         assert "Episode 0, Step 0/60" in str(pyomo_env)
-        assert "Prediction steps:" in str(pyomo_env)
+        assert "PyomoModel:" in str(pyomo_env)
 
         assert "Episode 0, Step 0/60" in str(sim_env)
         assert "FMU:" in str(sim_env)

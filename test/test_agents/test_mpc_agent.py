@@ -11,9 +11,9 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 from eta_ctrl.agents.mpc_agent import MpcAgent
 from eta_ctrl.envs.state import StateConfig, StateVar
-from test.resources.agents.mpc_basic_model import MPCBasicModel
+from test.resources.pyomo_basic_model import PyomoBasicModel
 
-MODEL_IMPORT = "test.resources.agents.mpc_basic_model.MPCBasicModel"
+MODEL_IMPORT = "test.resources.pyomo_basic_model.PyomoBasicModel"
 
 
 @pytest.fixture(scope="module")
@@ -48,7 +48,7 @@ class TestMpcAgent:
         return mpc_agent_factory(env=env)
 
     def test_model_is_loaded(self, mpc_agent):
-        assert isinstance(mpc_agent.model, MPCBasicModel)
+        assert isinstance(mpc_agent.model, PyomoBasicModel)
         assert mpc_agent.concrete_model is mpc_agent.model.model
 
     def test_learn_returns_self(self, mpc_agent):
@@ -57,46 +57,53 @@ class TestMpcAgent:
 
 
 class TestMpcAgentSolve:
-    """Has a StateConfig matching the MPCBasicModel"""
+    """Has a StateConfig matching the PyomoSimEnvModel"""
 
     @pytest.fixture(scope="class")
     def mpc_agent(self, mpc_agent_factory, unified_env_factory):
         state_config = StateConfig(
-            StateVar(name="u", is_agent_action=True, low_value=-5, high_value=5),
-            StateVar(name="x0", is_agent_observation=True),
+            StateVar(name="x", is_agent_action=True, low_value=0, high_value=1),
+            StateVar(name="temp0", is_agent_observation=True),
         )
         env = unified_env_factory(state_config=state_config)
-        return mpc_agent_factory(env)
+        return mpc_agent_factory(env, prediction_horizon=4, sampling_time=1)
 
     def test_actions_order(self, mpc_agent):
-        assert mpc_agent.actions_order == ["u"]
+        assert mpc_agent.actions_order == ["x"]
 
     def test_solve_produces_optimal_solution(self, mpc_agent):
         """Test that solve() returns the correct optimal solution using a real solver.
 
-        MPCBasicModel minimizes (x[0]-1)² + (u[0]+1)² with a single prediction step.
+        Prices overridden to [10,1,1,1,1]: step 0 expensive, rest cheap.
+        temp0=55, temp_min=50. Dynamics: +2°C when heating, -2°C when cooling.
+        Optimal: avoid heating at t=0, cool to 53 → 51, then heat back to 53.
         """
-
+        mpc_agent.model.pyo_update_params({"p": [10, 1, 1, 1, 1]})
         solved_model = mpc_agent.solve()
 
-        assert pyo.value(solved_model.u[0]) == pytest.approx(0.618, abs=1e-2)
+        assert pyo.value(solved_model.temp[0]) == pytest.approx(55.0, abs=1e-2)
+
         assert pyo.value(solved_model.x[0]) == pytest.approx(0.0, abs=1e-2)
+        assert pyo.value(solved_model.temp[1]) == pytest.approx(53.0, abs=1e-2)
 
-        assert pyo.value(solved_model.u[1]) == pytest.approx(0.235, abs=1e-2)
-        assert pyo.value(solved_model.x[1]) == pytest.approx(0.618, abs=1e-2)
+        assert pyo.value(solved_model.x[1]) == pytest.approx(0.0, abs=1e-2)
+        assert pyo.value(solved_model.temp[2]) == pytest.approx(51.0, abs=1e-2)
 
-    @pytest.mark.parametrize(("x0", "expected"), [(0.0, 0.618), (2.0, -0.618)])
-    def test_predict(self, mpc_agent, x0, expected):
-        actions, _ = mpc_agent.predict(observation={"x0": np.array([[x0]])})
+        assert pyo.value(solved_model.x[2]) == pytest.approx(1.0, abs=1e-2)
+        assert pyo.value(solved_model.temp[3]) == pytest.approx(53.0, abs=1e-2)
+
+    @pytest.mark.parametrize(("temp0", "expected"), [(50.0, 1.0), (60.0, 0.0)])
+    def test_predict(self, mpc_agent, temp0, expected):
+        actions, _ = mpc_agent.predict(observation={"temp0": np.array([[temp0]])})
         assert actions.item() == pytest.approx(expected, abs=1e-2)
 
     def test_predict_value_error(self, mpc_agent):
         concrete_model = mpc_agent.model.model
         concrete_model.test_var = pyo.Var()
         concrete_model.test_var_indexed = pyo.Var(concrete_model.T)
-        msg = "Couldn't fetch the value for action 'test_var_indexed' in the PyomoModel MPCBasicModel"
+        msg = "Couldn't fetch the value for action 'test_var_indexed' in the PyomoModel PyomoBasicModel"
         with pytest.raises(ValueError, match=msg):
-            mpc_agent.predict(observation={"x0": np.array([[0]])})
+            mpc_agent.predict(observation={"temp0": np.array([[55]])})
 
 
 class TestMpcAgentSolveFail:

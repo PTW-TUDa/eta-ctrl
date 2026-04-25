@@ -141,11 +141,11 @@ Base Environment
     :exclude-members: reward_range, metadata, spec
     :no-index:
 
-Model Predictive Control (MPC) Environment
+Pyomo Simulation Environment
 ------------------------------------------------
-PyomoEnv is a class for using Pyomo modelling language for environment representation.
+PyomoSimEnv is a class for using Pyomo modelling language for environment representation.
 
-.. autoclass:: eta_ctrl.envs::PyomoEnv
+.. autoclass:: eta_ctrl.envs::PyomoSimEnv
     :members:
     :show-inheritance:
     :no-index:

@@ -1,5 +1,5 @@
 [setup]
-environment_import = "eta_ctrl.envs.PyomoEnv"
+environment_import = "eta_ctrl.envs.PyomoSimEnv"
 agent_import = "eta_ctrl.agents.MpcAgent"
 
 [settings]

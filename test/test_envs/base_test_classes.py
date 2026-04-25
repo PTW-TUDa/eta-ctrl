@@ -7,16 +7,11 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pyomo.environ as pyo
 import pytest
 
-from eta_ctrl.config.config_run import ConfigRun
-from eta_ctrl.envs.base_env import BaseEnv
-from eta_ctrl.envs.live_env import LiveEnv
-from eta_ctrl.envs.pyomo_env import PyomoEnv
-from eta_ctrl.envs.sim_env import SimEnv
-from eta_ctrl.envs.state import StateConfig, StateVar
-from eta_ctrl.timeseries.scenario_manager import CsvScenarioManager
+from eta_ctrl.config import ConfigRun
+from eta_ctrl.envs import BaseEnv, LiveEnv, PyomoSimEnv, SimEnv, StateConfig, StateVar
+from eta_ctrl.timeseries.scenario_manager import ScenarioManager
 
 
 class _ScenarioManagerStub:
@@ -33,7 +28,7 @@ class _ScenarioManagerStub:
         return np.array([self.value + n_step + state_var.ext_scale_add])
 
 
-class DummyScenarioManager(CsvScenarioManager):
+class DummyScenarioManager(ScenarioManager):
     """Dummy class for testing purposes"""
 
     def __init__(self) -> None:
@@ -43,6 +38,9 @@ class DummyScenarioManager(CsvScenarioManager):
         return {}
 
     def get_scenario_state_with_duration(self, n_step, duration):
+        return {}
+
+    def _get_data(self, n_step, duration=1, names=None):
         return {}
 
 
@@ -156,7 +154,7 @@ def state_config_factory():
 @pytest.fixture(scope="class")
 def unified_env_factory(config_run_factory, state_config_factory):
     """
-    Unified factory fixture for creating any type of environment (BaseEnv, PyomoEnv, SimEnv, LiveEnv).
+    Unified factory fixture for creating any type of environment (BaseEnv, PyomoSimEnv, SimEnv, LiveEnv).
     """
 
     def _create_environment(
@@ -189,22 +187,16 @@ def unified_env_factory(config_run_factory, state_config_factory):
             "sampling_time": sampling_time,
             "path_env": path_env,
         }
+        # Common params can be overridden by env_specific_params (i.e. kwargs)
+        all_params = {**common_params, **env_specific_params}
 
         if env_type == "base":
-            return TestBaseEnv(**{**common_params, **env_specific_params})
+            return TestBaseEnv(**all_params)
         if env_type == "pyomo":
-            # Extract PyomoEnv specific parameters with defaults
-            model_parameters = env_specific_params.get("model_parameters", {})
-            prediction_horizon = env_specific_params.get("prediction_horizon", 3600.0)
-            n_prediction_steps = env_specific_params.get("n_prediction_steps", 12)
-            scenario_manager = DummyScenarioManager()
-            return TestPyomoEnv(
-                **common_params,
-                scenario_manager=scenario_manager,
-                model_parameters=model_parameters,
-                prediction_horizon=prediction_horizon,
-                n_prediction_steps=n_prediction_steps,
-            )
+            # Set PyomoSimEnv specific parameters with defaults
+            all_params.setdefault("model_parameters", {})
+            all_params.setdefault("scenario_manager", DummyScenarioManager())
+            return TestPyomoSimEnv(**all_params)
         if env_type == "sim":
             # Extract SimEnv specific parameters with defaults
             fmu_name = env_specific_params.get("fmu_name", "test_model.fmu")
@@ -260,8 +252,12 @@ class TestBaseEnv(BaseEnv):
         pass
 
 
-class TestPyomoEnv(PyomoEnv):
-    """Concrete implementation of PyomoEnv for testing."""
+class TestPyomoSimEnv(PyomoSimEnv):
+    """Concrete implementation of PyomoSimEnv for testing."""
+
+    @property
+    def model_import(self):
+        return "test.resources.pyomo_basic_model.PyomoBasicModel"
 
     @property
     def version(self):
@@ -269,29 +265,13 @@ class TestPyomoEnv(PyomoEnv):
 
     @property
     def description(self):
-        return "Test PyomoEnv for string representation testing"
-
-    def _model(self):
-        return pyo.AbstractModel()
+        return "Test PyomoSimEnv for string representation testing"
 
     def _build_model(self):
         pass
 
     def _solve_model(self):
         return {}
-
-    def _step(self):
-        """Implement abstract _step method."""
-        return 0.0, False, False, {}
-
-    def _reset(self, *, seed=None, options=None):
-        """Implement abstract _reset method."""
-        return {}
-
-    def step(self, action):
-        self.n_steps += 1
-        self.n_steps_longtime += 1
-        return {}, 0.0, False, False, {}
 
     def close(self):
         pass

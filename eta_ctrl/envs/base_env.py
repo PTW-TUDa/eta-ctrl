@@ -271,7 +271,7 @@ class BaseEnv(Env, abc.ABC):
 
         # Execute optional state modification callback function
         if self.state_modification_callback:
-            self.state_modification_callback()
+            self.state_modification_callback(self)
 
         self.state_log.append(self.state)
 
@@ -553,7 +553,7 @@ class BaseEnv(Env, abc.ABC):
 
         # Execute optional state modification callback function
         if self.state_modification_callback:
-            self.state_modification_callback()
+            self.state_modification_callback(self)
 
         # Log state
         self.state_log.append(self.state)
