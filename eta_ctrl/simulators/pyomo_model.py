@@ -37,8 +37,8 @@ class PyomoModel:
 
         # #: Total duration of one prediction/optimization run when used with the MPC agent.
         if prediction_horizon is None:
-            log.error("Prediction_horizon parameter is not present in config.")
-            raise ValueError
+            msg = "Prediction_horizon parameter is not present in config."
+            raise ValueError(msg)
         self.prediction_horizon = float(
             prediction_horizon if not isinstance(prediction_horizon, timedelta) else prediction_horizon.total_seconds()
         )
@@ -71,7 +71,7 @@ class PyomoModel:
 
     def pyo_update_params(
         self,
-        updated_params: dict[str, int | float | bool | Mapping | np.ndarray | Sequence | Any],
+        updated_params: Mapping[str, int | float | bool | Mapping | np.ndarray | Sequence | Any],
     ) -> None:
         """Update model parameters and indexed parameters of a pyomo instance with values given in a dictionary.
 
@@ -79,7 +79,7 @@ class PyomoModel:
         :return: Updated model instance.
         """
 
-        def update_scalar_component(component: pyo.Component, new_value: Any) -> None:
+        def update_scalar_component(component: pyo.Param, new_value: Any) -> None:
             if isinstance(new_value, (np.ndarray, Sequence)) and len(new_value) == 1:
                 new_value = float(new_value[0])
             if not isinstance(new_value, (int, float, bool)):
@@ -87,7 +87,7 @@ class PyomoModel:
                 raise TypeError(msg)
             component.value = new_value
 
-        def update_indexed_component(component: pyo.Component, new_values: Any) -> None:
+        def update_indexed_component(component: pyo.Param, new_values: Any) -> None:
             if isinstance(new_values, (Sequence, np.ndarray, pd.Series, Mapping)):
                 len_ = len(new_values)
                 if len_ == 1:
@@ -287,17 +287,80 @@ class PyomoModel:
 
         export_pyomo_model_state(concrete_model, model_name, output_dir)
 
-    def pyo_get_solution(self, names: set[str] | None = None) -> dict[str, float | list[float]]:
+    def pyo_get_solution(self, names: set[str] | None = None) -> tuple[dict[str, list[float]], dict[str, float]]:
         """Convert the pyomo solution into a more usable format for plotting.
 
         :param names: Names of the model parameters that are returned.
         :return: Dictionary of {parameter name: value} pairs. Value may be a scalar value or a list.
         """
-        solution = {}
+        indexed_solution = {}
+        parameter_solution = {}
         for com in self.model.component_objects():
-            if com.ctype not in {pyo.Var, pyo.Param, pyo.Objective}:
+            if com.ctype not in {pyo.Var, pyo.Param, pyo.Objective, pyo.Expression}:
                 continue
             if names is not None and com.name not in names:
                 continue  # Only include names that where asked for
-            solution[com.name] = [pyo.value(v) for v in com.values()] if com.is_indexed() else pyo.value(com)
-        return solution
+            if com.is_indexed():
+                indexed_solution[com.name] = [pyo.value(v) for v in com.values()]
+            else:
+                parameter_solution[com.name] = pyo.value(com)
+        return indexed_solution, parameter_solution
+
+    @property
+    def start_value_mapping(self) -> dict[str, str]:
+        """Mapping of initial-condition Param names to their corresponding Expression names.
+
+        Subclasses that should be compatible with :class:`~eta_ctrl.envs.PyomoSimEnv` must define
+        a ``_start_value_mapping`` class attribute (e.g. ``_start_value_mapping = {"temp0": "temp_expression"}``).
+
+        :raises AttributeError: If the subclass does not define ``_start_value_mapping``.
+        """
+        mapping = getattr(self, "_start_value_mapping", None)
+        if mapping is None:
+            msg = f"Tried to access 'self._start_value_mapping' from '{self.__class__.__name__}', but it doesn't exist."
+            raise AttributeError(msg)
+        return mapping
+
+    def check_pyomo_sim_compatibility(self, ext_outputs: list[str]) -> None:
+        """Validate that this model is compatible with :class:`~eta_ctrl.envs.PyomoSimEnv`.
+
+        Checks that every external output (defined in the state config) has a corresponding entry
+        in :attr:`start_value_mapping`, that the mapped Param is a scalar :class:`pyo.Param`,
+        and the mapped Expression is an indexed :class:`pyo.Expression`.
+
+
+        :param ext_outputs: External output names from the environment's StateConfig.
+        :raises AttributeError: If ``_start_value_mapping`` is not defined.
+        :raises KeyError: If an external output is missing from the expression mapping.
+        :raises ValueError: If a mapped component does not exist in the concrete model.
+        :raises TypeError: If a component has the wrong Pyomo type (e.g. Var instead of Param).
+        """
+        for ext_output in ext_outputs:
+            if ext_output not in self.start_value_mapping:
+                msg = f"Missing '{ext_output}' in start_value_mapping of '{self.__class__.__name__}'"
+                raise KeyError(msg)
+
+            com = self.model.component(ext_output)
+            if com is None:
+                msg = f"Component {ext_output} does not exist in '{self.__class__.__name__}'"
+                raise ValueError(msg)
+
+            if not isinstance(com, pyo.Param):
+                msg = f"Component {com} must be of type 'Param', but is '{type(com).__name__}'"
+                raise TypeError(msg)
+            if com.is_indexed():
+                msg = f"Component {com} must not be indexed, use 'ScalarParam' instead."
+                raise TypeError(msg)
+
+            expr_name = self.start_value_mapping[ext_output]
+            com_expr = self.model.component(expr_name)
+            if com_expr is None:
+                msg = f"Component {expr_name} does not exist in '{self.__class__.__name__}'"
+                raise ValueError(msg)
+
+            if not isinstance(com_expr, pyo.Expression):
+                msg = f"Component {com_expr} must be of type 'Expression', but is '{type(com_expr).__name__}'"
+                raise TypeError(msg)
+            if not com_expr.is_indexed():
+                msg = f"Component {com_expr} must be indexed to retrieve the second value."
+                raise TypeError(msg)

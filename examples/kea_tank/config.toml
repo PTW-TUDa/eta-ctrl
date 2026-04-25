@@ -1,5 +1,5 @@
 [setup]
-environment_import = "examples.kea_tank.environment.kea_model_env.DrKea"
+environment_import = "examples.kea_tank.environments.kea_model_env.DrKea"
 agent_import = "eta_ctrl.agents.MpcAgent"
 
 [settings]

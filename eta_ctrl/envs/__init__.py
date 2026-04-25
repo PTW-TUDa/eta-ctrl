@@ -12,7 +12,7 @@ from .state import (
 if TYPE_CHECKING:
     from .live_env import LiveEnv as LiveEnv
     from .no_vec_env import NoVecEnv as NoVecEnv
-    from .pyomo_env import PyomoEnv as PyomoEnv
+    from .pyomo_sim_env import PyomoSimEnv as PyomoSimEnv
 
 
 def __getattr__(name: str) -> object:
@@ -24,9 +24,9 @@ def __getattr__(name: str) -> object:
         from .no_vec_env import NoVecEnv  # noqa: PLC0415
 
         return NoVecEnv
-    if name == "PyomoEnv":
-        from .pyomo_env import PyomoEnv  # noqa: PLC0415
+    if name == "PyomoSimEnv":
+        from .pyomo_sim_env import PyomoSimEnv  # noqa: PLC0415
 
-        return PyomoEnv
+        return PyomoSimEnv
     msg = f"module 'eta_ctrl.envs' has no attribute {name!r}"
     raise AttributeError(msg)

@@ -37,7 +37,7 @@ Environment
 
   - **`BaseEnv`**: Abstract base class for creating custom environments.
   - **`LiveEnv`**: Extends `BaseEnv` for live environments interacting with real-world systems.
-  - **`PyomoEnv`**: Extends `BaseEnv` for environments using Model Predictive Control (MPC).
+  - **`PyomoSimEnv`**: Extends `BaseEnv` for environments using a pyomo model for simulation.
   - **`SimEnv`**: Extends `BaseEnv` for environments using FMU-based simulations.
 
 - **Vectorization**:

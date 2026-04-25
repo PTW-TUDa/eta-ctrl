@@ -11,7 +11,7 @@ This file is the source of truth for agent instructions in this repository.
 ## Primary Components
 - `eta_ctrl/core.py`: Main `EtaCtrl` orchestration.
 - `eta_ctrl/config/`: Runtime and path/config abstractions (`Config`, `RunInfo`).
-- `eta_ctrl/envs/`: Environment base classes and implementations (`BaseEnv`, `LiveEnv`, `PyomoEnv`, `SimEnv`). Subclasses override `_step()`/`_reset()`, not the public gymnasium methods.
+- `eta_ctrl/envs/`: Environment base classes and implementations (`BaseEnv`, `LiveEnv`, `PyomoSimEnv`, `SimEnv`). Subclasses override `_step()`/`_reset()`, not the public gymnasium methods.
 - `eta_ctrl/simulators/`: FMU simulation helpers.
 - `eta_ctrl/timeseries/`: CSV import + resample/interpolation utilities.
 - `eta_ctrl/agents/`: Agent integrations.

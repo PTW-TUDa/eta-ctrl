@@ -1,0 +1,14 @@
+[[actions]]
+name = "heating"
+is_ext_input = true
+low_value=0
+high_value=1
+
+[[observations]]
+name = "tank_temperature_start"
+is_ext_output = true
+
+[[observations]]
+name = "energy_price"
+duration="n_prediction_steps"
+from_scenario=true

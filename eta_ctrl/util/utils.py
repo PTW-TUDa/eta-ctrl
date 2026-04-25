@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import copy
+import importlib
 import math
 import re
 from collections.abc import Mapping
 from datetime import timedelta
 from logging import getLogger
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:
     from typing import Any
@@ -15,6 +16,38 @@ if TYPE_CHECKING:
 
 
 log = getLogger(__name__)
+
+T = TypeVar("T")
+
+
+def import_class_from_module(path: str, base_class: type[T] | None = None) -> type[T]:
+    """Import a class from a given python module path.
+
+    :param path: Path to the class, e.g. 'my_package.my_module.MyClass'
+    :type path: str
+    :raises ModuleNotFoundError: Passed module not found
+    :raises AttributeError: Passed class not found
+    :return: Imported class
+    :rtype: type
+    """
+    module_name, cls_name = path.rsplit(".", 1)
+    try:
+        module = importlib.import_module(module_name)
+    except ModuleNotFoundError as e:
+        msg = f"Could not find module '{e.name}'. While importing class '{cls_name}'."
+        raise ModuleNotFoundError(msg) from e
+
+    try:
+        cls = getattr(module, cls_name)
+    except AttributeError as e:
+        msg = f"Could not find class '{cls_name}' in module '{module.__name__}'. "
+        raise AttributeError(msg) from e
+
+    if base_class is not None and not issubclass(cls, base_class):
+        msg = f"Loaded class '{cls_name}' from {module_name} is not subclass of {base_class}"
+        raise TypeError(msg)
+
+    return cls
 
 
 def dict_get_any(dikt: dict[str, Any], *names: str, fail: bool = True, default: Any = None) -> Any:

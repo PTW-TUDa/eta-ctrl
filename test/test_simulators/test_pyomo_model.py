@@ -43,6 +43,30 @@ def model():
     return _SimpleModel(sampling_time=10, prediction_horizon=60)
 
 
+class TestPyomoModel:
+    def test_missing_prediction_horizon(self):
+        msg = "Prediction_horizon parameter is not present in config."
+        with pytest.raises(ValueError, match=msg):
+            PyomoModel(sampling_time=1)
+
+    def test_not_divisible_prediction_horizon(self):
+        msg = re.escape(
+            "The sampling_time must fit evenly into the prediction_horizon "
+            "(prediction_horizon % sampling_time must equal 0)."
+        )
+        with pytest.raises(ValueError, match=msg):
+            PyomoModel(sampling_time=2, prediction_horizon=3)
+
+    def test_missing_model(self):
+        with pytest.raises(NotImplementedError):
+            PyomoModel(sampling_time=1, prediction_horizon=4)
+
+    def test_missing_start_value_mapping(self, model):
+        msg = "Tried to access 'self._start_value_mapping' from '_SimpleModel', but it doesn't exist."
+        with pytest.raises(AttributeError, match=msg):
+            model.start_value_mapping  # noqa: B018
+
+
 class TestPyoInitParams:
     def test_empty_returns_empty_dict(self, model: _SimpleModel) -> None:
         assert model._pyo_init_params() == {}
@@ -125,9 +149,56 @@ class TestPyoUpdateParams:
 
     def test_update_and_get_solution(self, model: _SimpleModel) -> None:
         model.pyo_update_params({"indexed_param": self.indexed_values, "scalar_param": self.scalar_value})
-        solution = model.pyo_get_solution()
-        assert solution["indexed_param"] == self.indexed_values
-        assert solution["scalar_param"] == self.scalar_value
+        indexed_solution, scalar_solution = model.pyo_get_solution()
+        assert indexed_solution["indexed_param"] == self.indexed_values
+        assert scalar_solution["scalar_param"] == self.scalar_value
+
+
+class TestPyomoModelEnvCompatibility:
+    @pytest.fixture
+    def model(self):
+        class _SimplePyomoSimModel(PyomoModel):
+            _start_value_mapping = {"scalar_param": "expression"}
+
+            def _model(self) -> pyo.AbstractModel:
+                m = pyo.AbstractModel()
+                m.t = pyo.RangeSet(0, self.n_prediction_steps)
+                m.scalar_param = pyo.Param(within=pyo.Reals, mutable=True, initialize=0.0)
+                m.expression = pyo.Expression(m.t)
+                return m
+
+        return _SimplePyomoSimModel(sampling_time=1, prediction_horizon=1)
+
+    def test_missing_ext_output(self, model: PyomoModel):
+        msg = "Missing 'foo' in start_value_mapping of '_SimplePyomoSimModel'"
+        with pytest.raises(KeyError, match=msg):
+            model.check_pyomo_sim_compatibility(ext_outputs=["foo"])
+
+    @pytest.mark.parametrize("com", ["scalar_param", "expression"])
+    def test_missing_expr_component(self, model: PyomoModel, com):
+        delattr(model.model, com)
+        msg = f"Component {com} does not exist in '_SimplePyomoSimModel'"
+        with pytest.raises(ValueError, match=msg):
+            model.check_pyomo_sim_compatibility(ext_outputs=["scalar_param"])
+
+    @pytest.mark.parametrize(("com", "com_type"), [("scalar_param", "Param"), ("expression", "Expression")])
+    def test_wrong_component(self, model: PyomoModel, com, com_type):
+        setattr(model.model, com, pyo.Var(model.model.t))
+        msg = f"Component {com} must be of type '{com_type}', but is 'IndexedVar'"
+        with pytest.raises(TypeError, match=msg):
+            model.check_pyomo_sim_compatibility(ext_outputs=["scalar_param"])
+
+    def test_wrong_component_index(self, model: PyomoModel):
+        model.model.scalar_param = pyo.Param(model.model.t)
+        msg = "Component scalar_param must not be indexed, use 'ScalarParam' instead."
+        with pytest.raises(TypeError, match=msg):
+            model.check_pyomo_sim_compatibility(ext_outputs=["scalar_param"])
+
+    def test_wrong_expr_component_index(self, model: PyomoModel):
+        model.model.expression = pyo.Expression()
+        msg = "Component expression must be indexed to retrieve the second value."
+        with pytest.raises(TypeError, match=msg):
+            model.check_pyomo_sim_compatibility(ext_outputs=["scalar_param"])
 
 
 # ---------------------------------------------------------------------------
