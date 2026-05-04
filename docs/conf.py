@@ -63,7 +63,7 @@ intersphinx_mapping = {
     "stable_baselines3": ("https://stable-baselines3.readthedocs.io/en/master/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "pandas": ("https://pandas.pydata.org/docs/", None),
-    "torch": ("https://docs.pytorch.org/docs/stable/", None),
+    "torch": ("https://docs.pytorch.org/docs/2.10/", None),
     "gymnasium": ("https://gymnasium.farama.org/", None),
 }
 
