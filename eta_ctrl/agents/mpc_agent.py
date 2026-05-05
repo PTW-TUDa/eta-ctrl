@@ -17,6 +17,7 @@ from eta_ctrl.simulators import PyomoModel
 from eta_ctrl.util.utils import import_class_from_module
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from typing import Any
 
     import numpy as np
@@ -43,9 +44,9 @@ class MpcAgent(BaseAlgorithm):
     :param solver_name: Name of the solver (e.g. gurobi, cplex, or glpk). Is passed to ``pyomo.SolverFactory``.
     :param action_index: Index of the solution value to be used as action
         (by default the value for the first timestep in the solution will be used)
-    :param kwargs: `model_parameters` is forwarded to the PyomoModel,
-        common stable_baselines3 parameters are silently ignored,
-        and any remaining kwargs are passed as solver options (e.g. solver time limits or tolerances).
+    :param model_parameters: Dictionary of parameters to forward to the PyomoModel
+    :param solver_options: Dictionary of solver options (e.g. time limits or tolerances)
+    :param solver_callback: Optional callback function called after each solve step
     """
 
     def __init__(
@@ -58,30 +59,20 @@ class MpcAgent(BaseAlgorithm):
         *,
         solver_name: str = "cplex",
         action_index: int = 0,
+        model_parameters: dict[str, Any] | None = None,
+        solver_options: dict[str, Any] | None = None,
+        solver_callback: Callable[[BaseAlgorithm], None] | None = None,
         **kwargs: Any,
     ) -> None:
-        # Prepare kwargs to be sent to the super class and to the solver.
-        super_args: dict[str, Any] = {}
-
-        # Set default values for superclass arguments
-        super_args = {"supported_action_spaces": (spaces.Box,), "monitor_wrapper": False}
-        super_args["seed"] = kwargs.pop("seed", None)
-        super_args.setdefault("learning_rate", 0.0)
-
-        for unused_kwarg in (
-            "policy",
-            "policy_base",
-            "learning_rate",
-            "policy_kwargs",
-            "device",
-            "support_multi_env",
-            "create_eval_env",
-            "use_sde",
-            "sde_sample_freq",
-        ):
-            kwargs.pop(unused_kwarg, None)
-
-        super().__init__(policy=NoPolicy, env=env, verbose=verbose, **super_args)
+        super().__init__(
+            policy=NoPolicy,
+            env=env,
+            learning_rate=0.0,
+            verbose=verbose,
+            use_sde=False,
+            monitor_wrapper=False,
+            supported_action_spaces=(spaces.Box,),
+        )
         log.setLevel(int(verbose * 10))  # Set logging verbosity
 
         if isinstance(self.get_env(), VecNormalize):
@@ -91,26 +82,30 @@ class MpcAgent(BaseAlgorithm):
         #: Specification of the order in which action values should be returned.
         self.actions_order = self.get_env().get_attr("state_config", 0)[0].actions
 
-        self.policy_class: type[BasePolicy]
-
+        # Solver parameters
+        #: Name of the solver to be used
+        self.solver_name: str = solver_name
         #: Index of the solution value to be used as action (if this is 0, the first value in a list
         #: of solution values will be used).
         self.action_index = action_index
+        #: Additional callback for predicting
+        self.solver_callback = solver_callback
+
+        #: Pyomo solver instance
+        self.solver = pyo.SolverFactory(self.solver_name)
+        self.solver.options.update(solver_options or {})  # Adjust solver settings
+
+        self.policy_class: type[BasePolicy]
 
         target_class: type[PyomoModel] = import_class_from_module(model_import, base_class=PyomoModel)
-
+        #: PyomoModel instance
         self.model: PyomoModel = target_class(
-            model_parameters=kwargs.pop("model_parameters", None),
+            model_parameters=model_parameters,
             sampling_time=sampling_time,
             prediction_horizon=prediction_horizon,
         )
-        #: Pyomo optimization model as specified by the environment.
+        # Shortcut for model access
         self.concrete_model: pyo.ConcreteModel = self.model.model
-
-        # Solver parameters
-        self.solver_name: str = solver_name
-        self.solver = pyo.SolverFactory(self.solver_name)
-        self.solver.options.update(kwargs)  # Adjust solver settings
 
         self._setup_model()
 
@@ -213,6 +208,9 @@ class MpcAgent(BaseAlgorithm):
             # Solve the model for actions
             self.solve()
 
+            if self.solver_callback:
+                self.solver_callback(self)
+
             # Aggregate the agent actions from pyomo component objects
             solution = {}
             for com in self.model.model.component_objects(pyo.Var):
@@ -283,7 +281,7 @@ class MpcAgent(BaseAlgorithm):
             "Solver failed: no feasible solution found. Termination condition: %s, Status: %s. %s",
             result.solver.termination_condition,
             result.solver.status,
-            "Message: " + result.solver.message if hasattr(result.solver, "message") else "",
+            f"Message: {getattr(result.solver, 'message', '')}",
         )
 
         result_str = str(result)
