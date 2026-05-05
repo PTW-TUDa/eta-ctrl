@@ -3,5 +3,6 @@
     "tamasfe.even-better-toml",
     "njpwerner.autodocstring",
     "ritwickdey.liveserver",
+    "swyddfa.esbonio",
   ]
 }

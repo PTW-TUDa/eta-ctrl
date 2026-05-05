@@ -243,6 +243,11 @@ skip = "*.lock, */Manifest.toml, ./docs/_build"
 ignore-words-list = ["Temperatur"]
 quiet-level = 3
 
+# Esbonio settings (optional, local sphinx server)
+[tool.esbonio.sphinx]
+buildCommand = ["sphinx-build", "-M", "html", "docs", "docs/_build"]
+pythonCommand = ["${venv:.venv}"]  # Assumes local venv is called '.venv'
+
 [build-system]
 requires = ["poetry-core>=2.2"]
 build-backend = "poetry.core.masonry.api"
