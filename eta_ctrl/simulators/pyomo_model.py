@@ -335,6 +335,10 @@ class PyomoModel:
         :raises ValueError: If a mapped component does not exist in the concrete model.
         :raises TypeError: If a component has the wrong Pyomo type (e.g. Var instead of Param).
         """
+        if len(ext_outputs) == 0:
+            msg = "StateConfig needs to define external outputs, for the env to communicate with the PyomoModel"
+            raise ValueError(msg)
+
         for ext_output in ext_outputs:
             if ext_output not in self.start_value_mapping:
                 msg = f"Missing '{ext_output}' in start_value_mapping of '{self.__class__.__name__}'"
