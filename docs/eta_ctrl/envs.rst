@@ -19,10 +19,7 @@ for a streamlined approach to initially create FMU-based environments.
 The custom environments created with the utilities described here can be used directly with *stable_baselines3* or
 *gymnasium*. However, using the :class:`~eta_ctrl.EtaCtrl` class is recommended (see :ref:`intro-eta-ctrl`).
 When using the *EtaCtrl* class for your optimization runs, the parameters required for environment instantiation must
-be configured in the *environment_specific* section of the configuration. If interaction between environments is also
-configured, additional parameters can be set in the configuration file. To configure the interaction environment, use
-the section *interaction_env_specific*. If that section is not present, the parameters from the *environment_specific*
-section will be used for both environments.
+be configured in the *environment_specific* section of the configuration.
 
 Environment State Configuration
 --------------------------------
@@ -144,11 +141,11 @@ Base Environment
     :exclude-members: reward_range, metadata, spec
     :no-index:
 
-Model Predictive Control (MPC) Environment
+Pyomo Simulation Environment
 ------------------------------------------------
-PyomoEnv is a class for using Pyomo modelling language for environment representation.
+PyomoSimEnv is a class for using Pyomo modelling language for environment representation.
 
-.. autoclass:: eta_ctrl.envs::PyomoEnv
+.. autoclass:: eta_ctrl.envs::PyomoSimEnv
     :members:
     :show-inheritance:
     :no-index:

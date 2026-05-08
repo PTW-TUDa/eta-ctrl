@@ -126,13 +126,13 @@ class SimEnv(BaseEnv, abc.ABC):
                  during simulation.
         """
         # generate FMU input from current state
-        step_inputs: dict[str, float] = self.get_external_inputs()
+        step_inputs: dict[str, int | float | bool | str] = self.get_external_inputs()
 
         sim_time_start = time.time()
         step_success = True
         try:
             # We provide output and input names to the FMU so output will be a dictionary
-            step_output: dict[str, float] = self.simulator.step(input_values=step_inputs)
+            step_output: dict[str, float] = self.simulator.step(input_values=step_inputs)  # type: ignore[arg-type]
         except Exception:
             step_success = False
             log.exception("Simulation failed")
@@ -183,8 +183,8 @@ class SimEnv(BaseEnv, abc.ABC):
         """
         step_success, sim_time_elapsed = self._update_state()
         info: dict[str, Any] = {"sim_time_elapsed": sim_time_elapsed}
-        # ensure mutual exclusivity of terminated and truncated
-        return 0, not step_success, self._truncated() and step_success, info
+
+        return 0, not step_success, False, info
 
     def _update_state(self) -> tuple[bool, float]:
         """Take additional_state, execute simulation and get state information from scenario. This function
@@ -218,9 +218,6 @@ class SimEnv(BaseEnv, abc.ABC):
         This private method initializes the internal self.state dictionary by reading initial
         values directly from the FMU/simulator. It does not use the seed parameter since the
         initial state is determined by the simulator configuration.
-
-        For Custom environments, the first line of :meth:`reset` should be ``super().reset(seed=seed)`` which implements
-        the seeding correctly.
 
         The public reset method handles the Gymnasium interface including observation filtering
         and proper seeding mechanism.

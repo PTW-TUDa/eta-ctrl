@@ -7,12 +7,15 @@ containing timeseries data. The *timeseries* module in *ETA Ctrl* provides some 
 It can for example find random time slices in Dataframes or import timeseries data from multiple CSV files and map
 a (random if required) section of it into a Dataframe.
 
-Scenario Data Loader
+ScenarioManager
 -----------------------
-Scenario data is often required to perform optimizations and simulations of factory systems. The import function
-can import data from multiple files and returns a cleaned Dataframe.
+Scenario data is often required to perform optimizations and simulations of factory systems.
+The :class:`~eta_ctrl.scenarios.scenario_manager.ScenarioManager` class handles provided scenario data via the config file.
+It is instantiated by the :class:`~eta_ctrl.config.config.Config` class.
 
-.. autofunction:: eta_ctrl.timeseries::scenario_from_csv
+When the `use_random_time_slice` argument is set to `True`
+
+.. autoclass:: eta_ctrl.timeseries.scenario_manager::ScenarioManager
     :no-index:
 
 Extensions for pandas.DataFrame

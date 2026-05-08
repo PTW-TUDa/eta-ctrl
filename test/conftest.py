@@ -5,6 +5,15 @@ import random
 import shutil
 
 import pytest
+from _pytest.monkeypatch import MonkeyPatch
+
+from test.test_envs.base_test_classes import (
+    # Unified factory fixtures
+    config_run_factory as config_run_factory,
+    state_config_factory as state_config_factory,
+    temp_directory_factory as temp_directory_factory,
+    unified_env_factory as unified_env_factory,
+)
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -44,9 +53,21 @@ async def stop_execution(sleep_time):
     await asyncio.sleep(sleep_time)
 
 
+@pytest.fixture(scope="class")
+def class_monkeypatch():
+    m = MonkeyPatch()
+    yield m
+    m.undo()
+
+
 @pytest.fixture(scope="session")
-def resources_path():
-    return pathlib.Path(__file__).parent / "resources"
+def root_path():
+    return pathlib.Path(__file__).parent.parent
+
+
+@pytest.fixture(scope="session")
+def resources_path(root_path):
+    return root_path / "test" / "resources"
 
 
 @pytest.fixture(scope="session")

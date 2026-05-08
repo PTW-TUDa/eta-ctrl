@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import pyomo.environ as pyo
 
-from eta_ctrl.envs import PyomoEnv
+from eta_ctrl.simulators.pyomo_model import PyomoModel
 
 if TYPE_CHECKING:
     from typing import Any
@@ -14,21 +14,21 @@ if TYPE_CHECKING:
 log = getLogger(__name__)
 
 
-class DrKea(PyomoEnv):
-    version = "1.1"
-    description = "Demonstration of a simple MPC environment for a tank heating system."
-
-    def __init__(self, **kwargs: Any) -> None:
-        # Instantiate PyomoEnv
-        super().__init__(**kwargs)
+class DrKeaModel(PyomoModel):
+    def __init__(self, sampling_time: float, model_parameters: dict[str, Any], **kwargs: Any) -> None:
+        self._start_value_mapping = {"tank_temperature_start": "temp_expr"}
 
         # Scale the fixed temperature change values from absolute seconds to relative to the sampling time
-        self.model_parameters["temperature_change_heating"] *= self.sampling_time  # type: ignore[index]
-        self.model_parameters["temperature_change_cleaning"] *= self.sampling_time  # type: ignore[index]
+        model_parameters["temperature_change_heating"] *= sampling_time
+        model_parameters["temperature_change_cleaning"] *= sampling_time
 
-        self.use_model_time_increments = True  # Increment by one instead of the sampling time
+        # Instantiate PyomoModel
+        super().__init__(sampling_time=sampling_time, model_parameters=model_parameters, **kwargs)
 
-    def _model(self) -> pyo.ConcreteModel:
+        self._use_model_time_increments = True  # Increment by one instead of the sampling time
+
+    # --migration-model-method-start--
+    def _model(self) -> pyo.AbstractModel:
         """This is where the actual model is defined.
 
         :return: The Pyomo model.
@@ -82,22 +82,26 @@ class DrKea(PyomoEnv):
         #     # Model constraints
         # =============================================================================
 
-        # Calculation of the total tank temperature
-        def tank_temperature(model: pyo.ConcreteModel, t: int) -> pyo.Constraint:
+        def temp_change_logic(model: pyo.ConcreteModel, t: int) -> float:
             # Constraint with the initial temperature for the first time step
             if t == 0:
-                return model.temp[t] == model.tank_temperature_start
+                return model.tank_temperature_start
 
-            # Define temperature change based on the heating action
-            # (note that we can't use an 'if' statement here)
-            heating_change = model.heating[t - 1] * model.temperature_change_heating
-            cleaning_change = (1 - model.heating[t - 1]) * model.temperature_change_cleaning
-            temperature_change = heating_change + cleaning_change
+            is_heating = model.heating[t - 1]
+            heating_change = is_heating * model.temperature_change_heating
+            cleaning_change = (1 - is_heating) * model.temperature_change_cleaning
 
-            # Constraint for the temperature change
-            return model.temp[t] == model.temp[t - 1] + temperature_change
+            return model.temp_expr[t - 1] + heating_change + cleaning_change
 
-        model.tank_temperature = pyo.Constraint(model.t, rule=tank_temperature, doc="Calcuatlion of tank temperature")
+        model.temp_expr = pyo.Expression(model.t, rule=temp_change_logic, doc="Calculation of tank temperature")
+
+        # Calculation of the total tank temperature
+        def tank_temperature_constraint(model: pyo.ConcreteModel, t: int) -> pyo.Constraint:
+            return model.temp[t] == model.temp_expr[t]
+
+        model.tank_temperature = pyo.Constraint(
+            model.t, rule=tank_temperature_constraint, doc="Calcuatlion of tank temperature"
+        )
 
         # =============================================================================
         #     # Objective function
@@ -108,39 +112,6 @@ class DrKea(PyomoEnv):
 
         model.objective = pyo.Objective(rule=objective_rule, sense=pyo.minimize, doc="Total cost of heating")
 
-        ts = (
-            self.scenario_manager.get_scenario_state_with_duration(n_step=0, duration=self.n_prediction_steps + 1)
-            if self.scenario_manager is not None
-            else None
-        )
-        return model.create_instance(data=self.pyo_component_params(component_name=None, ts=ts, index=model.t))
+        return model
 
-    ### This method does not need to be implemented
-    def _reset(
-        self,
-        *,
-        seed: int | None = None,
-        options: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """
-        Reset the environment and perform the first model update
-        with observations from the actual machine.
-
-        :param seed: Seed for the random number generator.
-        :param options: Options for the reset.
-        :return: Initial observation and info dictionary.
-        """
-        super()._reset()
-        return {}
-
-    def close(self) -> None:
-        """
-        Perform any necessary cleanup or resource deallocation.
-
-        This method should be implemented if the environment is holding onto
-        resources such as file handles, network connections, or other external
-        resources that need to be explicitly released.
-        """
-
-    def render(self) -> None:
-        """Optional method to render the environment for human inspection."""
+    # --migration-model-method-end--

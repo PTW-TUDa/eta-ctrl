@@ -1,6 +1,7 @@
 """Tests for Pyomo model export functionality."""
 # ruff: noqa: F811
 
+import logging
 import pathlib
 import tempfile
 from unittest.mock import patch
@@ -11,6 +12,9 @@ import pytest
 from eta_ctrl.common.export_pyomo import (
     _extract_variable_bounds,
     _extract_variable_domain_type,
+    export_pyomo_model_parameters,
+    export_pyomo_model_state,
+    export_pyomo_model_state_config,
     export_pyomo_parameters,
     export_pyomo_state,
     export_pyomo_state_config,
@@ -251,3 +255,141 @@ class TestPyomoExport:
             assert output_path.exists()
             content = output_path.read_text()
             assert "normal_param" in content
+
+
+class TestPyomoModelExport:
+    """Tests for PyomoModel-specific export: actions / observations / model_parameters split."""
+
+    # ------------------------------------------------------------------
+    # Fixtures
+    # ------------------------------------------------------------------
+
+    @pytest.fixture
+    def bounded_model(self) -> pyo.ConcreteModel:
+        """Concrete model that mirrors the PyomoModel action/observation classification rules.
+
+        * Indexed Var  (with bounds)  -> action
+        * Indexed Var  (no bounds)    -> action, but triggers a warning
+        * Indexed Param               -> observation
+        * Scalar  Param               -> model_parameters
+        * Scalar  Var                 -> skipped (not indexed)
+        """
+        m = pyo.ConcreteModel()
+        m.t = pyo.RangeSet(0, 3)
+        # Indexed Vars — should become actions
+        m.heating = pyo.Var(m.t, domain=pyo.Binary)
+        m.temp = pyo.Var(m.t, bounds=(55.0, 65.0))
+        # Indexed Var without bounds — should trigger warning
+        m.unbounded = pyo.Var(m.t)
+        # Scalar Var — should be skipped
+        m.scalar_var = pyo.Var(bounds=(0, 100))
+        # Indexed Param — should become observation
+        m.energy_price = pyo.Param(m.t, initialize=1.0, mutable=True)
+        # Scalar Params — should go to model_parameters
+        m.p_heat = pyo.Param(initialize=10.0)
+        m.tank_min = pyo.Param(initialize=55.0)
+        return m
+
+    # ------------------------------------------------------------------
+    # export_pyomo_model_state_config
+    # ------------------------------------------------------------------
+
+    def test_state_config_creates_file(self, bounded_model, temp_dir):
+        """export_pyomo_model_state_config writes a non-empty TOML file."""
+        out = temp_dir / "sc.toml"
+        export_pyomo_model_state_config(bounded_model, "test", out)
+        assert out.exists()
+        assert out.stat().st_size > 0
+
+    def test_state_config_indexed_vars_are_actions(self, bounded_model, temp_dir):
+        """Indexed Var components appear under actions in the state config."""
+        out = temp_dir / "sc_actions.toml"
+        export_pyomo_model_state_config(bounded_model, "test", out)
+        content = out.read_text()
+        assert "actions = [" in content
+        assert 'name = "heating"' in content
+        assert 'name = "temp"' in content
+
+    def test_state_config_scalar_vars_excluded(self, bounded_model, temp_dir):
+        """Scalar (non-indexed) Var components must NOT appear in the state config."""
+        out = temp_dir / "sc_no_scalar.toml"
+        export_pyomo_model_state_config(bounded_model, "test", out)
+        content = out.read_text()
+        assert 'name = "scalar_var"' not in content
+
+    def test_state_config_indexed_params_are_observations(self, bounded_model, temp_dir):
+        """Indexed Param components appear under observations in the state config."""
+        out = temp_dir / "sc_obs.toml"
+        export_pyomo_model_state_config(bounded_model, "test", out)
+        content = out.read_text()
+        assert "observations = [" in content
+        assert 'name = "energy_price"' in content
+
+    def test_state_config_scalar_params_excluded(self, bounded_model, temp_dir):
+        """Scalar Param components must NOT appear in the state config (they belong in model_parameters)."""
+        out = temp_dir / "sc_no_scalar_param.toml"
+        export_pyomo_model_state_config(bounded_model, "test", out)
+        content = out.read_text()
+        assert 'name = "p_heat"' not in content
+        assert 'name = "tank_min"' not in content
+
+    def test_state_config_bounds_extracted(self, bounded_model, temp_dir):
+        """Bounds defined on an indexed Var are written to the TOML."""
+        out = temp_dir / "sc_bounds.toml"
+        export_pyomo_model_state_config(bounded_model, "test", out)
+        content = out.read_text()
+        assert "low_value" in content
+        assert "high_value" in content
+
+    def test_state_config_warns_on_missing_bounds(self, bounded_model, temp_dir, caplog):
+        """A warning is logged when an action variable has no explicit bounds."""
+        out = temp_dir / "sc_warn.toml"
+        with caplog.at_level(logging.WARNING, logger="eta_ctrl"):
+            export_pyomo_model_state_config(bounded_model, "test", out)
+
+        assert any("unbounded" in msg and "low_value" in msg for msg in caplog.messages)
+
+    # ------------------------------------------------------------------
+    # export_pyomo_model_parameters
+    # ------------------------------------------------------------------
+
+    def test_model_parameters_creates_file(self, bounded_model, temp_dir):
+        """export_pyomo_model_parameters writes a non-empty TOML file."""
+        out = temp_dir / "mp.toml"
+        export_pyomo_model_parameters(bounded_model, "test", out)
+        assert out.exists()
+        assert out.stat().st_size > 0
+
+    def test_model_parameters_contains_scalar_params(self, bounded_model, temp_dir):
+        """Scalar Param values appear in the model_parameters TOML."""
+        out = temp_dir / "mp_scalar.toml"
+        export_pyomo_model_parameters(bounded_model, "test", out)
+        content = out.read_text()
+        assert "p_heat" in content
+        assert "tank_min" in content
+
+    def test_model_parameters_excludes_indexed_params(self, bounded_model, temp_dir):
+        """Indexed Param components are excluded from the model_parameters TOML."""
+        out = temp_dir / "mp_no_indexed.toml"
+        export_pyomo_model_parameters(bounded_model, "test", out)
+        content = out.read_text()
+        assert "energy_price" not in content
+
+    # ------------------------------------------------------------------
+    # export_pyomo_model_state — orchestrator
+    # ------------------------------------------------------------------
+
+    def test_model_state_creates_both_files(self, bounded_model, temp_dir):
+        """export_pyomo_model_state writes both TOML files."""
+        export_pyomo_model_state(bounded_model, "combined", temp_dir)
+        assert (temp_dir / "combined_state_config.toml").exists()
+        assert (temp_dir / "combined_model_parameters.toml").exists()
+
+    def test_model_state_default_output_dir(self, bounded_model):
+        """export_pyomo_model_state defaults to cwd when output_dir is None."""
+        with patch("pathlib.Path.cwd") as mock_cwd:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                mock_cwd.return_value = pathlib.Path(tmp_dir)
+                export_pyomo_model_state(bounded_model, "default_dir_test")
+                assert (pathlib.Path(tmp_dir) / "default_dir_test_state_config.toml").exists()
+                assert (pathlib.Path(tmp_dir) / "default_dir_test_model_parameters.toml").exists()

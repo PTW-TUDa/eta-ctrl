@@ -16,7 +16,12 @@ sys.path.append(str(Path("../eta_ctrl").resolve()))  # Insert path to eta_ctrl
 
 # -- Project information -----------------------------------------------------
 project = "eta_ctrl"
-release = get_version(project)  # The full version, including alpha/beta/rc tags
+
+try:
+    release = get_version(project)  # The full version, including alpha/beta/rc tags
+except Exception:  # noqa: BLE001
+    release = "0.0.0"  # Fallback version for documentation
+
 version = ".".join(release.split(".")[:3])  # Top level version
 copyright = "Technical University of Darmstadt, Institute for Production Management, Technology and Machine Tools (PTW)"  # noqa: A001
 
@@ -31,6 +36,8 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.autosummary",
     "sphinx_copybutton",
+    "sphinxcontrib.autodoc_pydantic",
+    "matplotlib.sphinxext.plot_directive",
 ]
 
 # List of patterns, relative to source directory, that match files and
@@ -62,7 +69,7 @@ intersphinx_mapping = {
     "stable_baselines3": ("https://stable-baselines3.readthedocs.io/en/master/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "pandas": ("https://pandas.pydata.org/docs/", None),
-    "torch": ("https://docs.pytorch.org/docs/stable/", None),
+    "torch": ("https://docs.pytorch.org/docs/2.10/", None),
     "gymnasium": ("https://gymnasium.farama.org/", None),
 }
 
@@ -74,3 +81,12 @@ linkcheck_allowed_redirects = {
     r"https://stable-baselines3.readthedocs.io/": r"https://stable-baselines3.readthedocs.io/en/master/",
 }
 linkcheck_anchors_ignore_for_url = (r"https://docs.python.org/",)
+
+# autodoc pydantic settings
+autodoc_pydantic_model_show_json = True
+autodoc_pydantic_model_show_config_summary = False
+autodoc_pydantic_model_show_field_summary = False
+autodoc_pydantic_model_show_validator_summary = False
+
+# matplotlib
+plot_html_show_source_link = False

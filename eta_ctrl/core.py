@@ -6,8 +6,6 @@ from logging import getLogger
 from typing import TYPE_CHECKING
 
 import numpy as np
-from stable_baselines3.common.callbacks import CheckpointCallback
-from stable_baselines3.common.vec_env import VecNormalize
 
 from eta_ctrl.common import (
     CallbackEnvironment,
@@ -31,7 +29,7 @@ if TYPE_CHECKING:
 
     from stable_baselines3.common.base_class import BaseAlgorithm
     from stable_baselines3.common.type_aliases import MaybeCallback
-    from stable_baselines3.common.vec_env import VecEnv
+    from stable_baselines3.common.vec_env import VecEnv, VecNormalize
     from stable_baselines3.common.vec_env.base_vec_env import VecEnvObs
 
     from eta_ctrl.util.type_annotations import Path
@@ -66,10 +64,21 @@ class EtaCtrl:
 
         #: The vectorized environments.
         self._environments: VecEnv | VecNormalize | None = None
-        #: Vectorized interaction environments.
-        self.interaction_env: VecEnv | None = None
         #: The model or algorithm.
         self._model: BaseAlgorithm | None = None
+
+    def __str__(self) -> str:
+        """Human-readable string representation of EtaCtrl."""
+        env_class = self.config.setup.environment_class.__name__
+        agent_class = self.config.setup.agent_class.__name__
+        return f"EtaCtrl(config='{self.config.config_name}', env={env_class}, agent={agent_class})"
+
+    def __repr__(self) -> str:
+        """Developer-friendly string representation of EtaCtrl."""
+        return (
+            f"EtaCtrl(config_name='{self.config.config_name}', root_path='{self.config.root_path}', "
+            f"config_run_initialized={self.config_run is not None})"
+        )
 
     @property
     def environments(self) -> VecEnv | VecNormalize:
@@ -211,15 +220,8 @@ class EtaCtrl:
             except TypeError:
                 log.exception("Environment initialization failed.")
 
-            if self.config.settings.interact_with_env:
-                if self.interaction_env is not None:
-                    log.debug("Closing interaction environment.")
-                    self.interaction_env.close()
-                else:
-                    log.error("Interaction environment initialization failed.")
-
     def _prepare_environments(self, *, training: bool = True) -> None:
-        """Vectorize and prepare the environments and potentially the interaction environments.
+        """Vectorize and prepare the environments.
 
         :param training: Should preparation be done for training (alternative: playing)?
         """
@@ -246,27 +248,6 @@ class EtaCtrl:
             norm_wrapper_obs=self.config.setup.norm_wrapper_obs,
             norm_wrapper_reward=self.config.setup.norm_wrapper_reward,
         )
-
-        if self.config.settings.interact_with_env:
-            # Perform some checks to ensure the interaction environment is configured correctly.
-            if self.config.setup.interaction_env_class is None:
-                msg = "If 'interact_with_env' is specified, an interaction env class must be specified as well."
-                raise ValueError(msg)
-            if self.config.settings.interaction_env is None:
-                msg = "If 'interact_with_env' is specified, the interaction_env settings must be specified as well."
-                raise ValueError(msg)
-            interaction_env_class = self.config.setup.interaction_env_class
-            self.config_run.set_interaction_env_info(interaction_env_class)
-
-            # Vectorize the environment
-            self.interaction_env = vectorize_environment(
-                interaction_env_class,
-                self.config_run,
-                self.config.settings.interaction_env,
-                callback,
-                self.config.settings.verbose,
-                training=training,
-            )
 
     def learn(
         self,
@@ -324,6 +305,8 @@ class EtaCtrl:
             # Set the seed for the environments before starting to learn
             self.environments.seed(self.config.settings.seed)
 
+            from stable_baselines3.common.callbacks import CheckpointCallback  # noqa: PLC0415
+
             callback_learn = merge_callbacks(
                 CheckpointCallback(
                     save_freq=save_freq,
@@ -357,6 +340,8 @@ class EtaCtrl:
             # Save model
             log.debug(f"Saving model to file: {self.config_run.run_model_path}.")
             self.model.save(self.config_run.run_model_path)
+            from stable_baselines3.common.vec_env import VecNormalize  # noqa: PLC0415
+
             if isinstance(self.environments, VecNormalize):
                 log.debug(f"Saving environment normalization data to file: {self.config_run.vec_normalize_path}.")
                 self.environments.save(str(self.config_run.vec_normalize_path))
@@ -399,10 +384,6 @@ class EtaCtrl:
             n_episodes = 0
 
             log.debug("Start playing process of agent in environment.")
-            if self.config.settings.interact_with_env:
-                log.info("Starting agent with environment/optimization interaction.")
-            else:
-                log.info("Starting without an additional interaction environment.")
 
             _round_actions = self.config.settings.round_actions
             _scale_actions = self.config.settings.scale_actions if self.config.settings.scale_actions is not None else 1
@@ -434,24 +415,8 @@ class EtaCtrl:
             action = np.round(action * _scale_actions, _round_actions)
         else:
             action *= _scale_actions
-        # Some agents (i.e. MathSolver) can interact with an additional environment
-        if self.config.settings.interact_with_env:
-            if self.interaction_env is None:
-                msg = "Initialized interaction environments could not be found. Call prepare_run first."
-                raise ValueError(msg)
 
-            # Perform a step  with the interaction environment and update the normal environment with
-            # its observations
-            observations, _rewards, dones, info = self.interaction_env.step(action)
-            observations = np.array(self.environments.env_method("update", observations, indices=0))
-            # Make sure to also reset the environment, if the interaction_env says it's done. For the interaction
-            # env this is done inside the vectorizer.
-            for idx in range(self.environments.num_envs):
-                if dones[idx]:
-                    info[idx]["terminal_observation"] = observations
-                    observations[idx] = self._reset_env_interaction(observations)
-        else:
-            observations, _rewards, dones, info = self.environments.step(action)
+        observations, _rewards, dones, _ = self.environments.step(action)
         return observations, dones
 
     def _reset_envs(self) -> VecEnvObs:
@@ -462,29 +427,4 @@ class EtaCtrl:
         log.debug("Resetting environments.")
 
         self.environments.seed(self.config.settings.seed)
-        if self.config.settings.interact_with_env:
-            if self.interaction_env is None:
-                msg = "Initialized interaction environments could not be found. Call prepare_run first."
-                raise ValueError(msg)
-            self.interaction_env.seed(self.config.settings.seed)
-            observations = self.interaction_env.reset()
-            return self._reset_env_interaction(observations)
         return self.environments.reset()
-
-    def _reset_env_interaction(self, observations: VecEnvObs) -> VecEnvObs:
-        """Reset the environments when interaction with another environment is taking place.
-
-        :param Observations: Observations from the interaction env.
-        :return: Observations after reset.
-        """
-        log.debug("Resetting main environment during environment interaction.")
-
-        try:
-            observations = np.array(self.environments.env_method("first_update", observations, indices=0))
-        except AttributeError as e:
-            if "first_update" in str(e):
-                observations = self.environments.reset()
-            else:
-                raise
-
-        return observations

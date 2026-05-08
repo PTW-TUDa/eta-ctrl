@@ -248,3 +248,125 @@ def export_pyomo_state(model: pyo.ConcreteModel, model_name: str, output_dir: pa
     export_pyomo_parameters(model, model_name, parameters_path)
 
     log.info(f"Created Pyomo model files for '{model_name}' in {output_directory}")
+
+
+# ---------------------------------------------------------------------------
+# PyomoModel-specific export (actions / observations / model_parameters split)
+# ---------------------------------------------------------------------------
+
+
+def export_pyomo_model_state_config(model: pyo.ConcreteModel, model_name: str, output_path: pathlib.Path) -> None:
+    """Export a PyomoModel's components to a state config TOML file.
+
+    Classification rules:
+
+    * Indexed ``pyo.Var`` components  → ``[[actions]]``
+    * Indexed ``pyo.Param`` components → ``[[observations]]``
+
+    Scalar parameters are intentionally omitted here; use
+    :func:`export_pyomo_model_parameters` for those.
+
+    :param model: Pyomo ConcreteModel instance.
+    :param model_name: Name of the model for identification.
+    :param output_path: Full path (including filename) for the TOML file.
+    """
+    actions: list[dict[str, Any]] = []
+    observations: list[dict[str, Any]] = []
+
+    for component in model.component_objects(pyo.Var):
+        if not component.is_indexed():
+            continue
+        var_info: dict[str, Any] = {"name": component.name}
+        # Reuse existing helper; strip index metadata that belongs to internal bookkeeping
+        raw = extract_indexed_variable_info(component)
+        raw.pop("index_length", None)
+        raw.pop("index_set", None)
+        raw.pop("type", None)
+        var_info.update(raw)
+        # Warn if bounds are absent — StateVar.model_post_init enforces that both
+        # low_value and high_value must be set for action variables, so the generated
+        # TOML must be completed manually before it can be loaded.
+        if "low_value" not in var_info or "high_value" not in var_info:
+            log.warning(
+                f"Action variable '{component.name}' has no explicit bounds in the Pyomo model. "
+                "You must set 'low_value' and 'high_value' manually in the generated state config TOML "
+                "before loading it as a StateConfig."
+            )
+        actions.append(var_info)
+
+    for component in model.component_objects(pyo.Param):
+        if not component.is_indexed():
+            continue
+        observations.append({"name": component.name})
+
+    pyomo_data: dict[str, Any] = {}
+    if actions:
+        pyomo_data["actions"] = actions
+    if observations:
+        pyomo_data["observations"] = observations
+
+    final_output_path = get_unique_output_path(output_path)
+    toml_export(final_output_path, pyomo_data)
+    log.info(f"PyomoModel state config exported to {final_output_path}")
+
+
+def export_pyomo_model_parameters(model: pyo.ConcreteModel, model_name: str, output_path: pathlib.Path) -> None:
+    """Export scalar (non-indexed) Pyomo parameters to a model parameters TOML file.
+
+    The output corresponds to the ``[agent_specific.model_parameters]`` section
+    of a run config.
+
+    :param model: Pyomo ConcreteModel instance.
+    :param model_name: Name of the model for identification.
+    :param output_path: Full path (including filename) for the TOML file.
+    """
+    model_parameters: dict[str, Any] = {}
+
+    for component in model.component_objects(pyo.Param):
+        if component.is_indexed():
+            continue
+        try:
+            value = pyo.value(component)
+            if value is not None:
+                model_parameters[component.name] = value
+        except (ValueError, TypeError):
+            # Skip parameters that cannot be evaluated (e.g. uninitialized mutable params)
+            continue
+
+    pyomo_data: dict[str, Any] = {
+        "model_info": {"name": model_name, "type": "pyomo_model_parameters"},
+        "model_parameters": model_parameters,
+    }
+
+    final_output_path = get_unique_output_path(output_path)
+    toml_export(final_output_path, pyomo_data)
+    log.info(
+        f"PyomoModel parameters exported to {final_output_path}. "
+        "Place these values under [agent_specific.model_parameters] in your run config."
+    )
+
+
+def export_pyomo_model_state(
+    model: pyo.ConcreteModel, model_name: str, output_dir: pathlib.Path | str | None = None
+) -> None:
+    """Export a PyomoModel's state config and model parameters to TOML files.
+
+    This is the main public interface for :class:`~eta_ctrl.simulators.PyomoModel`
+    state generation. It writes two files:
+
+    * ``{model_name}_state_config.toml`` — indexed Vars as actions, indexed
+      Params as observations.
+    * ``{model_name}_model_parameters.toml`` — scalar Params that belong in
+      ``[agent_specific.model_parameters]`` of the run config.
+
+    :param model: Pyomo ConcreteModel instance.
+    :param model_name: Name of the model used for file naming.
+    :param output_dir: Target directory. Defaults to the current working directory.
+    """
+    output_directory = pathlib.Path.cwd().absolute() if output_dir is None else pathlib.Path(output_dir).absolute()
+    output_directory.mkdir(parents=True, exist_ok=True)
+
+    export_pyomo_model_state_config(model, model_name, output_directory / f"{model_name}_state_config.toml")
+    export_pyomo_model_parameters(model, model_name, output_directory / f"{model_name}_model_parameters.toml")
+
+    log.info(f"Created PyomoModel files for '{model_name}' in {output_directory}")

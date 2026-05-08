@@ -1,13 +1,22 @@
 {
   "evenBetterToml.schema.associations": {
-    ".*_state_config.toml": "file://.vscode/schemas/state_config.json",
+    ".*_state_config.toml$": "file://.vscode/schemas/state_config.json",
+    "(^|/)config.*\\.toml$": "file://.vscode/schemas/config.json",
   },
   "json.schemas": [
     {
       "fileMatch": [
         "/*_state_config.json",
+        "!/.vscode/schemas/*"
       ],
       "url": "./.vscode/schemas/state_config.json"
+    },
+    {
+      "fileMatch": [
+        "/config*.json",
+        "!/.vscode/schemas/*"
+      ],
+      "url": "./.vscode/schemas/config.json"
     },
   ],
 
@@ -17,4 +26,6 @@
   ],
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,
+  "python-envs.defaultEnvManager": "ms-python.python:poetry",
+  "python-envs.defaultPackageManager": "ms-python.python:poetry",
 }

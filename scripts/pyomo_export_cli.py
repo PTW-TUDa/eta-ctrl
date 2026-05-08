@@ -3,55 +3,49 @@
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import pathlib
+import re
 import sys
 
 from eta_ctrl import get_logger
-from eta_ctrl.envs.pyomo_env import PyomoEnv
+from eta_ctrl.simulators import PyomoModel
 
 
-def _validate_env_path(env_path: pathlib.Path) -> None:
-    """Validate that the PyomoEnv file exists and has correct extension."""
-    if not env_path.exists():
-        print(f"Error: PyomoEnv file not found at {env_path}", file=sys.stderr)  # noqa: T201
-        sys.exit(1)
+def _ensure_project_root_on_syspath() -> None:
+    """Ensure the project root is on sys.path so local model modules can be imported.
 
-    if env_path.suffix.lower() != ".py":
-        print(f"Error: File must have .py extension, got {env_path.suffix}", file=sys.stderr)  # noqa: T201
-        sys.exit(1)
+    Uses the location of this file (``scripts/pyomo_export_cli.py``) to find the
+    project root reliably, regardless of the current working directory.
+    Inserts unconditionally so Windows path-string variations cannot cause a
+    false "already present" result from a naive string comparison.
+    """
+    project_root = str(pathlib.Path(__file__).resolve().parent.parent)
+    sys.path.insert(0, project_root)
 
 
-def _load_pyomo_env_class(env_path: pathlib.Path) -> type[PyomoEnv]:
-    """Load a PyomoEnv class from a Python file."""
-    spec = importlib.util.spec_from_file_location("pyomo_env_module", env_path)
-    if spec is None or spec.loader is None:
-        print(f"Error: Could not load module from {env_path}", file=sys.stderr)  # noqa: T201
-        sys.exit(1)
-
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-
-    # Look for PyomoEnv subclass
-    for attr_name in dir(module):
-        attr = getattr(module, attr_name)
-        if isinstance(attr, type) and issubclass(attr, PyomoEnv) and attr is not PyomoEnv:
-            return attr
-
-    print(f"Error: No PyomoEnv subclass found in {env_path}", file=sys.stderr)  # noqa: T201
-    sys.exit(1)
+def _derive_model_name(model_import: str) -> str:
+    """Create a default model name from the imported class name."""
+    class_name = model_import.rsplit(".", 1)[-1]
+    snake_case = re.sub(r"(?<!^)(?=[A-Z])", "_", class_name).lower()
+    return snake_case.removesuffix("_model")
 
 
 def export_pyomo_data() -> None:
     """Command-line interface for exporting pyomo model data (state config and parameters) to TOML files."""
     # Initialize project logging
     get_logger(level=20, log_format="simple")  # INFO level for CLI output
+    _ensure_project_root_on_syspath()
 
     parser = argparse.ArgumentParser(
-        description="Create state config and parameters from a PyomoEnv instance", prog="export_pyomo_data"
+        description="Export state config and parameters from a PyomoModel class", prog="export_pyomo_data"
     )
-    parser.add_argument("env_path", type=str, help="Path to the Python file containing the PyomoEnv subclass")
-    parser.add_argument("model_name", type=str, help="Name for the model")
+    parser.add_argument("model_import", type=str, help="Dotted import path to the PyomoModel subclass")
+    parser.add_argument(
+        "--model-name",
+        type=str,
+        default=None,
+        help="Optional output model name prefix (default: derived from model class name)",
+    )
     parser.add_argument(
         "-o",
         "--output-dir",
@@ -61,15 +55,14 @@ def export_pyomo_data() -> None:
     )
 
     args = parser.parse_args()
-    env_path = pathlib.Path(args.env_path)
-    _validate_env_path(env_path)
+    model_name = args.model_name or _derive_model_name(args.model_import)
 
-    # Load PyomoEnv class and create instance
-    env_class = _load_pyomo_env_class(env_path)
-    env_instance = env_class()  # type: ignore[call-arg]
+    PyomoModel.create_state(
+        args.model_import,
+        model_name,
+        args.output_dir,
+    )
 
-    # Get ConcreteModel from the model property (calls _model() internally)
-    model = env_instance.model[0]
 
-    # Create state config from the model
-    PyomoEnv.create_state(model, args.model_name, args.output_dir)
+if __name__ == "__main__":
+    export_pyomo_data()

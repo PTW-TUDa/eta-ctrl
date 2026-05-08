@@ -13,22 +13,22 @@ however, that some agents do not implement all methods which would be required b
 The currently available agents are listed here. Note that you need to specify the parameters required for
 instantiation in the *agent_specific* section of the *ETA Ctrl* configuration file.
 
-Math Solver Agent
+MPC Agent
 ---------------------------------------
-The MathSolver agent implements a model predictive controller. It can be used to execute mathematical models in conjunction
-with mathematical solvers such as cplex or glpk and it relies on the *pyomo* library to achieve this.
+The MpcAgent agent implements a model predictive controller. It can be used to solve mathematical models in conjunction
+with mathematical solvers such as gurobi, cplex or glpk and it relies on the *pyomo* library to achieve this.
 
 You can provide additional arguments in *kwargs* to the agent. These will be interpreted first as arguments for
-the base class and then for the solver. Meaning that arguments which are passed to MathSolver and not recognized
+the base class and then for the solver. Meaning that arguments which are passed to MpcAgent and not recognized
 by *BaseAlgorithm* will be passed on to the solver. This allows free configuration of all solver options.
 
-.. autoclass:: eta_ctrl.agents::MathSolver
+.. autoclass:: eta_ctrl.agents::MpcAgent
     :no-index:
 
 Rule Based Agent (Base Class)
 ---------------------------------------
 The rule based agent is a base class which facilitates the creation of simple rule based agents. To use it, you need
-to implement the :py:class:`eta_ctrl.agents.RuleBased.control_rules` method. The *control_rules* method
+to implement the :py:meth:`eta_ctrl.agents.RuleBased.control_rules` method. The *control_rules* method
 takes the array of observations from the environment and determines an array of actions based on them.
 
 .. autoclass:: eta_ctrl.agents::RuleBased

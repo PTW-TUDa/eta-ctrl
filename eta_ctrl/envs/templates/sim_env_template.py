@@ -14,16 +14,15 @@ if TYPE_CHECKING:
     from typing import Any
 
 
-class TemplateSimEnv(SimEnv):
+class SimEnvTemplate(SimEnv):
     """Environment for TEMPLATE_FMU_NAME FMU simulation."""
 
-    @property
-    def fmu_name(self) -> str:
-        """Name of the FMU file."""
-        return "TEMPLATE_FMU_NAME"
+    version = "1.0.0"
+    description = "TEMPLATE_FMU_NAME FMU-based simulation environment"
+    fmu_name = "TEMPLATE_FMU_NAME"
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        """Initialize the TemplateSimEnv environment."""
+        """Initialize the SimEnvTemplate environment."""
         super().__init__(*args, **kwargs)
 
     def _step(self) -> tuple[float, bool, bool, dict]:
@@ -73,6 +72,15 @@ class TemplateSimEnv(SimEnv):
         super()._reset()
 
         return infos
+
+    def render(self) -> None:
+        """Render the environment.
+
+        Override this method to implement custom rendering logic for visualization.
+        See Gymnasium documentation for render mode details.
+        """
+        # Implement custom rendering logic here based on self.render_mode
+        # Example modes: "human", "rgb_array", "ansi"
 
     # Add additional custom methods here:
     # - Custom reward functions

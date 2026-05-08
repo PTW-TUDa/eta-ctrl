@@ -48,7 +48,7 @@ Then install Poetry with pipx:
 
 .. code-block:: console
 
-    $ pipx install poetry==2.1.1
+    $ pipx install poetry==2.3.2
 
 
 .. note::
@@ -196,6 +196,13 @@ This creates a folder named *_build* (inside the *docs* folder) which allows the
 be previewed locally. This folder will not be committed to git. Re-execute this command each
 time you edit the documentation to see the changes (you may have to refresh the HTML page).
 
+.. tip::
+
+    Instead of manually refreshing, you can use the `Live Server
+    <https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer>`_ extension
+    for VS Code (``ritwickdey.liveserver``). Open ``docs/_build/html/index.html`` and click
+    **Go Live** in the status bar. The browser tab will reload automatically each time you
+    rebuild the documentation.
 
 If you have problems using sphinx see :ref:`sphinx_not_found`.
 
@@ -236,18 +243,18 @@ To update the containers first you need to login in GitLab through docker:
 
 
 Then you build and upload the image from the dockerfile.
-To build an image for e.g. Python version 3.10, execute:
+To build an image for e.g. Python version 3.12, execute:
 
 .. code-block:: console
 
-    $ docker build -t git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/poetry2.1.1:py3.10 -f .gitlab/docker/dockerfile --build-args="PYTHON_VERSION=3.10" .
+    $ docker build -t git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/poetry2.3.2:py3.12 -f .gitlab/docker/dockerfile --build-args="PYTHON_VERSION=3.12" .
 
 Using tags for the images is a good practice to differentiate image versions, in case it's not used it's automatic
-labeled as *latest*. Currently there are three images for Python environments, grouped by the current Poetry version, with Python versions
-differentiated by tags (py3.10, py3.11 and py3.12).
+labeled as *latest*. Currently there are two images for Python environments, grouped by the current Poetry version, with Python versions
+differentiated by tags (py3.11 and py3.12).
 
 The last step is to upload the images to the private docker registry.
 
 .. code-block:: console
 
-    $ docker push git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/poetry2.1.1:py3.10
+    $ docker push git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/poetry2.3.2:py3.12

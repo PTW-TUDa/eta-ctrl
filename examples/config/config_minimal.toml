@@ -1,0 +1,7 @@
+[setup]
+environment_import = "eta_ctrl.envs.PyomoSimEnv"
+agent_import = "eta_ctrl.agents.MpcAgent"
+
+[settings]
+sampling_time = 10
+episode_duration = 600

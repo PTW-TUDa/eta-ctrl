@@ -1,239 +1,143 @@
 from __future__ import annotations
 
-import pathlib
 from logging import getLogger
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
-from attrs import define, field, validators
+from pydantic import BaseModel, ConfigDict, Field, GetJsonSchemaHandler
 
 import __main__
-from eta_ctrl.envs.state import StateConfig
-from eta_ctrl.util import deep_mapping_update
-from eta_ctrl.util.io_utils import load_config
-from eta_ctrl.util.utils import camel_to_snake_case
 
-from .config_settings import ConfigSettings
-from .config_setup import ConfigSetup
+# Pydantic needs type annotations at runtime, ruff doesn't know.
+from eta_ctrl.config.config_paths import ConfigPaths
+from eta_ctrl.config.config_settings import ConfigSettings  # noqa: TC001
+from eta_ctrl.config.config_setup import ConfigSetup  # noqa: TC001
+from eta_ctrl.envs.state import StateConfig
+from eta_ctrl.util.io_utils import load_config
+from eta_ctrl.util.utils import camel_to_snake_case, deep_mapping_update
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
-    from typing import Any
 
-    from eta_ctrl.util.type_annotations import Path
+    from pydantic.json_schema import JsonSchemaValue
 
-
-# Helper extracted to reduce branching in _from_dict
-def _pop_dict(dikt: dict, key: str) -> dict:
-    val = dikt.pop(key)
-    if not isinstance(val, dict):
-        # Prefer TypeError for invalid types
-        msg = f"'{key}' section must be a dictionary of settings."
-        raise TypeError(msg)
-    return val
-
-
-def _derive_state_config(root_path: pathlib.Path, paths: dict, setup: ConfigSetup) -> tuple[str, StateConfig]:
-    state_relpath = paths.pop("state_relpath", None)
-    state_file = camel_to_snake_case(setup.environment_class.__name__) + "_state_config"
-    if state_relpath is None:
-        state_relpath = "environments/"
-        log.info(f"Using default state_relpath 'environments/{state_file}'")
-    state_path = root_path / state_relpath
-    if not state_path.is_dir():
-        msg = f"StateConfig path {state_path} does not exist"
-        raise FileNotFoundError(msg)
-
-    state_path = state_path / state_file
-    state_relpath = str(pathlib.Path(state_relpath) / state_file)
-
-    log.info(f"Loading StateConfig from file at {state_path}).")
-    state_config = StateConfig.from_file(file=state_path)
-    return state_relpath, state_config
-
-
-def _path_or_default(value: str | pathlib.Path | None, default: str) -> pathlib.Path:
-    """Convert a possibly-None value into a pathlib.Path using a default.
-
-    This helper ensures attrs converters never receive ``None`` which would make
-    ``pathlib.Path(None)`` raise a TypeError.
-    """
-    if value is None:
-        return pathlib.Path(default)
-    return pathlib.Path(value)
-
-
-def _convert_results_relpath(value: str | pathlib.Path | None) -> pathlib.Path:
-    return _path_or_default(value, "results")
-
-
-def _convert_scenarios_relpath(value: str | pathlib.Path | None) -> pathlib.Path:
-    return _path_or_default(value, "scenarios")
-
+    from eta_ctrl.util.type_annotations import Path as StrPath
 
 log = getLogger(__name__)
 
 
-@define(frozen=False, kw_only=True)
-class Config:
-    """Configuration for the optimization, which can be loaded from a JSON file."""
+class Config(BaseModel):
+    """Configuration for the optimization, which can be loaded from a JSON, TOML, or YAML file.
 
-    #: Name of the configuration used for the series of run.
-    config_name: str = field(validator=validators.instance_of(str))
+    Holds the config name and path configuration, remaining data is split up in `ConfigSetup` and `ConfigSettings`.
+    Should be instantiated via the .from_file() method.
+    """
 
-    #: Root folder path for the optimization run (default: parent folder of invoking script).
-    root_path: pathlib.Path = field(converter=pathlib.Path)
-    #: Relative path to the state config file (default: environments/[environment_classname]_state_config).
-    state_relpath: pathlib.Path = field(converter=pathlib.Path)
-    #: Relative path to the results folder (default: results).
-    results_relpath: pathlib.Path = field(converter=_convert_results_relpath, default=pathlib.Path("results"))
-    #: relative path to the scenarios folder (default: scenarios).
-    scenarios_relpath: pathlib.Path = field(converter=_convert_scenarios_relpath, default=pathlib.Path("scenarios"))
-    #: Path to the results folder (default: root_path/results).
-    results_path: pathlib.Path = field(init=False, converter=pathlib.Path)
-    #: Path to the scenarios folder (default: root_path/scenarios).
-    scenarios_path: pathlib.Path = field(init=False, converter=pathlib.Path)
+    model_config = ConfigDict(extra="forbid", frozen=True, use_attribute_docstrings=True)
 
-    #: Optimization run setup.
-    setup: ConfigSetup = field()
-    #: Optimization run settings.
-    settings: ConfigSettings = field()
+    root_path: Path = Field(exclude=True)
+    """Root folder path for the optimization run (default: parent folder of invoking script).
+    Default value is only set when creating config via a file."""
 
-    def __attrs_post_init__(self) -> None:
-        if not self.root_path.exists():
-            msg = f"Root path {self.root_path} in config {self.config_name} does not exist"
-            raise ValueError(msg)
+    config_file_relpath: Path = Field(exclude=True)
 
-        # compute and assign resolved paths
-        self.results_path = self.root_path / self.results_relpath
-        self.scenarios_path = self.root_path / self.scenarios_relpath
+    paths: ConfigPaths = Field(default_factory=ConfigPaths)
+    """Optimization run paths."""
 
+    setup: ConfigSetup
+    """Optimization run setup."""
+    settings: ConfigSettings
+    """Optimization run settings."""
+
+    @classmethod
+    def __get_pydantic_json_schema__(cls, core_schema: Any, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
+        json_schema = handler(core_schema)
+        # Remove fields that are provided programmatically (not from the config file)
+        for field in ("root_path", "config_file_relpath"):
+            json_schema.get("properties", {}).pop(field, None)
+            if "required" in json_schema:
+                json_schema["required"] = [r for r in json_schema["required"] if r != field]
+        return json_schema
+
+    @property
+    def config_name(self) -> str:
+        """Name of the config file."""
+        return self.config_file_relpath.name
+
+    @property
+    def results_path(self) -> Path:
+        """Path to the results folder (default: root_path/results)."""
+        return self.root_path / self.paths.results_relpath
+
+    @property
+    def scenarios_path(self) -> Path:
+        """Path to the scenarios folder (default: root_path/scenarios)."""
+        return self.root_path / self.paths.scenarios_relpath
+
+    def __str__(self) -> str:
+        """Human-readable string representation of Config."""
+        return (
+            f"Config '{self.config_name}' "
+            f"(env={self.setup.environment_class.__name__}, agent={self.setup.agent_class.__name__})"
+        )
+
+    def model_post_init(self, _: Any) -> None:
+        # MpcAgent needs sampling_time and prediction_horizon
+        from eta_ctrl.agents.mpc_agent import MpcAgent  # noqa: PLC0415
+
+        if issubclass(self.setup.agent_class, MpcAgent):
+            self.settings.agent["sampling_time"] = self.settings.sampling_time
+            self.settings.agent["prediction_horizon"] = self.settings.prediction_horizon
+
+        # Create StateConfig (moved to helper to lower function complexity)
+        self._create_state_config()
         self.settings.create_scenario_manager(self.scenarios_path)
+
+    def _create_state_config(self) -> None:
+        env_name = self.setup.environment_class.__name__
+        # set default state file path based on environment class name if not provided in config
+        state_file_relpath = self.paths.state_file_relpath or camel_to_snake_case(env_name) + "_state_config"
+
+        # If prediction_horizon is set, we need to include n_prediction_steps as parameter
+        extra_params = {}
+        if self.settings.n_prediction_steps is not None:
+            extra_params["n_prediction_steps"] = self.settings.n_prediction_steps
+
+        state_config = StateConfig.from_file(
+            root_path=self.root_path, filename=state_file_relpath, extra_params=extra_params
+        )
+
+        # Pass to ConfigSettings environment section
+        self.settings.environment["state_config"] = state_config
+        state_file_relpath = (
+            state_config.source_file.relative_to(self.root_path) if state_config.source_file is not None else Path()
+        )
+        # Finally set correct state config location (with file ending)
+        object.__setattr__(self.paths, "state_file_relpath", state_file_relpath)
 
     @classmethod
     def from_file(
         cls,
-        root_path: Path | None,
-        config_relpath: Path | None,
         config_name: str,
+        root_path: StrPath | None = None,
+        config_relpath: StrPath | None = None,
         overwrite: Mapping[str, Any] | None = None,
     ) -> Config:
-        """Load configuration from JSON/TOML/YAML file, which consists of the following sections:
-
-        - **paths**: In this section, the (relative) file paths for results and scenarios are specified. The paths
-          are deserialized directly into the :class:`Config` object.
-        - **setup**: This section specifies which classes and utilities should be used for optimization. The setup
-          configuration is deserialized into the :class:`ConfigSetup` object.
-        - **settings**: The settings section contains basic parameters for the optimization, it is deserialized
-          into a :class:`ConfigSettings` object.
-        - **environment_specific**: The environment section contains keyword arguments for the environment.
-          This section must contain values for the arguments of the environment, the expected values are therefore
-          different depending on the environment and not fully documented here.
-        - **agent_specific**: The agent section contains keyword arguments for the control algorithm (agent).
-          This section must contain values for the arguments of the agent, the expected values are therefore
-          different depending on the agent and not fully documented here.
-
-        :param root_path: Path to the experiment root.
-        :param config_relpath: Path to the configuration directory, relative to root_path.
-        :param config_name: Name of the configuration file, without extension.
-        :param overwrite: Config parameters to overwrite.
-        :return: Config object.
-        """
         if root_path is None:
             # Use parent folder of invoking script when root_path is not provided
-            root_path = pathlib.Path(__main__.__file__).parent.resolve()
-        elif not isinstance(root_path, pathlib.Path):
-            root_path = pathlib.Path(root_path)
+            root_path = Path(__main__.__file__).parent.resolve()
+        elif not isinstance(root_path, Path):
+            root_path = Path(root_path)
 
         if config_relpath is None:
-            config_relpath = pathlib.Path("config")
+            config_relpath = "config"
 
-        if not root_path.exists():
-            msg = f"Root path {root_path} does not exist"
-            raise ValueError(msg)
-
-        file_path = root_path / config_relpath / f"{config_name}"
+        # Load file content
+        config_file_relpath = Path(config_relpath) / config_name
+        file_path = root_path / config_file_relpath
         config = load_config(file_path)
 
-        return Config._from_dict(config=config, root_path=root_path, config_name=config_name, overwrite=overwrite)
-
-    @classmethod
-    def _from_dict(
-        cls,
-        config: dict[str, Any],
-        config_name: str,
-        root_path: pathlib.Path,
-        overwrite: Mapping[str, Any] | None = None,
-    ) -> Config:
-        """Build a Config object from a dictionary of configuration options.
-
-        :param config: Dictionary of configuration options.
-        :param file: Path to the configuration file.
-        :param root_path: Root path for the optimization configuration run.
-        :return: Config object.
-        """
-
         if overwrite is not None:
-            config = dict(deep_mapping_update(config, overwrite))
+            config = deep_mapping_update(config, overwrite)
 
-        # Ensure required sections are present
-        for section in ("setup", "settings"):
-            if section not in config:
-                msg = f"The section '{section}' is not present in configuration file {config_name}."
-                raise ValueError(msg)
-
-        # Provide empty dicts for optional sections if missing
-        for section in ("environment_specific", "agent_specific", "paths"):
-            if section not in config:
-                config[section] = {}
-                log.info(f"Section '{section}' not present in configuration, assuming it is empty.")
-
-        # Load paths section
-        paths = _pop_dict(config, "paths")
-        results_relpath = paths.pop("results_relpath", None)
-        scenarios_relpath = paths.pop("scenarios_relpath", None)
-
-        # Load settings section
-        settings_raw: dict[str, dict[str, Any]] = {}
-        settings_raw["settings"] = _pop_dict(config, "settings")
-        settings_raw["environment_specific"] = _pop_dict(config, "environment_specific")
-
-        # Create ConfigSetup
-        _setup = _pop_dict(config, "setup")
-        setup = ConfigSetup.from_dict(_setup)
-
-        # Create StateConfig (moved to helper to lower function complexity)
-        state_relpath, state_config = _derive_state_config(root_path, paths, setup)
-        settings_raw["environment_specific"]["state_config"] = state_config
-
-        if "interaction_env_specific" in config:
-            settings_raw["interaction_env_specific"] = _pop_dict(config, "interaction_env_specific")
-        elif "interaction_environment_specific" in config:
-            settings_raw["interaction_env_specific"] = _pop_dict(config, "interaction_environment_specific")
-
-        settings_raw["agent_specific"] = _pop_dict(config, "agent_specific")
-
-        # Log unrecognized values
-        for name in config:
-            log.warning(
-                f"Specified configuration value '{name}' in the setup section of the configuration was not "
-                f"recognized and is ignored."
-            )
-
-        return cls(
-            config_name=config_name,
-            root_path=root_path,
-            results_relpath=results_relpath,
-            scenarios_relpath=scenarios_relpath,
-            state_relpath=state_relpath,
-            setup=setup,
-            settings=ConfigSettings.from_dict(settings_raw),
-        )
-
-    def __getitem__(self, name: str) -> Any:
-        return getattr(self, name)
-
-    def __setitem__(self, name: str, value: Any) -> None:
-        if not hasattr(self, name):
-            msg = f"The key {name} does not exist - it cannot be set."
-            raise KeyError(msg)
-        setattr(self, name, value)
+        return Config(root_path=root_path, config_file_relpath=config_file_relpath, **config)

@@ -11,7 +11,7 @@ import logging
 import pyomo.environ as pyo
 import pytest
 
-from eta_ctrl.envs.pyomo_env import PyomoEnv
+from eta_ctrl.envs import PyomoSimEnv
 
 # Set up logging for the test module
 logging.basicConfig(level=logging.INFO)
@@ -189,5 +189,5 @@ if __name__ == "__main__":
     log.info(f"ConcreteModel has {len(list(prod_model.component_objects(pyo.Param)))} parameters")
 
     # Test create_state functionality with the ConcreteModel fixture
-    PyomoEnv.create_state(prod_model, "production_planning", ".")
+    PyomoSimEnv.create_state(prod_model, "production_planning", ".")
     log.info("✓ Successfully created state files for production planning ConcreteModel")

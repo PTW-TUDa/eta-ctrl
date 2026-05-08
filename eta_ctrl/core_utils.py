@@ -5,14 +5,12 @@ import pathlib
 from functools import partial
 from typing import TYPE_CHECKING
 
-from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor, VecNormalize
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from gymnasium import Env
     from stable_baselines3.common.base_class import BaseAlgorithm, BasePolicy
-    from stable_baselines3.common.vec_env import VecEnv
+    from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv, VecNormalize
 
     from eta_ctrl.config import ConfigRun
     from eta_ctrl.envs import BaseEnv
@@ -28,7 +26,7 @@ def vectorize_environment(
     env_settings: EnvSettings,
     callback: Callable[[BaseEnv], None],
     verbose: int = 2,
-    vectorizer: type[DummyVecEnv] = DummyVecEnv,
+    vectorizer: type[DummyVecEnv | SubprocVecEnv] | None = None,
     n: int = 1,
     seed: int | None = None,
     *,
@@ -37,9 +35,7 @@ def vectorize_environment(
     norm_wrapper_obs: bool = False,
     norm_wrapper_reward: bool = False,
 ) -> VecNormalize | VecEnv:
-    """Vectorize the environment and automatically apply normalization wrappers if configured. If the environment
-    is initialized as an interaction_env it will not have normalization wrappers and use the appropriate configuration
-    automatically.
+    """Vectorize the environment and automatically apply normalization wrappers if configured.
 
     :param env: Environment class which will be instantiated and vectorized.
     :param config_run: Configuration for a specific optimization run.
@@ -54,10 +50,15 @@ def vectorize_environment(
     :param norm_wrapper_reward: Flag to determine whether rewards from the environments should be normalized.
     :return: Vectorized environments, possibly also wrapped in a normalizer.
     """
+    from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor, VecNormalize  # noqa: PLC0415
+
+    if vectorizer is None:
+        vectorizer = DummyVecEnv
+
     # Create the vectorized environment
     log.debug("Trying to vectorize the environment.")
     # Ensure n is one, if the DummyVecEnv is used (it doesn't support more than one)
-    if type(vectorizer) is DummyVecEnv and n != 1:
+    if vectorizer is DummyVecEnv and n != 1:
         n = 1
         log.warning("Setting number of environments to 1 because DummyVecEnv (default) is used.")
 
@@ -153,7 +154,7 @@ def initialize_model(
         )
 
     # create model instance
-    return algo(policy, envs, **algo_settings, **algo_kwargs)  # type: ignore[arg-type]
+    return algo(policy=policy, env=envs, **algo_settings, **algo_kwargs)  # type: ignore[arg-type]
 
 
 def load_model(

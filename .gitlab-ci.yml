@@ -26,15 +26,24 @@ include:
 
 variables:
   # Poetry settings
-  POETRY_VERSION: 2.1.1
+  POETRY_VERSION: 2.3.2
   REGISTRY_IMAGE: $CI_REGISTRY/$CI_PROJECT_PATH/poetry${POETRY_VERSION}
+
+.cache-config: &cache-config
+  key:
+    files:
+      - poetry.lock
+    prefix: "eta-ctrl-deps"
+  paths:
+    - ${POETRY_CACHE_DIR}
+    - ${PIP_CACHE_DIR}
 
 default:
   tags:
     - python
     - docker
   interruptible: true
-  image: ${REGISTRY_IMAGE}:py3.10
+  image: ${REGISTRY_IMAGE}:py3.11
   before_script:
     - python --version
     - rm -rf dist doc eta_ctrl.egg-info build
@@ -44,12 +53,19 @@ default:
     - poetry sync
   # Cache gets invalidated when poetry.lock changes
   cache:
-    key: "global-deps-$(checksum poetry.lock)"
-    paths:
-      - ${POETRY_CACHE_DIR}
-      - ${PIP_CACHE_DIR}
+    <<: *cache-config
     policy: pull
 
+
+
+poetry:
+  stage: setup
+  before_script: []
+  script:
+    - poetry --version
+    - poetry check
+    - poetry lock
+    - git diff --exit-code poetry.lock
 
 # Job to update pip cache
 update-cache:
@@ -63,12 +79,15 @@ update-cache:
     - poetry add --source pytorch_cpu torch==2.4.0
     - poetry sync
   cache:
+    <<: *cache-config
     policy: pull-push
   artifacts:
     paths:
       - pyproject.toml
       - poetry.lock
   dependencies: []
+  needs:
+    - job: poetry
 
 ruff:
   stage: check
@@ -89,11 +108,6 @@ mypy:
     - mypy --version
     - mypy --config-file pyproject.toml
 
-poetry:
-  stage: check
-  script:
-    - poetry --version
-    - poetry check
 
 secret_detection:
   stage: check
@@ -115,6 +129,10 @@ linkcheck-docs:
   retry:
     max: 2
     when: script_failure
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+      allow_failure: true
+    - when: on_success
 
 
 .test:
@@ -140,13 +158,8 @@ linkcheck-docs:
         path: coverage.xml
 
 # This job has test coverage report
-test3.10:
-  extends: .coverage
-
-
 test3.11:
-  extends: .test
-  image: ${REGISTRY_IMAGE}:py3.11
+  extends: .coverage
 
 test3.12:
   extends: .test
@@ -158,19 +171,6 @@ test3.12:
   rules:
     - !reference [.on_version_tag_rule, rules]
 
-# Publish local gitlab pages
-pages:
-  extends: .deploy
-  script:
-    - sphinx-build --version && sphinx-apidoc --version
-    - rm -rf docs/_build docs/_stubs public/html/*
-    - cd docs
-    - make html
-    - mv _build/html ../public
-  artifacts:
-    name: "eta_ctrl-docs-$CI_COMMIT_REF_NAME"
-    paths:
-      - public/
 
 deploy-local:
   extends: .deploy
@@ -200,14 +200,3 @@ deploy-pypi:
     paths:
       - dist/
       - eta_ctrl.egg-info/
-
-# Create readthedocs documentation
-deploy-readthedocs:
-  extends: .deploy
-  needs:
-    - deploy-local
-    - pages
-  before_script: []
-  script:
-    - echo $CI_COMMIT_TAG
-    - curl -X POST -d "branches=main" -d "token=$READTHEDOCS_TOKEN" https://readthedocs.org/api/v2/webhook/eta-ctrl/211185/

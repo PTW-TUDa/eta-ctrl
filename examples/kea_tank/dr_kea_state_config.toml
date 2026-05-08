@@ -1,4 +1,8 @@
-[[actions]]
-name = "heating"
-low_value=0
-high_value=1
+actions = [
+    {name = "heating", low_value = 0, high_value = 1},
+]
+
+observations = [
+    {name = "tank_temperature_start"},
+    {name = "energy_price", duration = "n_prediction_steps", from_scenario = true},
+]

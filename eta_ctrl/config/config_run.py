@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 log = getLogger(__name__)
 
 
-@define(frozen=True, kw_only=True)
+@define(frozen=True, kw_only=True, repr=False)
 class ConfigRun:
     """Configuration for an optimization run, including the series and run names descriptions and paths
     for the run.
@@ -59,15 +59,6 @@ class ConfigRun:
         init=False, default=None, validator=validators.optional(validators.instance_of(str))
     )
 
-    #: Version of the secondary environment (interaction_env).
-    interaction_env_version: str | None = field(
-        init=False, default=None, validator=validators.optional(validators.instance_of(str))
-    )
-    #: Description of the secondary environment (interaction_env).
-    interaction_env_description: str | None = field(
-        init=False, default=None, validator=validators.optional(validators.instance_of(str))
-    )
-
     def __attrs_post_init__(self) -> None:
         """Add default values to the derived paths."""
         object.__setattr__(self, "series_results_path", self.results_path / self.series)
@@ -77,6 +68,17 @@ class ConfigRun:
         object.__setattr__(self, "vec_normalize_path", self.series_results_path / "vec_normalize.pkl")
         object.__setattr__(self, "net_arch_path", self.series_results_path / "net_arch.txt")
         object.__setattr__(self, "log_output_path", self.series_results_path / f"{self.name}_log_output.log")
+
+    def __str__(self) -> str:
+        """Human-readable string representation of ConfigRun."""
+        return f"ConfigRun(series='{self.series}', name='{self.name}')"
+
+    def __repr__(self) -> str:
+        """Developer-friendly string representation of ConfigRun."""
+        return (
+            f"ConfigRun(series='{self.series}', name='{self.name}', "
+            f"root_path='{self.root_path}', results_path='{self.results_path}')"
+        )
 
     def create_results_folders(self) -> None:
         """Create the results folders for an optimization run (or check if they already exist)."""
@@ -102,16 +104,6 @@ class ConfigRun:
         version, description = env.get_info()
         object.__setattr__(self, "env_version", version)
         object.__setattr__(self, "env_description", description)
-
-    def set_interaction_env_info(self, env: type[BaseEnv]) -> None:
-        """Set the interaction environment information of the optimization run to represent the given environment.
-        The information will default to None if this is never called.
-
-        :param env: The environment whose description should be used.
-        """
-        version, description = env.get_info()
-        object.__setattr__(self, "interaction_env_version", version)
-        object.__setattr__(self, "interaction_env_description", description)
 
     @property
     def paths(self) -> dict[str, pathlib.Path]:

@@ -9,17 +9,17 @@
                     "type": "string"
                 },
                 "is_agent_action": {
-                    "default": "False",
+                    "default": false,
                     "title": "Is Agent Action",
                     "type": "boolean"
                 },
                 "is_agent_observation": {
-                    "default": "False",
+                    "default": false,
                     "title": "Is Agent Observation",
                     "type": "boolean"
                 },
                 "add_to_state_log": {
-                    "default": "True",
+                    "default": true,
                     "title": "Add To State Log",
                     "type": "boolean"
                 },
@@ -32,21 +32,21 @@
                             "type": "null"
                         }
                     ],
-                    "default": "None",
+                    "default": null,
                     "title": "Ext Id"
                 },
                 "is_ext_input": {
-                    "default": "False",
+                    "default": false,
                     "title": "Is Ext Input",
                     "type": "boolean"
                 },
                 "is_ext_output": {
-                    "default": "False",
+                    "default": false,
                     "title": "Is Ext Output",
                     "type": "boolean"
                 },
                 "ext_scale_add": {
-                    "default": "0.0",
+                    "default": 0.0,
                     "title": "Ext Scale Add",
                     "type": [
                         "number",
@@ -54,41 +54,8 @@
                     ]
                 },
                 "ext_scale_mult": {
-                    "default": "1.0",
+                    "default": 1.0,
                     "title": "Ext Scale Mult",
-                    "type": [
-                        "number",
-                        "string"
-                    ]
-                },
-                "interact_id": {
-                    "anyOf": [
-                        {
-                            "type": "integer"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": "None",
-                    "title": "Interact Id"
-                },
-                "from_interact": {
-                    "default": "False",
-                    "title": "From Interact",
-                    "type": "boolean"
-                },
-                "interact_scale_add": {
-                    "default": "0.0",
-                    "title": "Interact Scale Add",
-                    "type": [
-                        "number",
-                        "string"
-                    ]
-                },
-                "interact_scale_mult": {
-                    "default": "1.0",
-                    "title": "Interact Scale Mult",
                     "type": [
                         "number",
                         "string"
@@ -103,16 +70,16 @@
                             "type": "null"
                         }
                     ],
-                    "default": "None",
+                    "default": null,
                     "title": "Scenario Id"
                 },
                 "from_scenario": {
-                    "default": "False",
+                    "default": false,
                     "title": "From Scenario",
                     "type": "boolean"
                 },
                 "scenario_scale_add": {
-                    "default": "0.0",
+                    "default": 0.0,
                     "title": "Scenario Scale Add",
                     "type": [
                         "number",
@@ -120,7 +87,7 @@
                     ]
                 },
                 "scenario_scale_mult": {
-                    "default": "1.0",
+                    "default": 1.0,
                     "title": "Scenario Scale Mult",
                     "type": [
                         "number",
@@ -128,7 +95,7 @@
                     ]
                 },
                 "low_value": {
-                    "default": "-inf",
+                    "default": -3.4028234663852886e+38,
                     "title": "Low Value",
                     "type": [
                         "number",
@@ -136,7 +103,7 @@
                     ]
                 },
                 "high_value": {
-                    "default": "inf",
+                    "default": 3.4028234663852886e+38,
                     "title": "High Value",
                     "type": [
                         "number",
@@ -160,9 +127,20 @@
                     ]
                 },
                 "index": {
-                    "default": "0",
+                    "default": 0,
                     "title": "Index",
-                    "type": "integer"
+                    "type": [
+                        "integer",
+                        "string"
+                    ]
+                },
+                "duration": {
+                    "default": 1,
+                    "title": "Duration",
+                    "type": [
+                        "integer",
+                        "string"
+                    ]
                 }
             },
             "required": [
@@ -197,7 +175,7 @@
                     "type": "null"
                 }
             ],
-            "default": "None",
+            "default": null,
             "title": "State Parameters"
         },
         "actions": {

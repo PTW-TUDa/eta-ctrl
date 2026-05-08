@@ -1,0 +1,81 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: eta-ctrl
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - family-names: Clement
+    given-names: Andreas
+    email: a.clement@ptw.tu-darmstadt.de
+    orcid: 'https://orcid.org/0009-0005-6675-1223'
+    affiliation: Technical University of Darmstadt
+  - family-names: Stock
+    given-names: Jerome
+    email: j.stock@ptw.tu-darmstadt.de
+    orcid: 'https://orcid.org/0009-0006-7908-069X'
+    affiliation: Technical University of Darmstadt
+  - family-names: Balzer
+    given-names: Julius Nicholas
+    email: julius.balzer@stud.tu-darmstadt.de
+    orcid: 'https://orcid.org/0009-0001-7249-2150'
+    affiliation: Technical University of Darmstadt
+  - given-names: Matthias
+    family-names: Weigold
+    email: m.weigold@ptw.tu-darmstadt.de
+    orcid: 'https://orcid.org/0000-0002-7820-8544'
+    affiliation: Technical University of Darmstadt
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.19450642
+    description: Repository
+repository-code: 'https://github.com/PTW-TUDa/eta-ctrl'
+abstract: >-
+  A modular framework for rolling-horizon operational control using a Gym-compatible agent–environment abstraction. The framework enables integration of optimization-based agents (Pyomo), reinforcement learning agents (Stable-Baselines3), heuristic search methods, and rule-based controllers. Environments can be instantiated from FMI-compliant simulations, mathematical models, or real-world system interfaces.
+keywords:
+  - rolling horizon control
+  - model predictive control (MPC)
+  - reinforcement learning
+  - optimization-based control
+  - rule-based control
+  - Pyomo
+  - Stable-Baselines3
+  - Gym interface
+  - Functional Mock-up Interface FMI
+  - cyber-physical systems
+  - industrial energy systems
+  - real-time control
+  - simulation and co-simulation
+  - eta factory
+license: BSD-2-Clause
+version: 0.2.0
+date-released: '2026-02-15'
+references:
+  - type: article
+    authors:
+      - family-names: Grosch
+        given-names: Benedikt Emanuel
+      - family-names: Ranzau
+        given-names: Heiko
+      - family-names: Dietrich
+        given-names: Bastian
+      - family-names: Kohne
+        given-names: Thomas
+      - family-names: Fuhrländer-Völker
+        given-names: Daniel
+      - family-names: Sossenheimer
+        given-names: Johannes
+      - family-names: Lindner
+        given-names: Martin
+      - family-names: Weigold
+        given-names: Matthias
+    title: A framework for researching energy optimization of factory operations
+    journal: Energy Informatics
+    year: 2022
+    volume: 5
+    issue: Suppl 1
+    article-number: 29
+    doi: 10.1186/s42162-022-00207-6

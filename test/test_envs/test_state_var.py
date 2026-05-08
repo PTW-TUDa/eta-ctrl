@@ -21,8 +21,8 @@ class TestStateVar:
         assert state_var_default.is_agent_observation is False
         assert state_var_default.is_ext_input is False
         assert state_var_default.is_ext_output is False
-        assert state_var_default.low_value == -np.inf
-        assert state_var_default.high_value == np.inf
+        assert state_var_default.low_value == -np.finfo(np.float32).max
+        assert state_var_default.high_value == np.finfo(np.float32).max
         assert state_var_default.ext_id is None
         assert state_var_default.abort_condition_min == -np.inf
         assert state_var_default.abort_condition_max == np.inf
@@ -64,31 +64,8 @@ class TestStateVar:
         expected = f"Using name as {name[1]} for variable {sv.name}"
         assert expected in caplog.messages
 
-    @pytest.fixture(scope="class")
-    def state_var_interact(self):
-        return StateVar(
-            name="foo",
-            is_agent_action=True,
-            low_value=0,
-            high_value=1,
-            from_interact=True,
-            interact_id=0,
-            interact_scale_add=1,
-            interact_scale_mult=2,
-        )
-
-    def test_interact_var(self, state_var_interact):
-        assert state_var_interact.name == "foo"
-        assert state_var_interact.is_agent_action is True
-        assert state_var_interact.low_value == 0
-        assert state_var_interact.high_value == 1
-        assert state_var_interact.from_interact is True
-        assert state_var_interact.interact_id == 0
-        assert state_var_interact.interact_scale_add == 1.0
-        assert state_var_interact.interact_scale_mult == 2.0
-
     def test_from_dict(self):
-        dikt = {"name": "foo", "is_agent_action": True}
+        dikt = {"name": "foo", "is_agent_action": True, "low_value": 0, "high_value": 1}
         state_var = StateVar.from_dict(dikt)
         assert state_var.name == "foo"
         assert state_var.is_agent_action is True
@@ -120,16 +97,14 @@ class TestStateVar:
         assert str(state_var) == expected
 
     def test_str_representation_infinite_range(self):
-        """Test __str__ method for StateVar with infinite range."""
-        state_var = StateVar(name="unlimited_var", is_agent_action=True)
-        expected = "StateVar 'unlimited_var' (action)"
-        assert str(state_var) == expected
+        """Test that creating an action StateVar without bounds raises ValueError."""
+        with pytest.raises(ValueError, match="requires explicit finite bounds"):
+            StateVar(name="unlimited_var", is_agent_action=True)
 
     def test_str_representation_partial_infinite_range(self):
-        """Test __str__ method for StateVar with partially infinite range."""
-        state_var = StateVar(name="min_limited", is_agent_action=True, low_value=0)
-        expected = "StateVar 'min_limited' (action) [0.0, inf]"
-        assert str(state_var) == expected
+        """Test that creating an action StateVar with only one bound raises ValueError."""
+        with pytest.raises(ValueError, match="requires explicit finite bounds"):
+            StateVar(name="min_limited", is_agent_action=True, low_value=0)
 
     def test_repr_representation_minimal(self):
         """Test __repr__ method for minimal StateVar."""

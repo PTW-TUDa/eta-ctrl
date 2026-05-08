@@ -1,0 +1,12 @@
+[setup]
+environment_import = "eta_ctrl.envs.PyomoSimEnv"
+agent_import = "eta_ctrl.agents.MpcAgent"
+
+[settings]
+sampling_time = 10
+episode_duration = 600
+scenario_time_begin = "2026-03-18 00:00"
+scenario_time_end = "2026-03-18 00:50"
+scenario_files = [
+   {path = "electricity_price_test.csv"}
+]

@@ -1,20 +1,47 @@
 """Shared base test classes and fixtures for environment string representation tests."""
 
 import pathlib
+import shutil
 import tempfile
-from datetime import datetime
 from pathlib import Path
 
-import pyomo.environ as pyo
+import numpy as np
+import pandas as pd
 import pytest
 
-from eta_ctrl.config.config_run import ConfigRun
-from eta_ctrl.envs.base_env import BaseEnv
-from eta_ctrl.envs.live_env import LiveEnv
-from eta_ctrl.envs.pyomo_env import PyomoEnv
-from eta_ctrl.envs.sim_env import SimEnv
-from eta_ctrl.envs.state import StateConfig, StateVar
-from test.test_agents.test_mathsolver import DummyScenarioManager
+from eta_ctrl.config import ConfigRun
+from eta_ctrl.envs import BaseEnv, LiveEnv, PyomoSimEnv, SimEnv, StateConfig, StateVar
+from eta_ctrl.timeseries.scenario_manager import ScenarioManager
+
+
+class _ScenarioManagerStub:
+    """Minimal scenario manager stub for method-level tests."""
+
+    def __init__(self, value: float = 2.0, offset: int = 2) -> None:
+        self.value = value
+        self.offset = offset
+
+    def compute_episode_offset(self, _rng) -> int:
+        return self.offset
+
+    def get_scenario_state_var(self, n_step: int, state_var: StateVar):
+        return np.array([self.value + n_step + state_var.ext_scale_add])
+
+
+class DummyScenarioManager(ScenarioManager):
+    """Dummy class for testing purposes"""
+
+    def __init__(self) -> None:
+        self.scenarios = pd.DataFrame()
+
+    def get_scenario_state(self, n_steps):
+        return {}
+
+    def get_scenario_state_with_duration(self, n_step, duration):
+        return {}
+
+    def _get_data(self, n_step, duration=1, names=None):
+        return {}
 
 
 @pytest.fixture(scope="class")
@@ -31,8 +58,6 @@ def temp_directory_factory():
 
     # Cleanup all created directories
     for directory in directories:
-        import shutil
-
         shutil.rmtree(directory, ignore_errors=True)
 
 
@@ -72,12 +97,15 @@ def state_config_factory():
                 StateVar(name="single_obs", is_agent_observation=True, low_value=0, high_value=1),
             ),
             "minimal": lambda: StateConfig(
-                StateVar(name="test_action", is_agent_action=True),
+                StateVar(name="test_action", is_agent_action=True, low_value=0, high_value=1),
                 StateVar(name="test_obs", is_agent_observation=True),
             ),
             "basic": lambda: StateConfig(
                 StateVar(name="test_action", is_agent_action=True, low_value=0, high_value=100),
                 StateVar(name="test_obs", is_agent_observation=True, low_value=0, high_value=100),
+            ),
+            "scenario": lambda: StateConfig(
+                StateVar(name="scen1", from_scenario=True),
             ),
             "multi_action": lambda: StateConfig(
                 StateVar(name="heating_power", is_agent_action=True, low_value=0, high_value=5000),
@@ -95,6 +123,23 @@ def state_config_factory():
                 StateVar(name="actual_value", is_agent_observation=True, low_value=0, high_value=100),
                 StateVar(name="error_signal", is_agent_observation=True, low_value=-50, high_value=50),
             ),
+            "method_test": lambda: StateConfig(
+                StateVar(name="act", is_agent_action=True, low_value=0.0, high_value=10.0),
+                StateVar(name="obs", is_agent_observation=True, low_value=-10.0, high_value=100.0),
+                StateVar(
+                    name="ext_in_state", is_ext_input=True, ext_id="ext.in", ext_scale_add=10.0, ext_scale_mult=2.0
+                ),
+                StateVar(
+                    name="ext_out_state", is_ext_output=True, ext_id="ext.out", ext_scale_add=1.0, ext_scale_mult=3.0
+                ),
+                StateVar(name="scen", from_scenario=True, ext_scale_add=2.0, ext_scale_mult=4.0),
+            ),
+            "validation": lambda: StateConfig(
+                StateVar(name="a1", is_agent_action=True, low_value=-1.0, high_value=2.0),
+                StateVar(name="a2", is_agent_action=True, low_value=0.0, high_value=5.0),
+                StateVar(name="a3", is_agent_action=True, low_value=-10.0, high_value=10.0),
+                StateVar(name="obs", is_agent_observation=True, low_value=0.0, high_value=100.0),
+            ),
         }
 
         if config_type not in config_map:
@@ -109,7 +154,7 @@ def state_config_factory():
 @pytest.fixture(scope="class")
 def unified_env_factory(config_run_factory, state_config_factory):
     """
-    Unified factory fixture for creating any type of environment (BaseEnv, PyomoEnv, SimEnv, LiveEnv).
+    Unified factory fixture for creating any type of environment (BaseEnv, PyomoSimEnv, SimEnv, LiveEnv).
     """
 
     def _create_environment(
@@ -117,8 +162,6 @@ def unified_env_factory(config_run_factory, state_config_factory):
         env_id=42,
         config_run_params=None,
         state_config_type="default",
-        scenario_time_begin=datetime(2023, 6, 15, 8, 0),
-        scenario_time_end=datetime(2023, 6, 15, 20, 0),
         episode_duration=7200,
         sampling_time=300,
         path_env=None,
@@ -132,7 +175,7 @@ def unified_env_factory(config_run_factory, state_config_factory):
                 "description": f"Test run for {env_type} environment",
             }
 
-        config_run, temp_path = config_run_factory(**config_run_params)
+        config_run, _temp_path = config_run_factory(**config_run_params)
         state_config = state_config_factory(state_config_type)
 
         # Common environment parameters
@@ -140,28 +183,20 @@ def unified_env_factory(config_run_factory, state_config_factory):
             "env_id": env_id,
             "config_run": config_run,
             "state_config": state_config,
-            "scenario_time_begin": scenario_time_begin,
-            "scenario_time_end": scenario_time_end,
             "episode_duration": episode_duration,
             "sampling_time": sampling_time,
             "path_env": path_env,
         }
+        # Common params can be overridden by env_specific_params (i.e. kwargs)
+        all_params = {**common_params, **env_specific_params}
 
         if env_type == "base":
-            return TestBaseEnv(**common_params)
+            return TestBaseEnv(**all_params)
         if env_type == "pyomo":
-            # Extract PyomoEnv specific parameters with defaults
-            model_parameters = env_specific_params.get("model_parameters", {})
-            prediction_horizon = env_specific_params.get("prediction_horizon", 3600.0)
-            n_prediction_steps = env_specific_params.get("n_prediction_steps", 12)
-            scenario_manager = DummyScenarioManager()
-            return TestPyomoEnv(
-                **common_params,
-                scenario_manager=scenario_manager,
-                model_parameters=model_parameters,
-                prediction_horizon=prediction_horizon,
-                n_prediction_steps=n_prediction_steps,
-            )
+            # Set PyomoSimEnv specific parameters with defaults
+            all_params.setdefault("model_parameters", {})
+            all_params.setdefault("scenario_manager", DummyScenarioManager())
+            return TestPyomoSimEnv(**all_params)
         if env_type == "sim":
             # Extract SimEnv specific parameters with defaults
             fmu_name = env_specific_params.get("fmu_name", "test_model.fmu")
@@ -180,7 +215,12 @@ def unified_env_factory(config_run_factory, state_config_factory):
                 config_name=config_name,
                 max_errors=max_errors,
             )
-        error_msg = f"Unknown env_type: {env_type}. Supported types: base, pyomo, sim, live"
+        if env_type == "method":
+            env = _MethodTestEnv(**{**common_params, **env_specific_params})
+            env.scenario_manager = _ScenarioManagerStub()
+            env._scenario_rng = np.random.default_rng(0)
+            return env
+        error_msg = f"Unknown env_type: {env_type}. Supported types: base, pyomo, sim, live, method"
         raise ValueError(error_msg)
 
     return _create_environment
@@ -205,11 +245,6 @@ class TestBaseEnv(BaseEnv):
         """Implement abstract _reset method."""
         return {}
 
-    def step(self, action):
-        self.n_steps += 1
-        self.n_steps_longtime += 1
-        return {}, 0.0, False, False, {}
-
     def close(self):
         pass
 
@@ -217,8 +252,12 @@ class TestBaseEnv(BaseEnv):
         pass
 
 
-class TestPyomoEnv(PyomoEnv):
-    """Concrete implementation of PyomoEnv for testing."""
+class TestPyomoSimEnv(PyomoSimEnv):
+    """Concrete implementation of PyomoSimEnv for testing."""
+
+    @property
+    def model_import(self):
+        return "test.resources.pyomo_basic_model.PyomoBasicModel"
 
     @property
     def version(self):
@@ -226,29 +265,13 @@ class TestPyomoEnv(PyomoEnv):
 
     @property
     def description(self):
-        return "Test PyomoEnv for string representation testing"
-
-    def _model(self):
-        return pyo.AbstractModel()
+        return "Test PyomoSimEnv for string representation testing"
 
     def _build_model(self):
         pass
 
     def _solve_model(self):
         return {}
-
-    def _step(self):
-        """Implement abstract _step method."""
-        return 0.0, False, False, {}
-
-    def _reset(self, *, seed=None, options=None):
-        """Implement abstract _reset method."""
-        return {}
-
-    def step(self, action):
-        self.n_steps += 1
-        self.n_steps_longtime += 1
-        return {}, 0.0, False, False, {}
 
     def close(self):
         pass
@@ -279,22 +302,6 @@ class TestSimEnv(SimEnv):
         # Override path_env for testing
         self.path_env = pathlib.Path(tempfile.gettempdir())
 
-    def _step(self):
-        """Implement abstract _step method."""
-        return 0.0, False, False, {}
-
-    def _reset(self, *, seed=None, options=None):
-        """Implement abstract _reset method."""
-        return {}
-
-    def step(self, action):
-        self.n_steps += 1
-        self.n_steps_longtime += 1
-        return {}, 0.0, False, False, {}
-
-    def close(self):
-        pass
-
     def render(self):
         pass
 
@@ -319,19 +326,28 @@ class TestLiveEnv(LiveEnv):
         self._config_name = kwargs.pop("config_name", "test_config")
         super().__init__(*args, **kwargs)
 
+    def render(self):
+        pass
+
+
+class _MethodTestEnv(BaseEnv):
+    """BaseEnv subclass with non-trivial _step/_reset for method-level tests."""
+
+    @property
+    def version(self):
+        return "v1.0.0"
+
+    @property
+    def description(self):
+        return "BaseEnv method test env"
+
     def _step(self):
-        """Implement abstract _step method."""
-        return 0.0, False, False, {}
+        self.state["obs"] = np.array([float(self.state["act"].item())])
+        return 1.0, False, False, {"source": "_step"}
 
     def _reset(self, *, seed=None, options=None):
-        """Implement abstract _reset method."""
-        return {}
-
-    def step(self, action):
-        """Minimal step implementation for testing."""
-        self.n_steps += 1
-        self.n_steps_longtime += 1
-        return {}, 0.0, False, False, {}
+        self.state["obs"] = np.array([5.0])
+        return {"reset": True}
 
     def close(self):
         pass

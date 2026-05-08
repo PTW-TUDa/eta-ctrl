@@ -15,7 +15,7 @@ from eta_ctrl.util import csv_export
 from eta_ctrl.util.utils import timestep_to_seconds
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator, Sequence
+    from collections.abc import Callable, Iterator, Mapping, Sequence
     from typing import Any
 
     from eta_ctrl.config import ConfigRun
@@ -150,8 +150,6 @@ class BaseEnv(Env, abc.ABC):
 
         if seed is not None:
             # Initialize random generator
-            # Explicitly use Env class from gymnasium since super() doesn't work with multiple inheritance
-            Env.reset(self, seed=seed)
             self.action_space.seed(seed=seed)
             self.observation_space.seed(seed=seed)
 
@@ -159,26 +157,20 @@ class BaseEnv(Env, abc.ABC):
 
     def _init_attributes(self) -> None:
         """Initialize environment attributes that don't depend on constructor arguments."""
-
-        # Determine path of the environment file
-        # 1. Explicit override if provided, 2. Auto-detect from call stack, 3. Fallback to cwd
         detected_path: pathlib.Path | None = None
 
-        # Use explicit override if provided
         if self._path_env_override is not None:
             detected_path = self._path_env_override
         else:
-            # Try to detect path from call stack
-            for f in inspect.stack():
-                if "__class__" in f.frame.f_locals and f.frame.f_locals["__class__"] is self.__class__:
-                    detected_path = pathlib.Path(f.filename).parent
-                    break
+            try:
+                detected_path = pathlib.Path(inspect.getfile(type(self))).resolve().parent
+            except (TypeError, OSError):
+                detected_path = None
 
-        # Fallback if detection failed
         if detected_path is None:
             detected_path = pathlib.Path.cwd()
             log.warning(
-                f"Could not automatically detect environment path for {self.__class__.__name__}. "
+                f"Could not automatically detect environment path for {type(self).__name__}. "
                 f"Falling back to current working directory: {detected_path}. "
                 "Consider passing 'path_env' explicitly to the constructor if this is incorrect."
             )
@@ -239,11 +231,12 @@ class BaseEnv(Env, abc.ABC):
         """
 
     def step(self, action: np.ndarray) -> StepResult:
-        """Perform one time step and return its results.
+        """Proceed one time step and return the reward for the action provided as well as the new observation.
 
         This method handles the public interface for the step operation. It validates actions,
-        calls the private _step method implemented by subclasses, manages state updates, and
-        returns the formatted results.
+        executes actions by calling the private _step method implemented by subclasses, increments n_steps,
+        manages state updates, and returns the formatted results
+        (reward of the previous action taken, new environment state).
 
         It also updates the state log and calls the state modification callback.
 
@@ -270,22 +263,31 @@ class BaseEnv(Env, abc.ABC):
         self._actions_valid(action)
         self.set_action(action=action)
 
-        # Update with scenario data, if existing
+        # Load scenario data for current timestep, if present.
+        # This is the same data which has been in the prior state,
+        # but cleared because of _reset_state().
         self.set_scenario_state()
 
         # Perform the actual step in the environment
-        reward, terminated, truncated, info = self._step()
+        reward, terminated, __truncated, info = self._step()
         self.n_steps += 1
+
+        # Call self._truncated() after incrementing n_steps
+        truncated = __truncated or self._truncated()
+
+        # Load scenario data from next timestep for observations, if present
+        self.set_scenario_state()
 
         # Execute optional state modification callback function
         if self.state_modification_callback:
-            self.state_modification_callback()
+            self.state_modification_callback(self)
 
         self.state_log.append(self.state)
 
         # Render the environment at each step
         if self.render_mode is not None:
             self.render()
+
         return self.get_observations(), reward, terminated, truncated, info
 
     def _actions_valid(self, action: np.ndarray | dict) -> None:
@@ -404,9 +406,11 @@ class BaseEnv(Env, abc.ABC):
             action_val = int(action)
 
         # Check bounds
-        if action_val < space.start or action_val >= space.start + space.n:
+        space_start = int(space.start)
+        space_n = int(space.n)
+        if action_val < space_start or action_val >= space_start + space_n:
             errors.append("\nValue out of range:")
-            errors.append(f"  Valid range: [{space.start}, {space.start + space.n - 1}]")
+            errors.append(f"  Valid range: [{space_start}, {space_start + space_n - 1}]")
             errors.append(f"  Received: {action_val}")
 
         return errors
@@ -543,18 +547,23 @@ class BaseEnv(Env, abc.ABC):
         # Clear state
         self._reset_state()
 
-        # Set rng seed
+        # Set rng seed (only has a value on first reset of first episode)
         Env.reset(self, seed=seed)
 
-        # Update with scenario data, if existing
-        self.set_scenario_state()
+        # Create separate rng for the scenario manager to ensure deterministic values
+        # The value for self.np_random_seed is set by Env.reset()
+        if seed is not None or not hasattr(self, "_scenario_rng"):
+            self._scenario_rng = np.random.default_rng(self.np_random_seed)
+
+        # Update with scenario data, if present
+        self.set_scenario_state(reset=True)
 
         # Set initial observations in child class
         info = self._reset(options=options)
 
         # Execute optional state modification callback function
         if self.state_modification_callback:
-            self.state_modification_callback()
+            self.state_modification_callback(self)
 
         # Log state
         self.state_log.append(self.state)
@@ -673,20 +682,20 @@ class BaseEnv(Env, abc.ABC):
             try:
                 observations[name] = self.state[name]
             except KeyError as e:
-                msg = f"{e!s} is unavailable in environment state."
+                msg = f"Observation {e!s} is unavailable in environment state."
                 raise KeyError(msg) from e
         return observations
 
-    def get_external_inputs(self) -> dict[str, float]:
+    def get_external_inputs(self) -> dict[str, int | float | bool | str]:
         """Gather external inputs from the state.
         Uses scalar values instead of numpy arrays for values.
 
         :raises KeyError: External input is not available in state
         :raises ValueError: External input value is not scalar
         :return: Filtered external inputs with external id as keys.
-        :rtype: dict[str, float]
+        :rtype: dict[str, int | float | bool | str]
         """
-        external_inputs = {}
+        external_inputs: dict[str, int | float | bool | str] = {}
         for name in self.state_config.ext_inputs:
             ext_id = self.state_config.map_ext_ids[name]
             state_var = self.state_config.vars[name]
@@ -698,7 +707,16 @@ class BaseEnv(Env, abc.ABC):
             except ValueError as e:
                 msg = "External Inputs can't have multiple values"
                 raise ValueError(msg) from e
-            external_inputs[ext_id] = scaled_value / state_var.ext_scale_mult - state_var.ext_scale_add
+            # Check for boolean FIRST (since bool is a subclass of int in Python)
+            if isinstance(scaled_value, (bool, np.bool_)):
+                # Preserve non-numeric values as-is, cast np.bool_ to Python bool
+                external_inputs[ext_id] = bool(scaled_value)
+            elif isinstance(scaled_value, (int, float, np.integer, np.floating)):
+                # Only scale numeric values (int and float), cast to Python float
+                external_inputs[ext_id] = float(scaled_value / state_var.ext_scale_mult - state_var.ext_scale_add)
+            else:
+                # Preserve other non-numeric values as-is (string, etc.)
+                external_inputs[ext_id] = scaled_value
         return external_inputs
 
     def set_action(self, action: np.ndarray | dict[str, np.ndarray]) -> None:
@@ -717,12 +735,12 @@ class BaseEnv(Env, abc.ABC):
             val = value if isinstance(value, np.ndarray) else np.array([value])
             self.state[name] = val
 
-    def set_external_outputs(self, external_outputs: dict[str, float]) -> None:
+    def set_external_outputs(self, external_outputs: Mapping[str, int | float | bool | str]) -> None:
         """Set external outputs in the state.
         Accepts scalars instead of numpy arrays as values.
 
         :param external_outputs: Dict of external outputs with external_ids as keys.
-        :type external_outputs: dict[str, float]
+        :type external_outputs: Mapping[str, int | float | bool | str]
         :raises KeyError: Received an unknown external id
         """
         for name in self.state_config.ext_outputs:
@@ -732,16 +750,34 @@ class BaseEnv(Env, abc.ABC):
             except KeyError as e:
                 msg = f"Missing value for external output: {name}"
                 raise KeyError(msg) from e
-            scaled_value = (unscaled_value + state_var.ext_scale_add) * state_var.ext_scale_mult
+            # Check for boolean FIRST (since bool is a subclass of int in Python)
+            if isinstance(unscaled_value, (bool, np.bool_)):
+                # Preserve boolean with explicit dtype to avoid conversion to float
+                self.state[name] = np.array([unscaled_value], dtype=bool)
+            elif isinstance(unscaled_value, (int, float, np.integer, np.floating)):
+                # Only scale numeric values (int and float)
+                scaled_value = (unscaled_value + state_var.ext_scale_add) * state_var.ext_scale_mult
+                self.state[name] = np.array([scaled_value])
+            else:
+                # Preserve other non-numeric values as-is (string, etc.)
+                self.state[name] = np.array([unscaled_value])
 
-            self.state[name] = np.array([scaled_value])
+    def set_scenario_state(self, reset: bool = False) -> None:
+        """Set scenario output values for the current timestep in the state.
 
-    def set_scenario_state(self) -> None:
-        """Set scenario output values for the current timestep in the state."""
-        if self.scenario_manager is not None:
-            # Only request the columns specified in state_config to avoid loading unnecessary data
-            scenario_data = self.scenario_manager.get_scenario_state(
-                n_steps=self.n_steps, columns=self.state_config.scenario_outputs
+        :param reset: Indicator whether this was called from the reset method
+        """
+        if self.scenario_manager is None:
+            return
+
+        # Compute new offset after reset
+        if reset:
+            self._scenario_offset = self.scenario_manager.compute_episode_offset(self._scenario_rng)
+
+        for state_name in self.state_config.scenario_outputs:
+            state_var = self.state_config.vars[state_name]
+            unscaled_data = self.scenario_manager.get_scenario_state_var(
+                n_step=self.n_steps + self._scenario_offset, state_var=state_var
             )
-            for scenario_id in self.state_config.scenario_outputs:
-                self.state[scenario_id] = scenario_data[scenario_id]
+            scaled_data = (unscaled_data + state_var.ext_scale_add) * state_var.ext_scale_mult
+            self.state[state_name] = scaled_data

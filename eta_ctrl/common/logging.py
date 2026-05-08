@@ -3,19 +3,17 @@ from __future__ import annotations
 import abc
 import json
 import pathlib
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 from attrs import asdict
 
 from eta_ctrl.util import log_add_filehandler
 
-from .sb3_extensions.policies import NoPolicy
-
 if TYPE_CHECKING:
     from stable_baselines3.common.base_class import BaseAlgorithm
 
     from eta_ctrl.config import Config, ConfigRun
-from logging import getLogger
 
 log = getLogger(__name__)
 
@@ -52,7 +50,7 @@ def log_run_info(config: Config, config_run: ConfigRun) -> None:
                 return repr(o)
 
         try:
-            json.dump({**asdict(config_run), **asdict(config)}, f, indent=4, cls=Encoder)
+            json.dump({**asdict(config_run), **config.model_dump()}, f, indent=4, cls=Encoder)
             log.info("Log file successfully created.")
         except TypeError:
             log.warning("Log file could not be created because of non-serializable input in config.")
@@ -66,6 +64,8 @@ def log_net_arch(model: BaseAlgorithm, config_run: ConfigRun) -> None:
     :param config_run: Optimization run configuration (which contains info about the file to store info in).
     :raises: ValueError.
     """
+    from .sb3_extensions.policies import NoPolicy  # noqa: PLC0415
+
     if not config_run.net_arch_path.exists() and model.policy is not None and model.policy.__class__ is not NoPolicy:
         with pathlib.Path(config_run.net_arch_path).open("w") as f:
             f.write(str(model.policy))

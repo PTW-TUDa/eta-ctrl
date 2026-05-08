@@ -1,0 +1,56 @@
+// The diagram was created using https://sequencediagram.org/
+
+
+notestyle <color:#darkblue><wordwrap:25>//**
+messagestyle <color:#blue><wordwrap:25>//**
+
+title EtaCtrl **//play()//** Data Flow
+participant Agent#lightblue
+participant EtaCtrl#6ec427 #black;2
+participant Env#lightblue
+participant ExternalModel#orange
+participant Scenario Manager#orange
+
+activecolor Agent #blue
+activecolor EtaCtrl #6ec427
+activecolor Env #blue
+activecolor ExternalModel #orange
+activecolor Scenario Manager #orange
+
+lifelinestyle EtaCtrl #6ec427:6
+//------------------------------
+note over Env:n_steps=0
+autoactivation on
+EtaCtrl->Env:reset()
+Env->Scenario Manager:get_scenario_state(0)
+Scenario Manager-->Env:Scenario Data
+group Internal step
+Env->ExternalModel:External inputs
+ExternalModel-->Env:External outputs
+end
+Env-->EtaCtrl:Observations
+//------------------------------
+
+
+//------------------------------
+loop n_steps < n_episode_steps
+// note over Agent,Scenario Manager: Actions are calculated from observations at timestep t=n_steps for t=n_steps+1.\nScenario Data is loaded from t=n_steps+1, which will get passed to the agent in the next step.\nThe first environment step starts at t=0 and finishes at t=1.
+
+EtaCtrl->Agent:predict(observations)
+Agent-->EtaCtrl:actions
+
+EtaCtrl->Env:step(actions)
+
+Env->Scenario Manager:get_scenario_state(n_steps+1)
+Scenario Manager-->Env:Scenario Data
+group Internal step
+Env->ExternalModel:External Inputs
+ExternalModel-->Env:External Outputs
+end
+note over Env:n_steps += 1
+Env-->EtaCtrl:Observations, Reward
+//Env--EtaCtrl:Observations, Reward
+
+end
+
+//------------------------------

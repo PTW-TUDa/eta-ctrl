@@ -36,21 +36,10 @@ The functions available in eta_ctrl.envs make it easy to create new, custom envi
 For example, they provide functionality for integrating FMU simulation models,
 communicating with real assets in factories, or integrating Pyomo models as environments.
 
-The *EtaCtrl* class is built on top of this functionality and extends the general Markov Decision Process by the option to
-introduce interactions between multiple environments. This enables the creation of digital twins, which could for
-example use a mathematical or a simulation model for some aspects and interact with the actual devices for other
-aspects as shown in the figure. Note, that this is only an option when using *EtaCtrl*. The class also supports simple
-optimization of a single environment as shown in the code example above.
-
-.. figure:: figures/Interaction_between_env.png
-    :scale: 15
-    :alt: Interaction between real- and simulation- environment
-
-    Example of an interaction between a real and a simulation environment.
-
-The figure illustrates the entire process of environment interaction which consists of a step in the live/real
-environment and an update of the simulation environment before the agent receives the output of the simulation
-environment as its observations.
+The *EtaCtrl* class is built on top of this functionality and orchestrates the interaction between
+the agent, the environment, and any optional external models. For a detailed description of the
+control loop, time indexing, scenario data availability, and timing assumptions, see
+:ref:`time-management`.
 
 Take a look at the examples folder in the *ETA Ctrl* repository to see some of the possibilities.
 
@@ -128,34 +117,30 @@ Config section 'setup'
 ^^^^^^^^^^^^^^^^^^^^^^^^
 The settings configured in the setup section are the following:
 
-.. autoclass:: eta_ctrl.config::ConfigSetup
-    :members:
+.. autopydantic_model:: eta_ctrl.config.config_setup::ConfigSetup
     :no-index:
-    :exclude-members: from_dict
+
 
 Config section 'paths'
 ^^^^^^^^^^^^^^^^^^^^^^^^
 The optional paths section can contain the following optional relative paths:
 
-.. autoattribute:: eta_ctrl.config::Config.results_relpath
-.. autoattribute:: eta_ctrl.config::Config.scenarios_relpath
-.. autoattribute:: eta_ctrl.config::Config.state_relpath
+.. autopydantic_model:: eta_ctrl.config.config_paths::ConfigPaths
+    :no-index:
 
 Config section 'settings'
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 The configuration options in the settings section are the following.
 
  .. note::
-    The configuration options "environment_specific", "interaction_env_specific" and "agent_specific"
-    are separate sections on the top level. They are loaded into the settings object as dictionaries.
+    The configuration options "environment" and "agent" are separate sections.
+    They are loaded into the settings object as dictionaries.
     To determine, which options are valid for these sections, please look at the arguments required
     for instantiation of the agent or environment. These arguments must be specified as parameters in
     the corresponding section.
 
-.. autoclass:: eta_ctrl.config::ConfigSettings
-    :members:
+.. autopydantic_model:: eta_ctrl.config.config_settings::ConfigSettings
     :no-index:
-    :exclude-members: from_dict
 
 Configuration for optimization runs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -173,4 +158,4 @@ docs: :py:class:`eta_ctrl.config.ConfigRun`.
 .. autoclass:: eta_ctrl.config::ConfigRun
     :members:
     :no-index:
-    :exclude-members: from_dict, set_env_info, set_interaction_env_info, create_results_folders
+    :exclude-members: from_dict, set_env_info, create_results_folders

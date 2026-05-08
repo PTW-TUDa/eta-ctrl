@@ -13,14 +13,15 @@ from eta_ctrl.util.io_utils import load_config
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
-    from typing import Any
-
-    from typing_extensions import Self
+    from typing import Any, Self
 
     from eta_ctrl.util.type_annotations import Path
 from logging import getLogger
 
 log = getLogger(__name__)
+
+#: Largest finite float32 value, used as default bound for non-action state variables.
+_FMAX = float(np.finfo(np.float32).max)
 
 
 class StateVar(BaseModel):
@@ -38,7 +39,7 @@ class StateVar(BaseModel):
     #: Should the state log of this episode be added to state_log_longtime? (default: True).
     add_to_state_log: bool = True
 
-    #: Name of the variable in the external interaction model
+    #: Name of the variable in the external model
     #: (e.g.: environment or FMU) (default: StateVar.name if (is_ext_input or is_ext_output) else None).
     ext_id: str | None = None
     #: Should this variable be passed to the external model as an input? (default: False).
@@ -50,15 +51,6 @@ class StateVar(BaseModel):
     #: Value to multiply to the output from an external model (default: 1.0).
     ext_scale_mult: float = 1.0
 
-    #: Name or identifier (order) of the variable in an interaction environment (default: None).
-    interact_id: int | None = None
-    #: Should this variable be read from the interaction environment? (default: False).
-    from_interact: bool = False
-    #: Value to add to the value read from an interaction (default: 0.0).
-    interact_scale_add: float = 0.0
-    #: Value to multiply to the value read from  an interaction (default: 1.0).
-    interact_scale_mult: float = 1.0
-
     #: Name of the scenario variable, this value should be read from (default: None).
     scenario_id: str | None = None
     #: Should this variable be read from imported timeseries date? (default: False).
@@ -68,10 +60,10 @@ class StateVar(BaseModel):
     #: Value to multiply to the value read from a scenario file (default: 1.0).
     scenario_scale_mult: float = 1.0
 
-    #: Lowest possible value of the state variable (default: -np.inf).
-    low_value: float = -np.inf
-    #: Highest possible value of the state variable (default: np.inf).
-    high_value: float = np.inf
+    #: Lowest possible value of the state variable (default: -np.finfo(np.float32).max).
+    low_value: float = -_FMAX
+    #: Highest possible value of the state variable (default: np.finfo(np.float32).max).
+    high_value: float = _FMAX
     #: If the value of the variable dips below this, the episode should be aborted (default: -np.inf).
     abort_condition_min: float = -np.inf
     #: If the value of the variable rises above this, the episode should be aborted (default: np.inf).
@@ -80,6 +72,9 @@ class StateVar(BaseModel):
     #: Determine the index, where to look (useful for mathematical optimization, where multiple time steps could be
     #: returned). In this case, the index values might be different for actions and observations.
     index: int = 0
+
+    #: For scenario StateVars: Length of StateVars horizon in state, e.g. the prediction horizon length (unit: steps).
+    duration: int = 1
 
     def model_post_init(self, context: Any) -> None:
         for flag, id_value, id_name in [
@@ -91,6 +86,14 @@ class StateVar(BaseModel):
                 # set the correct id attribute (ext_id or scenario_id) when missing
                 object.__setattr__(self, id_name, self.name)
                 log.info(f"Using name as {id_name} for variable {self.name}")
+
+        # Require explicit finite bounds for action variables
+        if self.is_agent_action and (self.low_value == -_FMAX or self.high_value == _FMAX):
+            msg = (
+                f"Action variable '{self.name}' requires explicit finite bounds. "
+                f"Set both 'low_value' and 'high_value' in the state config."
+            )
+            raise ValueError(msg)
 
         # Validate mutual exclusivity of from_scenario, is_ext_output and is_agent_action
         data_sources = {
@@ -127,7 +130,7 @@ class StateVar(BaseModel):
             var_type.append("variable")
 
         type_str = "/".join(var_type)
-        has_range = self.low_value != -np.inf or self.high_value != np.inf
+        has_range = self.low_value != -_FMAX or self.high_value != _FMAX
         range_str = f"[{self.low_value}, {self.high_value}]" if has_range else ""
 
         return f"StateVar '{self.name}' ({type_str}){' ' + range_str if range_str else ''}"
@@ -139,9 +142,9 @@ class StateVar(BaseModel):
             key_attrs.append("is_agent_action=True")
         if self.is_agent_observation:
             key_attrs.append("is_agent_observation=True")
-        if self.low_value != -np.inf:
+        if self.low_value != -_FMAX:
             key_attrs.append(f"low_value={self.low_value}")
-        if self.high_value != np.inf:
+        if self.high_value != _FMAX:
             key_attrs.append(f"high_value={self.high_value}")
 
         attrs_str = ", ".join(key_attrs)
@@ -160,16 +163,15 @@ class StateStructure(BaseModel):
 
 class StateConfig:
     """The configuration for the action and observation spaces. The values are used to control which variables are
-    part of the action space and observation space. Additionally, the parameters can specify abort conditions
-    and the handling of values from interaction environments or from simulation. Therefore, the *StateConfig*
-    is very important for the functionality of EtaCtrl.
+    part of the action space and observation space. Therefore, the *StateConfig* is very important
+    for the functionality of EtaCtrl.
     """
 
-    def __init__(self, *state_vars: StateVar, _source_file: Path | None = None) -> None:
+    def __init__(self, *state_vars: StateVar, source_file: pathlib.Path | None = None) -> None:
         #: Mapping of the variables names to their StateVar instance with all associated information.
         self.vars = {var.name: var for var in state_vars}
-        #: Private attribute to store the source file path (if loaded from file).
-        self._source_file: Path | None = _source_file
+        #: Attribute to store the source file path (if loaded from file).
+        self.source_file: pathlib.Path | None = source_file
         # Additional Dataframe for easier access
         if state_vars:
             self.df_vars: pd.DataFrame = pd.DataFrame([var.model_dump() for var in state_vars]).set_index("name")
@@ -193,33 +195,45 @@ class StateConfig:
         #: List of variables that can be received from an external source (such as an FMU).
         self.ext_outputs: list[str] = self.df_vars.query("is_ext_output == True").index.tolist()
         #: Mapping of variable names to their external IDs.
-        self.map_ext_ids: dict[str, str] = self.df_vars.query("ext_id != None").ext_id.to_dict()
+        self.map_ext_ids: dict[str, str] = self.df_vars.loc[self.ext_inputs + self.ext_outputs, "ext_id"].to_dict()
         #: Reverse mapping of external IDs to their corresponding variable names.
         self.rev_ext_ids: dict[str, str] = {v: k for k, v in self.map_ext_ids.items()}
-
-        #: List of variables that should be read from an interaction environment.
-        self.interact_outputs: list[str] = self.df_vars.query("from_interact == True").index.tolist()
-        #: Mapping of internal environment names to interact IDs.
-        self.map_interact_ids: dict[str, str] = self.df_vars["interact_id"].to_dict()
 
         #: List of variables which are loaded from scenario files.
         self.scenario_outputs: list[str] = self.df_vars.query("from_scenario == True").index.tolist()
         #: Mapping of internal environment names to scenario IDs.
-        self.map_scenario_ids: dict[str, str] = self.df_vars["scenario_id"].to_dict()
+        self.map_scenario_ids: dict[str, str] = self.df_vars.loc[self.scenario_outputs, "scenario_id"].to_dict()
 
+        _abort_condition_df = self.df_vars.loc[:, ["abort_condition_min", "abort_condition_max"]]
+        _abort_condition_df = _abort_condition_df.replace([np.inf, -np.inf], np.nan)
         #: List of variables that have minimum values for an abort condition.
-        self.abort_conditions_min: list[str] = self.df_vars["abort_condition_min"].dropna().index.tolist()
+        self.abort_conditions_min: list[str] = _abort_condition_df["abort_condition_min"].dropna().index.tolist()
         #: List of variables that have maximum values for an abort condition.
-        self.abort_conditions_max: list[str] = self.df_vars["abort_condition_max"].index.tolist()
+        self.abort_conditions_max: list[str] = _abort_condition_df["abort_condition_max"].dropna().index.tolist()
 
     @classmethod
-    def from_file(cls, file: Path) -> Self:
+    def from_file(
+        cls, root_path: pathlib.Path, filename: Path, extra_params: Mapping[str, float] | None = None
+    ) -> Self:
         """Load a StateConfig from a config file.
 
         :param file: Path of the config file.
         :return: StateConfig object.
         """
-        raw_dict = load_config(file=file)
+        state_folder_relpath = ""
+        try:
+            raw_dict = load_config(file=root_path / state_folder_relpath / filename)
+        except FileNotFoundError:
+            state_folder_relpath = "environments/"
+            try:
+                raw_dict = load_config(file=root_path / state_folder_relpath / (filename))
+                log.info("Using default state_folder_relpath 'environments/'")
+            except FileNotFoundError:
+                msg = f"StateConfig file not found at {root_path / filename} or {root_path / 'environments' / filename}"
+                raise FileNotFoundError(msg) from None
+
+        file = root_path / state_folder_relpath / filename
+        log.info(f"Loading StateConfig from file at {file}).")
 
         actions: list[dict[str, Any]] = raw_dict.get("actions") or []
         observations: list[dict[str, Any]] = raw_dict.get("observations") or []
@@ -234,23 +248,26 @@ class StateConfig:
             msg = f"Invalid StateConfig at {file} with no StateVar's"
             raise ValueError(msg)
 
-        # Defined by user in *structure.toml
-        state_params = raw_dict.get("state_parameters")
+        state_params: dict[str, float] = {}
+        if extra_params is not None:
+            state_params.update(extra_params)
 
-        if isinstance(state_params, dict):
-            log.debug(f"Using State parameters {state_params} from {file} for StateConfig.")
-            return cls.from_dict(mapping=all_states, state_params=state_params, _source_file=file)
+        # Defined by user in *_state_config.toml
+        config_state_params: dict[str, float] | Any | None = raw_dict.get("state_parameters")
+        if isinstance(config_state_params, dict):
+            log.debug(f"Using State parameters {config_state_params} from {file} for StateConfig.")
+            state_params.update(config_state_params)
+        elif config_state_params is not None:
+            log.warning(f"State parameters in {file} needs to be a dict! Ignoring.")
 
-        if state_params is not None:
-            log.warning(f"State parameters in {file} need to be a dict!")
-        return cls.from_dict(mapping=all_states, _source_file=file)
+        return cls.from_dict(mapping=all_states, source_file=file, state_params=state_params)
 
     @classmethod
     def from_dict(
         cls,
         mapping: Sequence[dict[str, Any]] | pd.DataFrame,
         *,
-        state_params: dict[str, float] | None = None,
+        state_params: Mapping[str, float] | None = None,
         **kwargs: Any,
     ) -> Self:
         """Convert a potentially incomplete StateConfig DataFrame or a list of dictionaries to the
@@ -309,11 +326,22 @@ class StateConfig:
         :param state: The state array to check for conformance.
         :return: Result of the check (False if the state does not conform to the required conditions).
         """
-        valid_min = all(state[name] >= self.vars[name].abort_condition_min for name in state)
+        # Only check abort conditions for numeric values (int and float), exclude bool since it's a subclass of int
+        valid_min = all(
+            state[name] >= self.vars[name].abort_condition_min
+            for name in state
+            if not isinstance(state[name], (bool, np.bool_))
+            and isinstance(state[name], (int, float, np.integer, np.floating))
+        )
         if not valid_min:
             log.warning("Minimum abort condition exceeded by at least one value.")
 
-        valid_max = all(state[name] <= self.vars[name].abort_condition_max for name in state)
+        valid_max = all(
+            state[name] <= self.vars[name].abort_condition_max
+            for name in state
+            if not isinstance(state[name], (bool, np.bool_))
+            and isinstance(state[name], (int, float, np.integer, np.floating))
+        )
         if not valid_max:
             log.warning("Maximum abort condition exceeded by at least one value.")
 
@@ -336,7 +364,7 @@ class StateConfig:
         :return: Observation Space.
         """
         observations: dict[str, spaces.Box] = {
-            name: spaces.Box(low=row["low_value"], high=row["high_value"], dtype=np.float32)
+            name: spaces.Box(low=row["low_value"], high=row["high_value"], shape=(row["duration"],), dtype=np.float32)
             for name, row in self.df_vars.iterrows()
             if row["is_agent_observation"] is True
         }
@@ -359,8 +387,8 @@ class StateConfig:
 
         base_str = f"StateConfig with {n_actions} actions, {n_observations} observations ({n_total} total variables)"
 
-        if self._source_file is not None:
-            return f"{base_str} from '{self._source_file}'"
+        if self.source_file is not None:
+            return f"{base_str} from '{self.source_file}'"
 
         return base_str
 
