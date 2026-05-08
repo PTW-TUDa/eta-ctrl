@@ -37,6 +37,7 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx_copybutton",
     "sphinxcontrib.autodoc_pydantic",
+    "matplotlib.sphinxext.plot_directive",
 ]
 
 # List of patterns, relative to source directory, that match files and
@@ -86,3 +87,6 @@ autodoc_pydantic_model_show_json = True
 autodoc_pydantic_model_show_config_summary = False
 autodoc_pydantic_model_show_field_summary = False
 autodoc_pydantic_model_show_validator_summary = False
+
+# matplotlib
+plot_html_show_source_link = False

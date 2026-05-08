@@ -28,6 +28,7 @@ Please read the development guide before starting development on *ETA Ctrl*: :re
     :caption: ETA Ctrl Optimization
 
     /eta_ctrl/introduction
+    /eta_ctrl/time_management
     /eta_ctrl/control_algorithms
     /eta_ctrl/environments/sim_env_creation_from_fmu
     /eta_ctrl/envs
