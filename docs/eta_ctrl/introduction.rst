@@ -36,21 +36,10 @@ The functions available in eta_ctrl.envs make it easy to create new, custom envi
 For example, they provide functionality for integrating FMU simulation models,
 communicating with real assets in factories, or integrating Pyomo models as environments.
 
-The *EtaCtrl* class is built on top of this functionality and extends the general Markov Decision Process by the option to
-introduce interactions between multiple environments. This enables the creation of digital twins, which could for
-example use a mathematical or a simulation model for some aspects and interact with the actual devices for other
-aspects as shown in the figure. Note, that this is only an option when using *EtaCtrl*. The class also supports simple
-optimization of a single environment as shown in the code example above.
-
-.. figure:: figures/Interaction_between_env.png
-    :scale: 15
-    :alt: Interaction between real- and simulation- environment
-
-    Example of an interaction between a real and a simulation environment.
-
-The figure illustrates the entire process of environment interaction which consists of a step in the live/real
-environment and an update of the simulation environment before the agent receives the output of the simulation
-environment as its observations.
+The *EtaCtrl* class is built on top of this functionality and orchestrates the interaction between
+the agent, the environment, and any optional external models. For a detailed description of the
+control loop, time indexing, scenario data availability, and timing assumptions, see
+:ref:`time-management`.
 
 Take a look at the examples folder in the *ETA Ctrl* repository to see some of the possibilities.
 
