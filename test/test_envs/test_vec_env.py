@@ -74,10 +74,9 @@ class TestScenarioVecEnv:
 
         # Advance one step and explicitly reset to start a new episode
         scenario_vec_env.step(np.array([[], []], dtype=np.float32))
-        scenario_vec_env.reset()
+
         assert env0.n_steps == 0
         assert env1.n_steps == 0
-
         assert env0._scenario_offset == 11
         assert env1._scenario_offset == 9
         assert env0.state["scen1"].item() == 2 * 11

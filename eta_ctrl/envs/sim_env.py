@@ -183,8 +183,8 @@ class SimEnv(BaseEnv, abc.ABC):
         """
         step_success, sim_time_elapsed = self._update_state()
         info: dict[str, Any] = {"sim_time_elapsed": sim_time_elapsed}
-        # ensure mutual exclusivity of terminated and truncated
-        return 0, not step_success, self._truncated() and step_success, info
+
+        return 0, not step_success, False, info
 
     def _update_state(self) -> tuple[bool, float]:
         """Take additional_state, execute simulation and get state information from scenario. This function

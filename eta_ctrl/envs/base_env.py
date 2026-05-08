@@ -231,11 +231,12 @@ class BaseEnv(Env, abc.ABC):
         """
 
     def step(self, action: np.ndarray) -> StepResult:
-        """Perform one time step and return its results.
+        """Proceed one time step and return the reward for the action provided as well as the new observation.
 
         This method handles the public interface for the step operation. It validates actions,
-        calls the private _step method implemented by subclasses, manages state updates, and
-        returns the formatted results.
+        executes actions by calling the private _step method implemented by subclasses, increments n_steps,
+        manages state updates, and returns the formatted results
+        (reward of the previous action taken, new environment state).
 
         It also updates the state log and calls the state modification callback.
 
@@ -262,12 +263,20 @@ class BaseEnv(Env, abc.ABC):
         self._actions_valid(action)
         self.set_action(action=action)
 
-        # Update with scenario data, if existing
+        # Load scenario data for current timestep, if present.
+        # This is the same data which has been in the prior state,
+        # but cleared because of _reset_state().
         self.set_scenario_state()
 
         # Perform the actual step in the environment
-        reward, terminated, truncated, info = self._step()
+        reward, terminated, __truncated, info = self._step()
         self.n_steps += 1
+
+        # Call self._truncated() after incrementing n_steps
+        truncated = __truncated or self._truncated()
+
+        # Load scenario data from next timestep for observations, if present
+        self.set_scenario_state()
 
         # Execute optional state modification callback function
         if self.state_modification_callback:
@@ -278,6 +287,7 @@ class BaseEnv(Env, abc.ABC):
         # Render the environment at each step
         if self.render_mode is not None:
             self.render()
+
         return self.get_observations(), reward, terminated, truncated, info
 
     def _actions_valid(self, action: np.ndarray | dict) -> None:
@@ -545,7 +555,7 @@ class BaseEnv(Env, abc.ABC):
         if seed is not None or not hasattr(self, "_scenario_rng"):
             self._scenario_rng = np.random.default_rng(self.np_random_seed)
 
-        # Update with scenario data, if existing
+        # Update with scenario data, if present
         self.set_scenario_state(reset=True)
 
         # Set initial observations in child class
@@ -672,7 +682,7 @@ class BaseEnv(Env, abc.ABC):
             try:
                 observations[name] = self.state[name]
             except KeyError as e:
-                msg = f"{e!s} is unavailable in environment state."
+                msg = f"Observation {e!s} is unavailable in environment state."
                 raise KeyError(msg) from e
         return observations
 
