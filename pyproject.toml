@@ -1,6 +1,6 @@
 [project]
 name = "eta-ctrl"
-version = "0.2.0"
+version = "0.3.0"
 description = "A modular framework for rolling-horizon operational control using a Gym-compatible agent–environment abstraction. The framework enables integration of optimization-based agents (Pyomo), reinforcement learning agents (Stable-Baselines3), heuristic search methods, and rule-based controllers. Environments can be instantiated from FMI-compliant simulations, mathematical models, or real-world system interfaces."
 license = "BSD-2-Clause"
 readme = "README.rst"
