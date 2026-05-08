@@ -18,6 +18,7 @@ class DrKea(BaseEnv):
     version = "0.1"
     description = "Simple environment for kea example."
 
+    # --migration-env-observation-start--
     def _step(self) -> tuple[float, bool, bool, dict]:
         if self.state["heating"] == 1:
             self.temp += 0.02 * self.sampling_time
@@ -25,7 +26,9 @@ class DrKea(BaseEnv):
             self.temp -= 0.01 * self.sampling_time
 
         self.state["tank_temperature_start"] = np.array([self.temp])
-        return 0, False, self._truncated(), {}
+        return 0, False, False, {}
+
+    # --migration-env-observation-end--
 
     def _reset(
         self,

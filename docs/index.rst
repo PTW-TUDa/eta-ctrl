@@ -63,6 +63,7 @@ Please read the development guide before starting development on *ETA Ctrl*: :re
     :caption: Migration Guides
 
     /migration/config
+    /migration/mpc_pyomo
 
 .. toctree::
     :maxdepth: 2
