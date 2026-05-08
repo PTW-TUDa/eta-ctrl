@@ -124,7 +124,7 @@ class PyomoSimEnv(BaseEnv, abc.ABC):
         # Insert values to state with correct names
         self.set_external_outputs(result)
 
-        return 0, False, self._truncated(), {}
+        return 0, False, False, {}
 
     def _reset(
         self,
