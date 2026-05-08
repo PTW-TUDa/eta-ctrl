@@ -16,7 +16,12 @@ sys.path.append(str(Path("../eta_ctrl").resolve()))  # Insert path to eta_ctrl
 
 # -- Project information -----------------------------------------------------
 project = "eta_ctrl"
-release = get_version(project)  # The full version, including alpha/beta/rc tags
+
+try:
+    release = get_version(project)  # The full version, including alpha/beta/rc tags
+except Exception:  # noqa: BLE001
+    release = "0.0.0"  # Fallback version for documentation
+
 version = ".".join(release.split(".")[:3])  # Top level version
 copyright = "Technical University of Darmstadt, Institute for Production Management, Technology and Machine Tools (PTW)"  # noqa: A001
 

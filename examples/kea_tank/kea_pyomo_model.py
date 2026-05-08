@@ -27,6 +27,7 @@ class DrKeaModel(PyomoModel):
 
         self._use_model_time_increments = True  # Increment by one instead of the sampling time
 
+    # --migration-model-method-start--
     def _model(self) -> pyo.AbstractModel:
         """This is where the actual model is defined.
 
@@ -112,3 +113,5 @@ class DrKeaModel(PyomoModel):
         model.objective = pyo.Objective(rule=objective_rule, sense=pyo.minimize, doc="Total cost of heating")
 
         return model
+
+    # --migration-model-method-end--
