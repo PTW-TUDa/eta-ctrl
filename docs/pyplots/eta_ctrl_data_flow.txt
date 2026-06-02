@@ -1,8 +1,8 @@
 // The diagram was created using https://sequencediagram.org/
 
 
-notestyle <color:#darkblue><wordwrap:25>//**
-messagestyle <color:#blue><wordwrap:25>//**
+notestyle <color:#darkblue><wordwrap:25>
+messagestyle <color:#blue><wordwrap:25>//
 
 title EtaCtrl **//play()//** Data Flow
 participant Agent#lightblue
@@ -24,7 +24,7 @@ autoactivation on
 EtaCtrl->Env:reset()
 Env->Scenario Manager:get_scenario_state(0)
 Scenario Manager-->Env:Scenario Data
-group Internal step
+group Internal reset
 Env->ExternalModel:External inputs
 ExternalModel-->Env:External outputs
 end
@@ -41,13 +41,15 @@ Agent-->EtaCtrl:actions
 
 EtaCtrl->Env:step(actions)
 
-Env->Scenario Manager:get_scenario_state(n_steps+1)
+Env->Scenario Manager:get_scenario_state(n_steps)
 Scenario Manager-->Env:Scenario Data
 group Internal step
 Env->ExternalModel:External Inputs
 ExternalModel-->Env:External Outputs
 end
 note over Env:n_steps += 1
+Env->Scenario Manager:get_scenario_state(n_steps)
+Scenario Manager-->Env:Scenario Data
 Env-->EtaCtrl:Observations, Reward
 //Env--EtaCtrl:Observations, Reward
 
