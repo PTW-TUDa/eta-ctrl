@@ -198,7 +198,7 @@ class LiveEnv(BaseEnv, abc.ABC):
         """
         self._init_connection_manager()
 
-        # Read out the start conditions from LiveConnect and store the results
+        # Read out the start conditions from the ConnectionManager and store the results
         start_obs_names = [self.state_config.map_ext_ids[name] for name in self.state_config.ext_outputs]
         results = self.connection_manager.read(*start_obs_names)
 
