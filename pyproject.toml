@@ -43,7 +43,7 @@ dependencies = [
     "stable-baselines3 (>=2.7.0,<2.8.0)", # no SemVer
     "tensorboard (>=2.18.0,<3.0.0)",
     "pyomo (>=6.9.2,<6.11.0)",
-    "eta-nexus ==0.1.0", # no SemVer, no Python 3.13 support in any release yet
+    "eta-nexus ==0.2.1",
     "pydantic (>=2.12.0,<3.0.0)",
 ]
 optional-dependencies.examples = [
