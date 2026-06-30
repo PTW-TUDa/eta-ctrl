@@ -24,21 +24,31 @@ log = getLogger(__name__)
 
 
 class PyomoModel:
+    """Base class for Pyomo optimization models.
+
+    Subclasses implement :meth:`_model` to define the abstract model structure.
+    This class handles prediction horizon validation, parameter preparation, and
+    creation of the concrete model instance.
+
+    :param sampling_time: Optimization time step in seconds.
+    :param model_parameters: Optional mapping of initial model parameter values.
+    :param prediction_horizon: Total prediction horizon duration in seconds.
+    """
+
     def __init__(
         self,
         *,
         sampling_time: float,
         model_parameters: dict[str, Any] | None = None,
         prediction_horizon: TimeStep | str | None = None,
-        **kwargs: Any,
     ) -> None:
         #: Sampling time (interval between optimization time steps) in seconds.
         self.sampling_time = sampling_time
 
-        # #: Total duration of one prediction/optimization run when used with the MPC agent.
         if prediction_horizon is None:
             msg = "Prediction_horizon parameter is not present in config."
             raise ValueError(msg)
+        #: Total duration of one prediction/optimization run when used with the MPC agent.
         self.prediction_horizon = float(
             prediction_horizon if not isinstance(prediction_horizon, timedelta) else prediction_horizon.total_seconds()
         )
@@ -56,9 +66,8 @@ class PyomoModel:
         #: Configuration for the MILP model parameters.
         self.model_parameters = (model_parameters or {}).copy()  # prevent modifying original parameters
 
-        abstract_model = self._model()
         #: Concrete pyomo model as initialized by _model.
-        self.model: pyo.ConcreteModel = abstract_model.create_instance(data=self._pyo_init_params())
+        self.model: pyo.ConcreteModel = self._model().create_instance(data=self._pyo_init_params())
 
     @abc.abstractmethod
     def _model(self) -> pyo.AbstractModel:
