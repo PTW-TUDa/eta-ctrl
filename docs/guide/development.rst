@@ -212,6 +212,8 @@ GitLab - CI/CD
 Your contribution via pull request can only be merged if the steps from the CI/CD are approved.
 The stages are:
 
+- *image-build*: build dependency images used by CI jobs
+- *setup*: verify project metadata and prepare dependency cache artifacts
 - *check*: verify the check-style
 - *test*: check all tests
 - *deploy*: verify correct documentation deploy
@@ -221,39 +223,53 @@ All the CI/CD instructions are listed in the *.gitlab-ci.yml* file.
 GitLab - Docker containers
 -----------------------------
 
-The directory *.gitlab* contains the dockerfiles which define the images that the jobs
-of the CI/CD run on.
+The directory *.gitlab/docker* contains the Dockerfile used to build the dependency
+images for the CI/CD pipeline. These images are stored in **Packages & Registries >
+Container Registry** and are used by the GitLab jobs defined in *.gitlab-ci.yml*.
 
-All the dockerfiles contains an correspondent image stored in **Packages & Registries > Container Registry**.
-In which the image will be used in a container to execute the jobs.
+The CI dependency images are tagged by Poetry and Python version, for example::
 
-Use the script '.gitlab/docker/build_and_push_docker' to build and push all required images.
-This requires a gitlab deploy token `DEPLOY_TOKEN` in the project .env file.
+    git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/poetry2.3.2:py3.11
+    git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/poetry2.3.2:py3.12
 
-The images can also be build manually, but it's recommended to use the script.
+The images are normally built automatically by the GitLab CI job ``build-docker-images``.
+This job runs in the ``image-build`` stage and uses Kaniko to build and push the
+images without requiring Docker-in-Docker.
 
-Manual building
-~~~~~~~~~~~~~~~~~
+The job runs automatically on the default branch when one of the dependency image
+inputs changes:
 
-To update the containers first you need to login in GitLab through docker:
+- ``poetry.lock``
+- ``pyproject.toml``
+- ``.gitlab/docker/dockerfile``
+- ``.gitlab-ci.yml``
+
+Each supported Python version is built in a separate matrix job, so every Kaniko
+build runs in an isolated job container.
+
+If an image needs to be rebuilt manually, start the manual ``build-docker-images``
+jobs from the GitLab pipeline UI. This is the preferred fallback for normal
+maintenance.
+
+Manual local builds are still possible for debugging. First log in to the GitLab
+container registry:
 
 .. code-block:: console
 
     $ docker login git-reg.ptw.maschinenbau.tu-darmstadt.de
 
-
-Then you build and upload the image from the dockerfile.
-To build an image for e.g. Python version 3.12, execute:
+Then build an image locally, for example for Python 3.12:
 
 .. code-block:: console
 
-    $ docker build -t git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/poetry2.3.2:py3.12 -f .gitlab/docker/dockerfile --build-args="PYTHON_VERSION=3.12" .
+    $ docker build \
+        -t git-reg.ptw.maschinenbau.tu-darmstadt.de/eta-fabrik/public/eta-ctrl/poetry2.3.2:py3.12 \
+        -f .gitlab/docker/dockerfile \
+        --build-arg="PYTHON_VERSION=3.12" \
+        --build-arg="POETRY_VERSION=2.3.2" \
+        .
 
-Using tags for the images is a good practice to differentiate image versions, in case it's not used it's automatic
-labeled as *latest*. Currently there are two images for Python environments, grouped by the current Poetry version, with Python versions
-differentiated by tags (py3.11 and py3.12).
-
-The last step is to upload the images to the private docker registry.
+Push the image only if you intentionally want to update the shared registry tag:
 
 .. code-block:: console
 

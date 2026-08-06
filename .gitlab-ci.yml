@@ -1,4 +1,5 @@
 stages:
+  - image-build
   - setup
   - check
   - test
@@ -23,6 +24,7 @@ workflow:
 
 include:
   - template: Security/Secret-Detection.gitlab-ci.yml
+  - local: .gitlab/docker/build-images.gitlab-ci.yml
 
 variables:
   # Poetry settings
@@ -57,7 +59,6 @@ default:
     policy: pull
 
 
-
 poetry:
   stage: setup
   before_script: []
@@ -88,6 +89,11 @@ update-cache:
   dependencies: []
   needs:
     - job: poetry
+
+# Imported from .gitlab/docker/build-images.gitlab-ci.yml
+build-docker-images:
+  stage: image-build
+
 
 ruff:
   stage: check
