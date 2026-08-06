@@ -28,8 +28,8 @@ RUN set -eux && \
     apt-get install -y --no-install-recommends git make curl && \
     rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml poetry.lock LICENSE README.rst ${APP_PATH}
-COPY eta_ctrl ${APP_PATH}/eta_ctrl
+COPY pyproject.toml poetry.lock LICENSE README.rst ${APP_PATH}/
+COPY eta_ctrl ${APP_PATH}/eta_ctrl/
 
 
 # Install poetry and dependencies
