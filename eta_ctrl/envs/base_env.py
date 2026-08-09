@@ -4,14 +4,14 @@ import abc
 import inspect
 import pathlib
 import time
-from datetime import datetime, timedelta
 from logging import getLogger
 from typing import TYPE_CHECKING, cast
 
 import numpy as np
+import pandas as pd
 from gymnasium import Env, spaces
 
-from eta_ctrl.util import csv_export
+from eta_ctrl.util.io_utils import csv_export
 from eta_ctrl.util.utils import timestep_to_seconds
 
 if TYPE_CHECKING:
@@ -651,6 +651,29 @@ class BaseEnv(Env, abc.ABC):
             f"episode_duration={self.episode_duration}, sampling_time={self.sampling_time})"
         )
 
+    def transform_state_log(self) -> pd.DataFrame:
+        """Return the current state log transformed as a Dataframe.
+
+        :return: Transformed Dataframe
+        :rtype: pd.DataFrame
+        """
+        if len(self.state_log) == 0:
+            msg = "State log is empty: Can't export state data from the environment before running the experiment."
+            raise RuntimeError(msg)
+
+        step_freq = pd.Timedelta(seconds=self.sampling_time / self.sim_steps_per_sample)
+        # Live Mode
+        if self.scenario_manager is None:
+            start_time = pd.Timestamp(self.episode_timer)
+        # Scenario Mode
+        else:
+            start_time = self.scenario_manager.scenarios.index[0] + self._scenario_offset * step_freq
+
+        end_time = start_time + len(self.state_log) * step_freq
+        state_log_index = pd.date_range(start=start_time, end=end_time, freq=step_freq, inclusive="left")
+
+        return pd.DataFrame(self.state_log, index=state_log_index)
+
     def export_state_log(
         self,
         path: Path,
@@ -665,10 +688,8 @@ class BaseEnv(Env, abc.ABC):
         :param sep: Separator to use between the fields.
         :param decimal: Sign to use for decimal points.
         """
-        start_time = datetime.fromtimestamp(self.episode_timer)
-        step = self.sampling_time / self.sim_steps_per_sample
-        timerange = [start_time + timedelta(seconds=(k * step)) for k in range(len(self.state_log))]
-        csv_export(path=path, data=self.state_log, index=timerange, names=names, sep=sep, decimal=decimal)
+        state_log_df = self.transform_state_log()
+        csv_export(path=path, data=state_log_df, sep=sep, decimal=decimal)
 
     def get_observations(self) -> dict[str, np.ndarray]:
         """Gather observations from the state.
