@@ -1,13 +1,24 @@
 import asyncio
 import logging
+import os
 import pathlib
 import random
 import shutil
+import tempfile
 
-import pytest
-from _pytest.monkeypatch import MonkeyPatch
+_worker_id = os.environ.get("PYTEST_XDIST_WORKER", "main")
+_test_cache_dir = pathlib.Path(tempfile.gettempdir()) / f"eta_ctrl_pytest_cache_{_worker_id}"
+_matplotlib_cache_dir = _test_cache_dir / "matplotlib"
+_xdg_cache_dir = _test_cache_dir / "xdg"
+_matplotlib_cache_dir.mkdir(parents=True, exist_ok=True)
+_xdg_cache_dir.mkdir(parents=True, exist_ok=True)
+os.environ.setdefault("MPLCONFIGDIR", str(_matplotlib_cache_dir))
+os.environ.setdefault("XDG_CACHE_HOME", str(_xdg_cache_dir))
 
-from test.test_envs.base_test_classes import (
+import pytest  # noqa: E402
+from _pytest.monkeypatch import MonkeyPatch  # noqa: E402
+
+from test.test_envs.base_test_classes import (  # noqa: E402
     # Unified factory fixtures
     config_run_factory as config_run_factory,
     state_config_factory as state_config_factory,

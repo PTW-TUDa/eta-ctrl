@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+import __main__
 from eta_ctrl.agents.mpc_agent import MpcAgent
 from eta_ctrl.config.config import Config, ConfigPaths, ConfigSettings, ConfigSetup
 from eta_ctrl.envs.state import StateConfig
@@ -83,7 +84,7 @@ class TestConfigFromFile:
         Config.from_file(root_path=str(resources_path), config_relpath="config", config_name="config2")
 
     def test_no_root_path(self, resources_path, monkeypatch):
-        monkeypatch.setattr("__main__.__file__", str(resources_path / "fake_main.py"))
+        monkeypatch.setattr(__main__, "__file__", str(resources_path / "fake_main.py"), raising=False)
         Config.from_file(config_relpath="config", config_name="config2")
 
     def test_from_file_overwrite(self, resources_path):
