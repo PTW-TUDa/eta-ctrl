@@ -175,6 +175,15 @@ Or if you have the virtual environment already activated:
 
     $ pytest
 
+The CI pipeline runs tests in parallel with ``pytest-xdist``. To mirror this locally, use:
+
+.. code-block:: console
+
+    $ poetry run pytest -n auto --maxprocesses 4 --dist loadscope
+
+If you are debugging a failing test and want normal single-process execution, omit the
+xdist arguments or pass ``-n 0``.
+
 
 Editing this documentation
 -----------------------------

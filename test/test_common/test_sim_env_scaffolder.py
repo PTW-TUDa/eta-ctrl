@@ -1,4 +1,5 @@
 import pathlib
+import shutil
 import tomllib
 
 import pytest
@@ -12,32 +13,15 @@ class TestSimEnvScaffolder:
     @pytest.fixture(scope="class")
     def experiment_path(self, resources_path):
         """Get the path to the test resources directory containing the FMU."""
-        path = resources_path / "damped_oscillator"
-        yield path
-        # Clean up any test files created - including numbered variants due to overwrite protection
+        return resources_path / "damped_oscillator"
 
-        # Clean up files in the experiment path
-        for toml_file in path.glob("damped_oscillator_*state_config*.toml"):
-            toml_file.unlink(missing_ok=True)
-        for toml_file in path.glob("damped_oscillator_parameters*.toml"):
-            toml_file.unlink(missing_ok=True)
-
-        # Clean up files in current directory
-        for toml_file in pathlib.Path().glob("damped_oscillator_*state_config*.toml"):
-            toml_file.unlink(missing_ok=True)
-        for toml_file in pathlib.Path().glob("damped_oscillator_parameters*.toml"):
-            toml_file.unlink(missing_ok=True)
-
-        # Clean up any other test files
-        for toml_file in pathlib.Path().glob("test_*state_config*.toml"):
-            toml_file.unlink(missing_ok=True)
-        for toml_file in pathlib.Path().glob("test_parameters*.toml"):
-            toml_file.unlink(missing_ok=True)
-
-    @pytest.fixture(scope="class")
-    def fmu_path(self, experiment_path):
+    @pytest.fixture
+    def fmu_path(self, experiment_path, tmp_path):
         """Get the FMU file path for testing."""
-        return experiment_path / "damped_oscillator.fmu"
+        source_path = experiment_path / "damped_oscillator.fmu"
+        test_fmu_path = tmp_path / source_path.name
+        shutil.copy2(source_path, test_fmu_path)
+        return test_fmu_path
 
     def test_fmu_file_exists(self, fmu_path):
         """Test that the FMU file exists before testing export functionality."""
@@ -55,9 +39,9 @@ class TestSimEnvScaffolder:
         if default_path.exists():
             default_path.unlink()
 
-    def test_export_to_custom_location(self, fmu_path):
+    def test_export_to_custom_location(self, fmu_path, tmp_path):
         """Test export to custom location with full file path."""
-        custom_path = pathlib.Path("./damped_oscillator_state_config_custom.toml")
+        custom_path = tmp_path / "damped_oscillator_state_config_custom.toml"
         SimEnvScaffolder.export_fmu_state_config(fmu_path, custom_path)
 
         # Check if custom file was created
@@ -259,9 +243,9 @@ class TestSimEnvScaffolder:
         if default_path.exists():
             default_path.unlink()
 
-    def test_parameter_export_to_custom_location(self, fmu_path):
+    def test_parameter_export_to_custom_location(self, fmu_path, tmp_path):
         """Test parameter export to custom location with full file path."""
-        custom_path = pathlib.Path("./damped_oscillator_parameters_custom.toml")
+        custom_path = tmp_path / "damped_oscillator_parameters_custom.toml"
         SimEnvScaffolder.export_fmu_parameters(fmu_path, custom_path)
 
         # Check if custom file was created
@@ -360,9 +344,9 @@ class TestSimEnvScaffolder:
         if protected_path.exists():
             protected_path.unlink()
 
-    def test_parameter_export_with_nonexistent_fmu(self):
+    def test_parameter_export_with_nonexistent_fmu(self, tmp_path):
         """Test parameter export with non-existent FMU file."""
-        nonexistent_path = pathlib.Path("./nonexistent_fmu.fmu")
+        nonexistent_path = tmp_path / "nonexistent_fmu.fmu"
         with pytest.raises(FileNotFoundError):
             SimEnvScaffolder.export_fmu_parameters(nonexistent_path)
 

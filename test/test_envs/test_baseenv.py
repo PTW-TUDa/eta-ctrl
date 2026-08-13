@@ -22,19 +22,29 @@ from examples.damped_oscillator.main import (
 class TestStateLog:
     @pytest.fixture(scope="class")
     def experiment_path(self):
-        path = get_oscillator_path()
-        yield path
-        shutil.rmtree(path / "results", ignore_errors=True)
-        logging.shutdown()
+        return get_oscillator_path()
 
     @pytest.fixture(scope="class")
-    def results_path(self, experiment_path):
-        return experiment_path / "results/conventional_series"
+    def results_root(self, tmp_path_factory):
+        return tmp_path_factory.mktemp("damped_oscillator_results") / "results"
 
     @pytest.fixture(scope="class")
-    def damped_oscillator_eta(self, experiment_path):
+    def results_path(self, results_root):
+        return results_root / "conventional_series"
+
+    @pytest.fixture(scope="class")
+    def damped_oscillator_eta(self, experiment_path, results_root):
         mpl.use("Agg")  # Prevents GUI from opening
-        return ex_oscillator(experiment_path, {"settings": {"log_to_file": False}})
+        try:
+            return ex_oscillator(
+                experiment_path,
+                {
+                    "paths": {"results_relpath": results_root},
+                    "settings": {"log_to_file": False},
+                },
+            )
+        finally:
+            logging.shutdown()
 
     def test_export_state_log(self, damped_oscillator_eta, results_path):
         assert episode_results_path(results_path, "run1", 1, 1).exists()
