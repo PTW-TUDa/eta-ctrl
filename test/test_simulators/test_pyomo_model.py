@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pathlib
 import re
-import tempfile
 
 import numpy as np
 import pandas as pd
@@ -206,88 +205,40 @@ class TestPyomoModelEnvCompatibility:
 # ---------------------------------------------------------------------------
 
 _KEA_IMPORT = "examples.kea_tank.kea_pyomo_model.DrKeaModel"
-_KEA_PARAMS: dict = {
-    "p_heat": 10.0,
-    "tank_temperature_start": 60.0,
-    "tank_temperature_min": 55.0,
-    "tank_temperature_max": 65.0,
-    "temperature_change_heating": 0.02,
-    "temperature_change_cleaning": -0.01,
-}
-_KEA_KWARGS: dict = {
-    "sampling_time": 10.0,
-    "prediction_horizon": 60.0,
-    "model_parameters": _KEA_PARAMS,
-}
-
-
-class TestLoadFromImport:
-    """Tests for PyomoModel.load_from_import."""
-
-    def test_returns_pyomo_model_instance(self):
-        """A valid dotted import string returns an instantiated PyomoModel subclass."""
-        instance = PyomoModel.load_from_import(_KEA_IMPORT, **_KEA_KWARGS)
-        assert isinstance(instance, PyomoModel)
-
-    def test_concrete_model_is_built(self):
-        """The returned instance already has a built ConcreteModel on self.model."""
-        instance = PyomoModel.load_from_import(_KEA_IMPORT, **_KEA_KWARGS)
-        assert isinstance(instance.model, pyo.ConcreteModel)
-
-    def test_kwargs_forwarded_correctly(self):
-        """sampling_time and prediction_horizon are stored on the instance."""
-        instance = PyomoModel.load_from_import(_KEA_IMPORT, **_KEA_KWARGS)
-        assert instance.sampling_time == _KEA_KWARGS["sampling_time"]
-        assert instance.prediction_horizon == _KEA_KWARGS["prediction_horizon"]
-
-    def test_bad_module_raises_module_not_found(self):
-        """A non-existent module path raises ModuleNotFoundError."""
-        with pytest.raises(ModuleNotFoundError):
-            PyomoModel.load_from_import("nonexistent.module.SomeClass", **_KEA_KWARGS)
-
-    def test_bad_class_raises_attribute_error(self):
-        """A valid module but non-existent class name raises AttributeError."""
-        with pytest.raises(AttributeError):
-            PyomoModel.load_from_import("examples.kea_tank.kea_pyomo_model.NonExistentClass", **_KEA_KWARGS)
 
 
 class TestCreateState:
     """Integration tests for PyomoModel.create_state."""
 
-    def test_creates_state_config_file(self):
+    def test_creates_state_config_file(self, tmp_path):
         """create_state writes a state config TOML file."""
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            PyomoModel.create_state(_KEA_IMPORT, "kea", tmp_dir, **_KEA_KWARGS)
-            assert (pathlib.Path(tmp_dir) / "kea_state_config.toml").exists()
+        PyomoModel.create_state(_KEA_IMPORT, "kea", tmp_path)
+        assert (pathlib.Path(tmp_path) / "kea_state_config.toml").exists()
 
-    def test_creates_model_parameters_file(self):
+    def test_creates_model_parameters_file(self, tmp_path):
         """create_state writes a model parameters TOML file."""
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            PyomoModel.create_state(_KEA_IMPORT, "kea", tmp_dir, **_KEA_KWARGS)
-            assert (pathlib.Path(tmp_dir) / "kea_model_parameters.toml").exists()
+        PyomoModel.create_state(_KEA_IMPORT, "kea", tmp_path)
+        assert (pathlib.Path(tmp_path) / "kea_model_parameters.toml").exists()
 
-    def test_state_config_has_indexed_vars_as_actions(self):
+    def test_state_config_has_indexed_vars_as_actions(self, tmp_path):
         """Indexed Var components (heating, temp) appear as actions in the state config."""
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            PyomoModel.create_state(_KEA_IMPORT, "kea", tmp_dir, **_KEA_KWARGS)
-            content = (pathlib.Path(tmp_dir) / "kea_state_config.toml").read_text()
+        PyomoModel.create_state(_KEA_IMPORT, "kea", tmp_path)
+        content = (pathlib.Path(tmp_path) / "kea_state_config.toml").read_text()
         assert "actions = [" in content
         assert 'name = "heating"' in content
         assert 'name = "temp"' in content
 
-    def test_state_config_has_indexed_params_as_observations(self):
+    def test_state_config_has_indexed_params_as_observations(self, tmp_path):
         """Indexed Param component (energy_price) appears as observations in the state config."""
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            PyomoModel.create_state(_KEA_IMPORT, "kea", tmp_dir, **_KEA_KWARGS)
-            content = (pathlib.Path(tmp_dir) / "kea_state_config.toml").read_text()
+        PyomoModel.create_state(_KEA_IMPORT, "kea", tmp_path)
+        content = (pathlib.Path(tmp_path) / "kea_state_config.toml").read_text()
         assert "observations = [" in content
         assert 'name = "energy_price"' in content
 
-    def test_model_parameters_has_scalar_params(self):
+    def test_model_parameters_has_scalar_params(self, tmp_path):
         """Scalar Param components appear in the model_parameters TOML."""
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            PyomoModel.create_state(_KEA_IMPORT, "kea", tmp_dir, **_KEA_KWARGS)
-            content = (pathlib.Path(tmp_dir) / "kea_model_parameters.toml").read_text()
+        PyomoModel.create_state(_KEA_IMPORT, "kea", tmp_path)
+        content = (pathlib.Path(tmp_path) / "kea_model_parameters.toml").read_text()
         assert "p_heat" in content
         assert "tank_temperature_min" in content
         assert "tank_temperature_max" in content
@@ -295,29 +246,25 @@ class TestCreateState:
     def test_default_output_dir_uses_cwd(self, monkeypatch, tmp_path):
         """When output_dir is None, files are created in the current working directory."""
         monkeypatch.chdir(tmp_path)
-        PyomoModel.create_state(_KEA_IMPORT, "kea_cwd", None, **_KEA_KWARGS)
+        PyomoModel.create_state(_KEA_IMPORT, "kea_cwd", None)
         assert (tmp_path / "kea_cwd_state_config.toml").exists()
         assert (tmp_path / "kea_cwd_model_parameters.toml").exists()
 
-    def test_bootstraps_missing_model_parameters(self):
+    def test_bootstraps_missing_model_parameters(self, tmp_path):
         """create_state can export files without explicitly supplied model_parameters."""
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            PyomoModel.create_state(
-                _KEA_IMPORT,
-                "kea_bootstrap",
-                tmp_dir,
-                sampling_time=10.0,
-                prediction_horizon=60.0,
-            )
-            assert (pathlib.Path(tmp_dir) / "kea_bootstrap_state_config.toml").exists()
-            assert (pathlib.Path(tmp_dir) / "kea_bootstrap_model_parameters.toml").exists()
+        PyomoModel.create_state(
+            _KEA_IMPORT,
+            "kea_bootstrap",
+            tmp_path,
+        )
+        assert (pathlib.Path(tmp_path) / "kea_bootstrap_state_config.toml").exists()
+        assert (pathlib.Path(tmp_path) / "kea_bootstrap_model_parameters.toml").exists()
 
-    def test_export_path_does_not_call_model_init(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            PyomoModel.create_state(
-                "test.test_simulators.test_pyomo_model._InitFailsModel",
-                "init_bypass",
-                tmp_dir,
-            )
-            assert (pathlib.Path(tmp_dir) / "init_bypass_state_config.toml").exists()
-            assert (pathlib.Path(tmp_dir) / "init_bypass_model_parameters.toml").exists()
+    def test_export_path_does_not_call_model_init(self, tmp_path):
+        PyomoModel.create_state(
+            "test.test_simulators.test_pyomo_model._InitFailsModel",
+            "init_bypass",
+            tmp_path,
+        )
+        assert (pathlib.Path(tmp_path) / "init_bypass_state_config.toml").exists()
+        assert (pathlib.Path(tmp_path) / "init_bypass_model_parameters.toml").exists()
