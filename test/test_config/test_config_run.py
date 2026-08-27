@@ -1,20 +1,20 @@
-"""Tests for ConfigRun."""
+"""Tests for RunInfo."""
 
 import pathlib
 import tempfile
 
 import pytest
 
-from eta_ctrl.config import ConfigRun
+from eta_ctrl.config import RunInfo
 
 
-class TestConfigRunStringRepresentations:
-    """Tests for ConfigRun.__str__ and __repr__."""
+class TestRunInfoStringRepresentations:
+    """Tests for RunInfo.__str__ and __repr__."""
 
     @pytest.fixture(scope="class")
-    def config_run(self):
+    def run_info(self):
         temp_path = pathlib.Path(tempfile.mkdtemp())
-        return ConfigRun(
+        return RunInfo(
             series="my_series",
             name="my_run",
             description="test description",
@@ -25,10 +25,10 @@ class TestConfigRunStringRepresentations:
 
     # --- __str__ ---
 
-    def test_str_exact(self, config_run):
-        assert str(config_run) == "ConfigRun(series='my_series', name='my_run')"
+    def test_str_exact(self, run_info):
+        assert str(run_info) == "RunInfo(series='my_series', name='my_run')"
 
-    def test_str_contains_series_and_name(self, config_run):
-        result = str(config_run)
+    def test_str_contains_series_and_name(self, run_info):
+        result = str(run_info)
         assert "series='my_series'" in result
         assert "name='my_run'" in result

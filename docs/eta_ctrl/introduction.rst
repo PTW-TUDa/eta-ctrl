@@ -150,18 +150,18 @@ The configuration options in the settings section are the following.
 
 Configuration for optimization runs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-An optimization run must also be configured. This is done through the *ConfigRun* class. The
+An optimization run must also be configured. This is done through the *RunInfo* class. The
 class uses the series name and run names for initialization. It provides facilities to
 create the paths required for optimization and to store information about the environments.
-Below, you can see the parameters that ConfigRun offers. Full documentation is in the API
-docs: :py:class:`eta_ctrl.config.ConfigRun`.
+Below, you can see the parameters that RunInfo offers. Full documentation is in the API
+docs: :py:class:`eta_ctrl.config.RunInfo`.
 
 .. note::
     EtaCtrl instantiates an object of this class automatically from the JSON configuration file. You do not need
     to specify any of the parameters listed here. They are listed here to show what is available for use
     during the optimization run.
 
-.. autoclass:: eta_ctrl.config::ConfigRun
+.. autoclass:: eta_ctrl.config::RunInfo
     :members:
     :no-index:
     :exclude-members: from_dict, set_env_info, create_results_folders

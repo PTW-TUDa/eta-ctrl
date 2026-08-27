@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from eta_ctrl.config.config_run import ConfigRun
+from eta_ctrl.config.run_info import RunInfo
 from eta_ctrl.envs.base_env import BaseEnv
 from eta_ctrl.envs.state import StateConfig, StateVar
 
@@ -18,7 +18,7 @@ def test_env():
     temp_dir = tempfile.mkdtemp()
     temp_path = Path(temp_dir)
 
-    config_run = ConfigRun(
+    run_info = RunInfo(
         series="test",
         name="bool_test",
         description="Test",
@@ -59,7 +59,7 @@ def test_env():
         def render(self):
             pass
 
-    env = TestEnv(env_id=1, config_run=config_run, state_config=state_config, episode_duration=60, sampling_time=1)
+    env = TestEnv(env_id=1, run_info=run_info, state_config=state_config, episode_duration=60, sampling_time=1)
 
     # Initialize state
     env.state = {}

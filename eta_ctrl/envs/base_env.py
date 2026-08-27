@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping, Sequence
     from typing import Any
 
-    from eta_ctrl.config import ConfigRun
+    from eta_ctrl.config import RunInfo
     from eta_ctrl.envs.state import StateConfig
     from eta_ctrl.timeseries.scenario_manager import ScenarioManager
     from eta_ctrl.util.type_annotations import ObservationType, Path, StepResult, TimeStep
@@ -58,7 +58,7 @@ class BaseEnv(Env, abc.ABC):
         Gymnasium interface and state management automatically.
 
     :param env_id: Identification for the environment, useful when creating multiple environments.
-    :param config_run: Configuration of the optimization run.
+    :param run_info: Configuration of the optimization run.
     :param verbose: Verbosity to use for logging.
     :param callback: callback that should be called after each episode.
     :param state_modification_callback: callback that should be called after state setup, before logging the state.
@@ -92,7 +92,7 @@ class BaseEnv(Env, abc.ABC):
     def __init__(
         self,
         env_id: int,
-        config_run: ConfigRun,
+        run_info: RunInfo,
         state_config: StateConfig,
         verbose: int = 2,
         callback: Callable | None = None,
@@ -116,7 +116,7 @@ class BaseEnv(Env, abc.ABC):
         # Set some standard path settings
         #: Information about the optimization run and information about the paths.
         #: For example, it defines results_path and scenarios_path.
-        self.config_run: ConfigRun = config_run
+        self.run_info: RunInfo = run_info
 
         #: Callback can be used for logging and plotting.
         self.callback: Callable | None = callback
@@ -200,22 +200,22 @@ class BaseEnv(Env, abc.ABC):
     @property
     def run_name(self) -> str:
         #: Name of the current optimization run.
-        return self.config_run.name
+        return self.run_info.name
 
     @property
     def results_path(self) -> pathlib.Path:
         #: Path for storing results.
-        return self.config_run.results_path
+        return self.run_info.results_path
 
     @property
     def scenarios_path(self) -> pathlib.Path | None:
         #: Path for the scenario data.
-        return self.config_run.scenarios_path
+        return self.run_info.scenarios_path
 
     @property
     def series_results_path(self) -> pathlib.Path:
         #: Path for storing results of series of runs.
-        return self.config_run.series_results_path
+        return self.run_info.series_results_path
 
     @abc.abstractmethod
     def _step(self) -> tuple[float, bool, bool, dict]:

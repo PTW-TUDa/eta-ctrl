@@ -11,11 +11,11 @@ from eta_ctrl.common import (
     CallbackEnvironment,
     is_closed,
     log_net_arch,
-    log_run_info,
+    log_run_config,
     log_to_file,
     merge_callbacks,
 )
-from eta_ctrl.config import Config, ConfigRun
+from eta_ctrl.config import Config, RunInfo
 
 from .core_utils import (
     initialize_model,
@@ -60,7 +60,7 @@ class EtaCtrl:
         log.setLevel(int(self.config.settings.verbose * 10))
 
         #: Configuration for an optimization run.
-        self.config_run: ConfigRun | None = None
+        self._run_info: RunInfo | None = None
 
         #: The vectorized environments.
         self._environments: VecEnv | VecNormalize | None = None
@@ -75,10 +75,7 @@ class EtaCtrl:
 
     def __repr__(self) -> str:
         """Developer-friendly string representation of EtaCtrl."""
-        return (
-            f"EtaCtrl(config_name='{self.config.config_name}', root_path='{self.config.root_path}', "
-            f"config_run_initialized={self.config_run is not None})"
-        )
+        return f"EtaCtrl(config_name='{self.config.config_name}', root_path='{self.config.root_path}', "
 
     @property
     def environments(self) -> VecEnv | VecNormalize:
@@ -101,6 +98,17 @@ class EtaCtrl:
     @model.setter
     def model(self, model: BaseAlgorithm) -> None:
         self._model = model
+
+    @property
+    def run_info(self) -> RunInfo:
+        if self._run_info is None:
+            msg = "RunInfo could not be found. Call prepare_run first."
+            raise TypeError(msg)
+        return self._run_info
+
+    @run_info.setter
+    def run_info(self, run_info: RunInfo) -> None:
+        self._run_info = run_info
 
     @contextmanager
     def prepare_environments_models(
@@ -128,7 +136,7 @@ class EtaCtrl:
         :param run_name: Name for a specific run.
         :param run_description: Description for a specific run.
         """
-        self.config_run = ConfigRun(
+        self.run_info = RunInfo(
             series=series_name,
             name=run_name,
             description=run_description,
@@ -136,10 +144,10 @@ class EtaCtrl:
             results_path=self.config.results_path,
             scenarios_path=self.config.scenarios_path,
         )
-        self.config_run.create_results_folders()
+        self.run_info.create_results_folders()
 
         # Add file handler to parent logger to log the terminal output
-        log_to_file(config=self.config, config_run=self.config_run)
+        log_to_file(config=self.config, run_info=self.run_info)
 
         log.info("Run prepared successfully.")
 
@@ -155,11 +163,7 @@ class EtaCtrl:
 
         :param reset: Flag to determine whether an existing model should be reset.
         """
-        if self.config_run is None:
-            msg = "Set the config_run attribute before trying to initialize the model (e.g. by calling prepare_run)."
-            raise ValueError(msg)
-
-        model_path = self.config_run.run_model_path
+        model_path = self.run_info.run_model_path
         if model_path.is_file() and reset:
             log.info(f"Existing model detected: {model_path}")
 
@@ -173,9 +177,9 @@ class EtaCtrl:
                 self.config.setup.agent_class,
                 self.environments,
                 self.config.settings.agent,
-                self.config_run.run_model_path,
+                self.run_info.run_model_path,
                 tensorboard_log=self.config.setup.tensorboard_log,
-                log_path=self.config_run.series_results_path,
+                log_path=self.run_info.series_results_path,
             )
             return
 
@@ -187,7 +191,7 @@ class EtaCtrl:
             self.config.settings.agent,
             self.config.settings.seed,
             tensorboard_log=self.config.setup.tensorboard_log,
-            log_path=self.config_run.series_results_path,
+            log_path=self.run_info.series_results_path,
         )
 
     @contextmanager
@@ -225,18 +229,14 @@ class EtaCtrl:
 
         :param training: Should preparation be done for training (alternative: playing)?
         """
-        if self.config_run is None:
-            msg = "Set the config_run attribute before trying to initialize the model (e.g. by calling prepare_run)."
-            raise ValueError(msg)
-
         env_class = self.config.setup.environment_class
-        self.config_run.set_env_info(env_class)
+        self.run_info.set_env_info(env_class)
 
         callback = CallbackEnvironment(self.config.settings.plot_interval)
         # Vectorize the environments
         self.environments = vectorize_environment(
             env=env_class,
-            config_run=self.config_run,
+            run_info=self.run_info,
             env_settings=self.config.settings.environment,
             callback=callback,
             verbose=self.config.settings.verbose,
@@ -270,15 +270,9 @@ class EtaCtrl:
         with self.prepare_environments_models(
             series_name=series_name, run_name=run_name, run_description=run_description, reset=reset, training=True
         ):
-            if self.config_run is None:
-                msg = (
-                    "Set the config_run attribute before trying to initialize the model (e.g. by calling prepare_run)."
-                )
-                raise ValueError(msg)
-
             # Log some information about the model and configuration
-            log_net_arch(self.model, self.config_run)
-            log_run_info(self.config, self.config_run)
+            log_net_arch(self.model, self.run_info)
+            log_run_config(self.config, self.run_info)
 
             # Genetic algorithm has a slightly different concept for saving since it does not stop between time steps
             if "n_generations" in self.config.settings.agent:
@@ -310,8 +304,8 @@ class EtaCtrl:
             callback_learn = merge_callbacks(
                 CheckpointCallback(
                     save_freq=save_freq,
-                    save_path=str(self.config_run.series_results_path / "models"),
-                    name_prefix=self.config_run.name,
+                    save_path=str(self.run_info.series_results_path / "models"),
+                    name_prefix=self.run_info.name,
                 ),
                 callbacks,
             )
@@ -322,10 +316,10 @@ class EtaCtrl:
                 self.model.learn(
                     total_timesteps=total_timesteps,
                     callback=callback_learn,
-                    tb_log_name=self.config_run.name,
+                    tb_log_name=self.run_info.name,
                 )
             except OSError:
-                filename = str(self.config_run.series_results_path / f"{self.config_run.name}_model_before_error.pkl")
+                filename = str(self.run_info.series_results_path / f"{self.run_info.name}_model_before_error.pkl")
                 log.info(f"Saving model to file: {filename}.")
                 self.model.save(filename)
                 raise
@@ -338,13 +332,13 @@ class EtaCtrl:
                 raise ValueError(msg) from e
 
             # Save model
-            log.debug(f"Saving model to file: {self.config_run.run_model_path}.")
-            self.model.save(self.config_run.run_model_path)
+            log.debug(f"Saving model to file: {self.run_info.run_model_path}.")
+            self.model.save(self.run_info.run_model_path)
             from stable_baselines3.common.vec_env import VecNormalize  # noqa: PLC0415
 
             if isinstance(self.environments, VecNormalize):
-                log.debug(f"Saving environment normalization data to file: {self.config_run.vec_normalize_path}.")
-                self.environments.save(str(self.config_run.vec_normalize_path))
+                log.debug(f"Saving environment normalization data to file: {self.run_info.vec_normalize_path}.")
+                self.environments.save(str(self.run_info.vec_normalize_path))
 
         log.info(f"Learning finished: {series_name} / {run_name}")
 
@@ -358,19 +352,13 @@ class EtaCtrl:
         with self.prepare_environments_models(
             series_name=series_name, run_name=run_name, run_description=run_description, reset=False, training=False
         ):
-            if self.config_run is None:
-                msg = (
-                    "Set the config_run attribute before trying to initialize the model (e.g. by calling prepare_run)."
-                )
-                raise ValueError(msg)
-
             if self.config.settings.n_episodes_play is None:
                 msg = "Missing configuration value for playing: 'n_episodes_play' in section 'settings'"
                 raise ValueError(msg)
 
             # Log some information about the model and configuration
-            log_net_arch(self.model, self.config_run)
-            log_run_info(self.config, self.config_run)
+            log_net_arch(self.model, self.run_info)
+            log_run_config(self.config, self.run_info)
 
             n_episodes_stop = self.config.settings.n_episodes_play
 

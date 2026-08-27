@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from typing import Any
 
-    from eta_ctrl.config import ConfigRun
+    from eta_ctrl.config import RunInfo
     from eta_ctrl.util.type_annotations import TimeStep
 
 
@@ -24,7 +24,7 @@ class DampedOscillatorEnv(SimEnv):
     Model settings come from fmu file.
 
     :param env_id: Identification for the environment, useful when creating multiple environments
-    :param config_run: Configuration of the optimization run
+    :param run_info: Configuration of the optimization run
     :param verbose: Verbosity to use for logging (default: 2)
     :param callback: callback which should be called after each episode
     :param episode_duration: Duration of the episode in seconds
@@ -40,7 +40,7 @@ class DampedOscillatorEnv(SimEnv):
     def __init__(
         self,
         env_id: int,
-        config_run: ConfigRun,
+        run_info: RunInfo,
         verbose: int = 2,
         callback: Callable | None = None,
         *,
@@ -52,7 +52,7 @@ class DampedOscillatorEnv(SimEnv):
     ) -> None:
         super().__init__(
             env_id,
-            config_run,
+            run_info,
             verbose,
             callback,
             episode_duration=episode_duration,
@@ -103,7 +103,7 @@ class DampedOscillatorEnv(SimEnv):
 
     def render(self, mode: str = "human") -> None:
         self.export_state_log(
-            path=episode_results_path(self.config_run.series_results_path, self.run_name, 1, self.env_id)
+            path=episode_results_path(self.run_info.series_results_path, self.run_name, 1, self.env_id)
         )
 
         mpl.rcParams["font.family"] = "Times New Roman"

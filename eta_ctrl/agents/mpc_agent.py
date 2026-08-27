@@ -287,7 +287,7 @@ class MpcAgent(BaseAlgorithm):
         result_str = str(result)
         if len(result_str) > 10000:
             try:
-                log_dir = Path(self.get_env().get_attr("config_run", 0)[0].results_path)
+                log_dir = Path(self.get_env().get_attr("run_info", 0)[0].results_path)
                 result_file = log_dir / f"solver_result_failure_{self.num_timesteps}.txt"
                 result_file.write_text(result_str, encoding="utf-8")
                 log.debug("Full solver result saved to: %s", result_file)
