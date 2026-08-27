@@ -14,7 +14,7 @@ class TestSimEnvStringRepresentations:
         return unified_env_factory(
             env_type="sim",
             env_id=25,
-            config_run_params={
+            run_info_params={
                 "series": "sim_test_series",
                 "name": "sim_repr_test_run",
                 "description": "Test run for SimEnv string representations",
@@ -50,7 +50,7 @@ class TestSimEnvStringRepresentations:
         env = unified_env_factory(
             env_type="sim",
             env_id=15,
-            config_run_params={
+            run_info_params={
                 "series": "fmu_test_series",
                 "name": "fmu_test_run",
                 "description": "FMU test",

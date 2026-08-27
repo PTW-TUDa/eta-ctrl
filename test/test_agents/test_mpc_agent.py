@@ -197,9 +197,9 @@ class TestMpcAgentSolveFail:
         mock_result.__str__ = MagicMock(return_value=large_content)
 
         mock_env = MagicMock()
-        mock_config_run = MagicMock()
-        mock_config_run.results_path = str(temp_dir)
-        mock_env.get_attr.return_value = [mock_config_run]
+        mock_run_info = MagicMock()
+        mock_run_info.results_path = str(temp_dir)
+        mock_env.get_attr.return_value = [mock_run_info]
 
         with patch.object(mpc_agent, "solver") as mock_solver:
             mock_solver.solve.return_value = mock_result
@@ -222,9 +222,9 @@ class TestMpcAgentSolveFail:
         mock_result.__str__ = MagicMock(return_value=large_content)
 
         mock_env = MagicMock()
-        mock_config_run = MagicMock()
-        mock_config_run.results_path = str(temp_dir)
-        mock_env.get_attr.return_value = [mock_config_run]
+        mock_run_info = MagicMock()
+        mock_run_info.results_path = str(temp_dir)
+        mock_env.get_attr.return_value = [mock_run_info]
 
         with patch.object(mpc_agent, "solver") as mock_solver:
             mock_solver.solve.return_value = mock_result

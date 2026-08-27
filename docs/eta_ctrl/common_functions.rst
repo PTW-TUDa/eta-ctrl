@@ -44,7 +44,7 @@ Logging information
 There are also functions for logging information about the optimization runs, such as the configuration and
 the network architecture.
 
-.. autofunction:: eta_ctrl.common::log_run_info
+.. autofunction:: eta_ctrl.common::log_run_config
     :no-index:
 
 .. autofunction:: eta_ctrl.common::log_net_arch

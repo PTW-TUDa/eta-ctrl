@@ -70,7 +70,7 @@ class TestBaseEnvStringRepresentations:
         return unified_env_factory(
             env_type="base",
             env_id=42,
-            config_run_params={
+            run_info_params={
                 "series": "test_series",
                 "name": "repr_test_run",
                 "description": "Test run for string representations",
@@ -94,7 +94,7 @@ class TestBaseEnvStringRepresentations:
         env = unified_env_factory(
             env_type="base",
             env_id=1,
-            config_run_params={"series": "test_series", "name": "size_test", "description": "Size test"},
+            run_info_params={"series": "test_series", "name": "size_test", "description": "Size test"},
             state_config_type="many_actions",
             scenario_time_begin=datetime(2023, 1, 1),
             scenario_time_end=datetime(2023, 1, 2),
@@ -127,7 +127,7 @@ class TestBaseEnvStringRepresentations:
         env = unified_env_factory(
             env_type="base",
             env_id=999,
-            config_run_params={
+            run_info_params={
                 "series": "duration_test_series",
                 "name": "duration_test_run_with_long_name",
                 "description": "Duration test",
@@ -167,7 +167,7 @@ class TestBaseEnvPublicMethods:
         return unified_env_factory(
             env_type="method",
             env_id=1,
-            config_run_params={"series": "api_series", "name": "api_run", "description": "api tests"},
+            run_info_params={"series": "api_series", "name": "api_run", "description": "api tests"},
             state_config_type="method_test",
             episode_duration=3600,
             sampling_time=60,
@@ -267,7 +267,7 @@ class TestActionValidation:
         return unified_env_factory(
             env_type="method",
             env_id=2,
-            config_run_params={"series": "validation_series", "name": "validation_run", "description": "validate"},
+            run_info_params={"series": "validation_series", "name": "validation_run", "description": "validate"},
             state_config_type="validation",
             episode_duration=3600,
             sampling_time=60,

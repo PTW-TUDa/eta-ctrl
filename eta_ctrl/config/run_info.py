@@ -14,10 +14,8 @@ log = getLogger(__name__)
 
 
 @define(frozen=True, kw_only=True, repr=False)
-class ConfigRun:
-    """Configuration for an optimization run, including the series and run names descriptions and paths
-    for the run.
-    """
+class RunInfo:
+    """Tracks the identity, paths, and metadata of a single optimization run (series, run name, description)."""
 
     #: Name of the series of optimization runs.
     series: str = field(validator=validators.instance_of(str))
@@ -70,30 +68,21 @@ class ConfigRun:
         object.__setattr__(self, "log_output_path", self.series_results_path / f"{self.name}_log_output.log")
 
     def __str__(self) -> str:
-        """Human-readable string representation of ConfigRun."""
-        return f"ConfigRun(series='{self.series}', name='{self.name}')"
+        """Human-readable string representation of RunInfo."""
+        return f"RunInfo(series='{self.series}', name='{self.name}')"
 
     def __repr__(self) -> str:
-        """Developer-friendly string representation of ConfigRun."""
+        """Developer-friendly string representation of RunInfo."""
         return (
-            f"ConfigRun(series='{self.series}', name='{self.name}', "
+            f"RunInfo(series='{self.series}', name='{self.name}', "
             f"root_path='{self.root_path}', results_path='{self.results_path}')"
         )
 
     def create_results_folders(self) -> None:
-        """Create the results folders for an optimization run (or check if they already exist)."""
-        if not self.results_path.is_dir():
-            for p in reversed(self.results_path.parents):
-                if not p.is_dir():
-                    p.mkdir()
-                    log.info(f"Directory created: \n\t {p}")
-            self.results_path.mkdir()
-            log.info(f"Directory created: \n\t {self.results_path}")
-
-        if not self.series_results_path.is_dir():
-            log.debug("Path for result series doesn't exist on your OS. Trying to create directories.")
-            self.series_results_path.mkdir()
-            log.info(f"Directory created: \n\t {self.series_results_path}")
+        """Create the results folders for an optimization run (if needed)."""
+        self.results_path.mkdir(parents=True, exist_ok=True)
+        # Parent should be results_path, so option is not needed
+        self.series_results_path.mkdir(exist_ok=True)
 
     def set_env_info(self, env: type[BaseEnv]) -> None:
         """Set the environment information of the optimization run to represent the given environment.

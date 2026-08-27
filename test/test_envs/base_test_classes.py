@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from eta_ctrl.config import ConfigRun
+from eta_ctrl.config import RunInfo
 from eta_ctrl.envs import BaseEnv, LiveEnv, PyomoSimEnv, SimEnv, StateConfig, StateVar
 from eta_ctrl.timeseries.scenario_manager import ScenarioManager
 
@@ -62,12 +62,12 @@ def temp_directory_factory():
 
 
 @pytest.fixture(scope="class")
-def config_run_factory(temp_directory_factory):
-    """Factory fixture for creating ConfigRun instances."""
+def run_info_factory(temp_directory_factory):
+    """Factory fixture for creating RunInfo instances."""
 
-    def _create_config_run(series="test_series", name="test_run", description="Test run", create_subdirs=True):
+    def _create_run_info(series="test_series", name="test_run", description="Test run", create_subdirs=True):
         temp_path = temp_directory_factory()
-        config = ConfigRun(
+        config = RunInfo(
             series=series,
             name=name,
             description=description,
@@ -77,7 +77,7 @@ def config_run_factory(temp_directory_factory):
         )
         return config, temp_path
 
-    return _create_config_run
+    return _create_run_info
 
 
 @pytest.fixture(scope="class")
@@ -152,7 +152,7 @@ def state_config_factory():
 
 
 @pytest.fixture(scope="class")
-def unified_env_factory(config_run_factory, state_config_factory):
+def unified_env_factory(run_info_factory, state_config_factory):
     """
     Unified factory fixture for creating any type of environment (BaseEnv, PyomoSimEnv, SimEnv, LiveEnv).
     """
@@ -160,28 +160,28 @@ def unified_env_factory(config_run_factory, state_config_factory):
     def _create_environment(
         env_type="base",
         env_id=42,
-        config_run_params=None,
+        run_info_params=None,
         state_config_type="default",
         episode_duration=7200,
         sampling_time=300,
         path_env=None,
         **env_specific_params,
     ):
-        # Use default config_run_params if not provided
-        if config_run_params is None:
-            config_run_params = {
+        # Use default run_info_params if not provided
+        if run_info_params is None:
+            run_info_params = {
                 "series": "test_series",
                 "name": f"{env_type}_test_run",
                 "description": f"Test run for {env_type} environment",
             }
 
-        config_run, _temp_path = config_run_factory(**config_run_params)
+        run_info, _temp_path = run_info_factory(**run_info_params)
         state_config = state_config_factory(state_config_type)
 
         # Common environment parameters
         common_params = {
             "env_id": env_id,
-            "config_run": config_run,
+            "run_info": run_info,
             "state_config": state_config,
             "episode_duration": episode_duration,
             "sampling_time": sampling_time,

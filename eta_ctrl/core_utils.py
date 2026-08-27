@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from stable_baselines3.common.base_class import BaseAlgorithm, BasePolicy
     from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv, VecNormalize
 
-    from eta_ctrl.config import ConfigRun
+    from eta_ctrl.config import RunInfo
     from eta_ctrl.envs import BaseEnv
     from eta_ctrl.util.type_annotations import AlgoSettings, EnvSettings, Path
 from logging import getLogger
@@ -22,7 +22,7 @@ log = getLogger(__name__)
 
 def vectorize_environment(
     env: type[BaseEnv],
-    config_run: ConfigRun,
+    run_info: RunInfo,
     env_settings: EnvSettings,
     callback: Callable[[BaseEnv], None],
     verbose: int = 2,
@@ -38,7 +38,7 @@ def vectorize_environment(
     """Vectorize the environment and automatically apply normalization wrappers if configured.
 
     :param env: Environment class which will be instantiated and vectorized.
-    :param config_run: Configuration for a specific optimization run.
+    :param run_info: Configuration for a specific optimization run.
     :param env_settings: Configuration settings dictionary for the environment which is being initialized.
     :param callback: Callback to call with an environment instance.
     :param verbose: Logging verbosity to use in the environment.
@@ -67,7 +67,7 @@ def vectorize_environment(
     # Create the vectorized environment
     def create_env(env_id: int) -> Env:
         env_id += 1
-        return env(env_id=env_id, config_run=config_run, verbose=verbose, callback=callback, seed=seed, **env_settings)
+        return env(env_id=env_id, run_info=run_info, verbose=verbose, callback=callback, seed=seed, **env_settings)
 
     envs: VecEnv | VecNormalize
     envs = vectorizer([partial(create_env, i) for i in range(n)])
@@ -80,12 +80,12 @@ def vectorize_environment(
     if norm_wrapper_obs or norm_wrapper_reward:
         # check if normalization data is available and load it if possible, otherwise
         # create a new normalization wrapper.
-        if config_run.vec_normalize_path.is_file():
+        if run_info.vec_normalize_path.is_file():
             log.info(
                 f"Normalization data detected. Loading running averages into normalization wrapper: \n"
-                f"\t {config_run.vec_normalize_path}"
+                f"\t {run_info.vec_normalize_path}"
             )
-            envs = VecNormalize.load(str(config_run.vec_normalize_path), envs)
+            envs = VecNormalize.load(str(run_info.vec_normalize_path), envs)
             envs.training = training
             envs.norm_obs = norm_wrapper_obs
             envs.norm_reward = norm_wrapper_reward

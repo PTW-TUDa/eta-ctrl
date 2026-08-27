@@ -5,7 +5,7 @@ Summary
 -------
 
 The configuration system has been rewritten from attrs to Pydantic v2. This simplifies the internal
-class structure (removing manual ``from_dict`` parsing, converter chains, and the :py:class:`~eta_ctrl.config.config_run.ConfigRun` coupling)
+class structure (removing manual ``from_dict`` parsing, converter chains, and the :py:class:`~eta_ctrl.config.run_info.RunInfo` coupling)
 and brings automatic type validation, better error messages, and JSON schema generation for editor
 autocompletion.
 
