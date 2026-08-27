@@ -229,19 +229,21 @@ class TestCreateState:
         assert 'name = "temp"' in content
 
     def test_state_config_has_indexed_params_as_observations(self, tmp_path):
-        """Indexed Param component (energy_price) appears as observations in the state config."""
+        """Mutable Param components appear as observations in the state config."""
         PyomoModel.create_state(_KEA_IMPORT, "kea", tmp_path)
         content = (pathlib.Path(tmp_path) / "kea_state_config.toml").read_text()
         assert "observations = [" in content
         assert 'name = "energy_price"' in content
+        assert 'name = "tank_temperature_start"' in content
 
     def test_model_parameters_has_scalar_params(self, tmp_path):
-        """Scalar Param components appear in the model_parameters TOML."""
+        """Immutable scalar Params appear in the model_parameters TOML."""
         PyomoModel.create_state(_KEA_IMPORT, "kea", tmp_path)
         content = (pathlib.Path(tmp_path) / "kea_model_parameters.toml").read_text()
         assert "p_heat" in content
         assert "tank_temperature_min" in content
         assert "tank_temperature_max" in content
+        assert "tank_temperature_start" not in content
 
     def test_default_output_dir_uses_cwd(self, monkeypatch, tmp_path):
         """When output_dir is None, files are created in the current working directory."""

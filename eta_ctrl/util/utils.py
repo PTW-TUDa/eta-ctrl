@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import copy
 import importlib
+import inspect
 import math
 import re
 from collections.abc import Mapping
 from datetime import timedelta
-from logging import getLogger
 from typing import TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:
@@ -14,8 +14,6 @@ if TYPE_CHECKING:
 
     from eta_ctrl.util.type_annotations import TimeStep
 
-
-log = getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -45,6 +43,9 @@ def import_class_from_module(path: str, base_class: type[T] | None = None) -> ty
 
     if base_class is not None and not issubclass(cls, base_class):
         msg = f"Loaded class '{cls_name}' from {module_name} is not subclass of {base_class}"
+        raise TypeError(msg)
+    if inspect.isabstract(cls):
+        msg = f"Loaded class '{cls_name}' from {module_name} is abstract and cannot be instantiated"
         raise TypeError(msg)
 
     return cls
