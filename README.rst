@@ -30,6 +30,11 @@ Configuration
 - **`Config`**: Represents the configuration for an optimization run.
 - **`RunInfo`**: Handles paths and metadata for optimization runs.
 
+Agent
+==========================
+  - **`MpcAgent`**: Pyomo based optimization agent supporting multiple solvers.
+  - **`RuleBased`**: Simple agent using a control rule function.
+
 Environment
 ==========================
 
