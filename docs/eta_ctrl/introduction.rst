@@ -8,6 +8,12 @@ from the `stable_baselines3 <https://stable-baselines3.readthedocs.io/>`_ packag
 also contains some extensions for *stable_baselines3*, these include additional policies, extractors,
 schedules and agents.
 
+The main components and their relationships are illustrated as follows:
+
+.. mermaid:: /guide/figures/class_diagram.mmd
+   :name: class-diagram
+   :caption: `EtaCtrl` acts as an orchestrator for the Gymnasium based Agent-Environment loop.
+
 The module contains functions meant to simplify the general process of creating rolling horizon
 optimization models. It contains the *EtaCtrl* class which in turn combines all of this information
 such that you can start simple optimizations in just two lines. For example, to start the pendulum
