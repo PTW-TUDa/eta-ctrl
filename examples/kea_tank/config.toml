@@ -27,6 +27,7 @@ rename_cols = {"Electrical_Energy_Price_MWh" = "energy_price"}
 
 [settings.environment]
 sim_steps_per_sample = 1
+initial_tank_temperature = 60  # °C
 
 # --migration-agent-config-start--
 [settings.agent]
@@ -37,7 +38,6 @@ timelimit = 30
 
 [settings.agent.model_parameters]
 p_heat = 10  # kW, heating power consumption
-tank_temperature_start = 60  # °C
 tank_temperature_min = 55  # °C
 tank_temperature_max = 65  # °C
 temperature_change_heating = 0.02  # Kelvin per second

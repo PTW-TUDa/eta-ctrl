@@ -192,22 +192,18 @@ class PyomoModel:
     ) -> None:
         """Generate state config and model parameters TOML files for a PyomoModel.
 
-        Creates a concrete model from the subclass ``_model`` definition (without
-        running subclass ``__init__``), then writes:
+        Creates a concrete model from the subclass ``_model`` definition, then writes:
 
-        * ``{model_name}_state_config.toml`` — indexed ``pyo.Var`` components as
-          actions and indexed ``pyo.Param`` components as observations.
-        * ``{model_name}_model_parameters.toml`` — scalar ``pyo.Param`` components
-          that belong in ``[agent_specific.model_parameters]`` of the run config.
+                * ``{model_name}_state_config.toml`` — indexed ``pyo.Var`` components as
+                    actions and mutable ``pyo.Param`` components as observations.
+                * ``{model_name}_model_parameters.toml`` — immutable scalar ``pyo.Param`` components
+                    that belong in ``[settings.agent.model_parameters]`` of the run config.
 
         :param model_import: Dotted import path to the :class:`PyomoModel` subclass
             (e.g. ``"eta_ctrl.examples.kea_tank.kea_pyomo_model.DrKeaModel"``).
         :param model_name: Name used as prefix for the output files.
         :param output_dir: Target directory for the output files.
             Defaults to the current working directory.
-        :param kwargs: Optional export-time kwargs:
-            ``sampling_time`` (default ``1.0``), ``prediction_horizon``
-            (default ``sampling_time``), and ``model_parameters``.
         """
         # Import here to avoid a circular dependency at module load time
         from eta_ctrl.common.export_pyomo import export_pyomo_model_state  # noqa: PLC0415

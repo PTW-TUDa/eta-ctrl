@@ -1,6 +1,20 @@
 """Pyomo model export utilities.
 
-This module provides functions for exporting Pyomo model components to TOML files.
+This module provides functions for generating ETA Ctrl config files from Pyomo model components.
+Pyomo Variables and Parameters and exported as follows:
+
++------------------------+-------------+-------------+
+|                        | indexed     | non-indexed |
++========================+=============+=============+
+| Variables              | action      | None        |
++------------------------+-------------+-------------+
+| mutable Parameters     | observation | observation |
++------------------------+-------------+-------------+
+| immutable Parameters   | None        | config      |
++------------------------+-------------+-------------+
+
+Actions and observations are saved in the state config.
+Non-indexed immutable parameters are exported to the model_parameters section in the agent config.
 """
 
 from __future__ import annotations
@@ -17,49 +31,12 @@ from eta_ctrl.util.io_utils import get_unique_output_path
 if TYPE_CHECKING:
     from typing import Any
 
+    from pyomo.core.base.var import IndexedVar
+
 log = getLogger(__name__)
 
 
-def _extract_variable_bounds(bounds: tuple) -> dict[str, Any]:
-    """Extract and process variable bounds into a standardized format.
-
-    This helper function handles the common logic for extracting low and high bounds
-    from Pyomo variables, converting infinite bounds to None and handling edge cases.
-
-    :param bounds: Tuple of (lower_bound, upper_bound) from Pyomo variable
-    :return: Dictionary containing processed bound information
-    """
-    bounds_info = {}
-
-    if bounds[0] is not None:
-        low_val = float(bounds[0]) if bounds[0] != float("-inf") else None
-        if low_val is not None:
-            bounds_info["low_value"] = low_val
-
-    if bounds[1] is not None:
-        high_val = float(bounds[1]) if bounds[1] != float("inf") else None
-        if high_val is not None:
-            bounds_info["high_value"] = high_val
-
-    return bounds_info
-
-
-def _extract_variable_domain_type(variable: pyo.Var) -> str:
-    """Extract the domain type from a Pyomo variable.
-
-    This helper function determines whether a variable is continuous or discrete
-    based on its domain attribute, with a fallback to continuous as the default.
-
-    :param variable: Pyomo variable with domain attribute
-    :return: String indicating "continuous" or "discrete"
-    """
-    if hasattr(variable, "domain") and variable.domain is not None:
-        domain_name = str(variable.domain)
-        return "continuous" if "Real" in domain_name else "discrete"
-    return "continuous"  # Default assumption
-
-
-def extract_indexed_variable_info(component: pyo.Var) -> dict[str, Any]:
+def extract_indexed_variable_info(component: IndexedVar) -> dict[str, Any]:
     """Extract comprehensive information from indexed Pyomo variables.
 
     This function analyzes indexed Pyomo variables to extract domain information,
@@ -84,17 +61,6 @@ def extract_indexed_variable_info(component: pyo.Var) -> dict[str, Any]:
         # are continuous unless explicitly specified as discrete/binary
         var_info["type"] = "continuous"  # Default assumption
 
-    # Add index information for indexed variables - critical for reconstruction
-    index_set = component.index_set()
-    var_info["index_length"] = len(index_set) if hasattr(index_set, "__len__") else "unknown"
-
-    # Set index_set name with proper handling of None values
-    # This helps identify the relationship between variables and their indices
-    if hasattr(index_set, "name") and index_set.name is not None:
-        var_info["index_set"] = str(index_set.name)
-    else:
-        var_info["index_set"] = "unknown"
-
     return var_info
 
 
@@ -102,21 +68,24 @@ def extract_scalar_variable_info(component: pyo.Var) -> dict[str, Any]:
     """Extract comprehensive information from scalar Pyomo variables.
 
     This function analyzes scalar Pyomo variables to extract domain information
-    and bounds. It provides fallback defaults for variables without explicit
-    domain or bounds specifications.
+    and bounds.
 
     :param component: Scalar Pyomo variable component to analyze.
     :return: Dictionary containing variable type and bounds information.
     """
     var_info: dict[str, Any] = {}
 
-    # Extract domain type using helper function
-    var_info["type"] = _extract_variable_domain_type(component)
+    lower_bound = component.lower
+    if isinstance(lower_bound, (int, float)):
+        low_val = float(lower_bound) if lower_bound != float("-inf") else None
+        if low_val is not None:
+            var_info["low_value"] = low_val
 
-    # Add bounds information if available using helper function
-    if hasattr(component, "bounds") and component.bounds != (None, None):
-        var_info.update(_extract_variable_bounds(component.bounds))
-
+    upper_bound = component.upper
+    if isinstance(upper_bound, (int, float)):
+        high_val = float(upper_bound) if upper_bound != float("inf") else None
+        if high_val is not None:
+            var_info["high_value"] = high_val
     return var_info
 
 
@@ -141,12 +110,6 @@ def export_pyomo_state_config(model: pyo.ConcreteModel, model_name: str, output_
             "name": var_name,
             "is_indexed": component.is_indexed(),
         }
-
-        # Extract variable-specific information
-        if component.is_indexed():
-            var_info.update(extract_indexed_variable_info(component))
-        else:
-            var_info.update(extract_scalar_variable_info(component))
 
         observations.append(var_info)
 
@@ -261,10 +224,10 @@ def export_pyomo_model_state_config(model: pyo.ConcreteModel, model_name: str, o
     Classification rules:
 
     * Indexed ``pyo.Var`` components  → ``[[actions]]``
-    * Indexed ``pyo.Param`` components → ``[[observations]]``
+    * Mutable ``pyo.Param`` components → ``[[observations]]``
 
-    Scalar parameters are intentionally omitted here; use
-    :func:`export_pyomo_model_parameters` for those.
+    This assumption that Variables are actions is not correct, but it is impossible
+    to distinguish which Variables are actions and which are not.
 
     :param model: Pyomo ConcreteModel instance.
     :param model_name: Name of the model for identification.
@@ -272,32 +235,24 @@ def export_pyomo_model_state_config(model: pyo.ConcreteModel, model_name: str, o
     """
     actions: list[dict[str, Any]] = []
     observations: list[dict[str, Any]] = []
-
     for component in model.component_objects(pyo.Var):
         if not component.is_indexed():
             continue
-        var_info: dict[str, Any] = {"name": component.name}
         # Reuse existing helper; strip index metadata that belongs to internal bookkeeping
         raw = extract_indexed_variable_info(component)
-        raw.pop("index_length", None)
-        raw.pop("index_set", None)
-        raw.pop("type", None)
-        var_info.update(raw)
-        # Warn if bounds are absent — StateVar.model_post_init enforces that both
-        # low_value and high_value must be set for action variables, so the generated
-        # TOML must be completed manually before it can be loaded.
-        if "low_value" not in var_info or "high_value" not in var_info:
-            log.warning(
-                f"Action variable '{component.name}' has no explicit bounds in the Pyomo model. "
-                "You must set 'low_value' and 'high_value' manually in the generated state config TOML "
-                "before loading it as a StateConfig."
-            )
+        var_info: dict[str, Any] = {"name": component.name, **raw}
+
         actions.append(var_info)
 
     for component in model.component_objects(pyo.Param):
-        if not component.is_indexed():
+        if not component.mutable:
             continue
-        observations.append({"name": component.name})
+        var_info = {"name": component.name}
+        # Assume indexed and mutable parameter are scenario data
+        if component.is_indexed():
+            var_info.update({"duration": "n_prediction_steps", "from_scenario": True})
+            log.info("Found %s as indexed observation parameter. Set 'from_scenario' to False if applicable", component)
+        observations.append(var_info)
 
     pyomo_data: dict[str, Any] = {}
     if actions:
@@ -311,9 +266,9 @@ def export_pyomo_model_state_config(model: pyo.ConcreteModel, model_name: str, o
 
 
 def export_pyomo_model_parameters(model: pyo.ConcreteModel, model_name: str, output_path: pathlib.Path) -> None:
-    """Export scalar (non-indexed) Pyomo parameters to a model parameters TOML file.
+    """Export immutable scalar Pyomo parameters to a model parameters TOML file.
 
-    The output corresponds to the ``[agent_specific.model_parameters]`` section
+    The output corresponds to the ``[settings.agent.model_parameters]`` section
     of a run config.
 
     :param model: Pyomo ConcreteModel instance.
@@ -323,15 +278,13 @@ def export_pyomo_model_parameters(model: pyo.ConcreteModel, model_name: str, out
     model_parameters: dict[str, Any] = {}
 
     for component in model.component_objects(pyo.Param):
-        if component.is_indexed():
+        if component.is_indexed() or component.mutable:
             continue
-        try:
-            value = pyo.value(component)
-            if value is not None:
-                model_parameters[component.name] = value
-        except (ValueError, TypeError):
-            # Skip parameters that cannot be evaluated (e.g. uninitialized mutable params)
-            continue
+        value = component.default()
+        # If no value is provided, it will default to 'NoValue'
+        if value is pyo.Param.NoValue:
+            value = "PLACEHOLDER"
+        model_parameters[component.name] = value
 
     pyomo_data: dict[str, Any] = {
         "model_info": {"name": model_name, "type": "pyomo_model_parameters"},
@@ -342,7 +295,7 @@ def export_pyomo_model_parameters(model: pyo.ConcreteModel, model_name: str, out
     toml_export(final_output_path, pyomo_data)
     log.info(
         f"PyomoModel parameters exported to {final_output_path}. "
-        "Place these values under [agent_specific.model_parameters] in your run config."
+        "Place these values under [settings.agent.model_parameters] in your experiment config."
     )
 
 
@@ -354,10 +307,10 @@ def export_pyomo_model_state(
     This is the main public interface for :class:`~eta_ctrl.simulators.PyomoModel`
     state generation. It writes two files:
 
-    * ``{model_name}_state_config.toml`` — indexed Vars as actions, indexed
-      Params as observations.
-    * ``{model_name}_model_parameters.toml`` — scalar Params that belong in
-      ``[agent_specific.model_parameters]`` of the run config.
+        * ``{model_name}_state_config.toml`` — indexed Vars as actions and mutable
+            Params as observations.
+        * ``{model_name}_model_parameters.toml`` — immutable scalar Params that belong in
+            ``[settings.agent.model_parameters]`` of the run config.
 
     :param model: Pyomo ConcreteModel instance.
     :param model_name: Name of the model used for file naming.
@@ -365,7 +318,6 @@ def export_pyomo_model_state(
     """
     output_directory = pathlib.Path.cwd().absolute() if output_dir is None else pathlib.Path(output_dir).absolute()
     output_directory.mkdir(parents=True, exist_ok=True)
-
     export_pyomo_model_state_config(model, model_name, output_directory / f"{model_name}_state_config.toml")
     export_pyomo_model_parameters(model, model_name, output_directory / f"{model_name}_model_parameters.toml")
 

@@ -18,6 +18,10 @@ class DrKea(BaseEnv):
     version = "0.1"
     description = "Simple environment for kea example."
 
+    def __init__(self, *, initial_tank_temperature: float, **kwargs: Any) -> None:
+        self.initial_tank_temperature = initial_tank_temperature
+        super().__init__(**kwargs)
+
     # --migration-env-observation-start--
     def _step(self) -> tuple[float, bool, bool, dict]:
         if self.state["heating"] == 1:
@@ -36,7 +40,7 @@ class DrKea(BaseEnv):
         seed: int | None = None,
         options: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        self.temp = 60.0
+        self.temp = self.initial_tank_temperature
         self.state["tank_temperature_start"] = np.array([self.temp])
 
         return {}
