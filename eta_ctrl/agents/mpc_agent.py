@@ -261,17 +261,29 @@ class MpcAgent(BaseAlgorithm):
 
         :param result: Result object returned by the Pyomo solver.
         """
-        if len(result["Solution"]) != 0:
-            gap_info = ""
-            if "Gap" in result["Solution"][0]:
-                gap_value = result["Solution"][0]["Gap"].value
-                if not isinstance(gap_value, opt.UndefinedData):
-                    gap_info = f" (achieved MIP gap: {gap_value})"
+        # Check if a (non-optimal) solution exists
+        # For direct solvers the 'Solution' attribute may be cleared, even though it exists
+        num_solutions = max(
+            len(result["Solution"]),
+            getattr(result["Problem"][0], "Number of solutions", 0),
+        )
+
+        def _format_gap(result: Any) -> str:
+            """Small helper function for extracting Gap information"""
+            if not result["Solution"] or "Gap" not in result["Solution"][0]:
+                return ""
+            gap = result["Solution"][0]["Gap"]
+            gap_value = getattr(gap, "value", gap)
+            if isinstance(gap_value, opt.UndefinedData):
+                return ""
+            return f" (achieved MIP gap: {gap_value})"
+
+        if num_solutions > 0:
             log.warning(
                 "Solver did not reach optimal solution%s. "
                 "Termination condition: %s, Status: %s. "
                 "Continuing with best available solution.",
-                gap_info,
+                _format_gap(result=result),
                 result.solver.termination_condition,
                 result.solver.status,
             )
