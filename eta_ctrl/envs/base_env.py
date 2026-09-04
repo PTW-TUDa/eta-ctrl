@@ -64,6 +64,9 @@ class BaseEnv(Env, abc.ABC):
     :param state_modification_callback: callback that should be called after state setup, before logging the state.
     :param episode_duration: Duration of the episode in seconds.
     :param sampling_time: Duration of a single time sample / time step in seconds.
+    :param sim_steps_per_sample: Number of simulation steps to perform during every sample (default: 1). Each
+        simulation step advances the simulation by ``sampling_time / sim_steps_per_sample``. Whether values
+        greater than 1 are supported depends on the concrete environment.
     :param render_mode: Renders the environments to help visualise what the agent see, examples
         modes are "human", "rgb_array", "ansi" for text.
     :param path_env: Explicit path to the environment directory. If not provided, the path will be
@@ -135,7 +138,10 @@ class BaseEnv(Env, abc.ABC):
         #: Number of time steps (of width sampling_time) in each episode.
         self.n_episode_steps: int = int(self.episode_duration // self.sampling_time)
 
-        #: Number of simulation steps to be taken for each sample. This must be a divisor of 'sampling_time'.
+        #: Number of simulation steps performed during every sample. Each simulation step advances the simulation by
+        #: ``sampling_time / sim_steps_per_sample``. Whether values greater than 1 are supported depends on the
+        #: concrete environment (``SimEnv`` subdivides each sample, while ``PyomoSimEnv`` only supports the
+        #: default of 1).
         self.sim_steps_per_sample: int = int(sim_steps_per_sample)
 
         #: State Configuration for defining State Variables.
