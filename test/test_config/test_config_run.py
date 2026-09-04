@@ -32,3 +32,27 @@ class TestRunInfoStringRepresentations:
         result = str(run_info)
         assert "series='my_series'" in result
         assert "name='my_run'" in result
+
+
+@pytest.mark.parametrize(
+    ("attribute_name", "invalid_name"),
+    [
+        ("series", "my/series"),
+        ("series", "my\\series"),
+        ("name", "my/run"),
+        ("name", "my\\run"),
+    ],
+)
+def test_run_info_rejects_path_separators(attribute_name, invalid_name, tmp_path):
+    run_info_kwargs = {
+        "series": "my_series",
+        "name": "my_run",
+        "description": "test description",
+        "root_path": tmp_path,
+        "results_path": tmp_path / "results",
+        "scenarios_path": tmp_path / "scenarios",
+    }
+    run_info_kwargs[attribute_name] = invalid_name
+
+    with pytest.raises(ValueError, match="must not contain path separators"):
+        RunInfo(**run_info_kwargs)
