@@ -19,6 +19,9 @@ class TestPyomoSimEnv:
             sampling_time=300,  # 5 minutes
         )
 
+    def test_sim_steps_per_sample_defaults_to_one(self, env):
+        assert env.sim_steps_per_sample == 1
+
     def test_step(self, env):
         """Test the actual simulation process"""
 
