@@ -4,7 +4,7 @@ import pathlib
 from logging import getLogger
 from typing import TYPE_CHECKING
 
-from attrs import converters, define, field, validators
+from attrs import Attribute, converters, define, field, validators
 
 if TYPE_CHECKING:
     from eta_ctrl.envs import BaseEnv
@@ -13,14 +13,21 @@ if TYPE_CHECKING:
 log = getLogger(__name__)
 
 
+def _validate_name_has_no_path_separators(_: object, attribute: Attribute[str], value: str) -> None:
+    """Ensure a name can be used as a single path component on all supported operating systems."""
+    if "/" in value or "\\" in value:
+        msg = f"{attribute.name} must not contain path separators '/' or '\\'."
+        raise ValueError(msg)
+
+
 @define(frozen=True, kw_only=True, repr=False)
 class RunInfo:
     """Tracks the identity, paths, and metadata of a single optimization run (series, run name, description)."""
 
     #: Name of the series of optimization runs.
-    series: str = field(validator=validators.instance_of(str))
+    series: str = field(validator=validators.and_(validators.instance_of(str), _validate_name_has_no_path_separators))
     #: Name of an optimization run.
-    name: str = field(validator=validators.instance_of(str))
+    name: str = field(validator=validators.and_(validators.instance_of(str), _validate_name_has_no_path_separators))
     #: Description of an optimization run.
     description: str = field(
         converter=converters.default_if_none(""),  # type: ignore[misc]
