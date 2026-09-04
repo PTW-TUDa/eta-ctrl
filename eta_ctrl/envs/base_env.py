@@ -11,7 +11,6 @@ import numpy as np
 import pandas as pd
 from gymnasium import Env, spaces
 
-from eta_ctrl.util.io_utils import csv_export
 from eta_ctrl.util.utils import timestep_to_seconds
 
 if TYPE_CHECKING:
@@ -682,14 +681,17 @@ class BaseEnv(Env, abc.ABC):
         sep: str = ";",
         decimal: str = ".",
     ) -> None:
-        """Extension of csv_export to include timeseries on the data.
+        """Export the current episode's state log as a CSV file.
 
-        :param names: Field names used when data is a Matrix without column names.
+        :param path: Target file path.
+        :param names: Optional subset of state variables to export, in the desired column order.
         :param sep: Separator to use between the fields.
         :param decimal: Sign to use for decimal points.
         """
         state_log_df = self.transform_state_log()
-        csv_export(path=path, data=state_log_df, sep=sep, decimal=decimal)
+        if names is not None:
+            state_log_df = state_log_df.reindex(columns=list(names))
+        state_log_df.to_csv(path_or_buf=path, sep=sep, decimal=decimal, mode="w")
 
     def get_observations(self) -> dict[str, np.ndarray]:
         """Gather observations from the state.

@@ -481,3 +481,32 @@ class TestTransformStateLog:
         assert result.index[1] == start_time + pd.Timedelta(seconds=0.2)  # 1.0 / 5
         assert list(result.iloc[0]) == [1.0, 2.0]
         assert list(result["b"]) == [2.0, 4.0]
+
+
+class TestExportStateLog:
+    """Unit tests for BaseEnv.export_state_log."""
+
+    @pytest.fixture
+    def env(self, unified_env_factory) -> BaseEnv:
+        return unified_env_factory(sampling_time=1)
+
+    def test_export_state_log(self, env: BaseEnv, tmp_path):
+        env.episode_timer = pd.Timestamp("2024-01-01 10:00:00")
+        env.state_log = [{"a": 1, "b": 2}, {"a": 3, "b": 4}]
+
+        path = tmp_path / "state_log.csv"
+        env.export_state_log(path)
+
+        report = pd.read_csv(path, sep=";", index_col=0)
+        assert list(report.columns) == ["a", "b"]
+        assert list(report["b"]) == [2.0, 4.0]
+
+    def test_export_filters_columns(self, env: BaseEnv, tmp_path):
+        env.episode_timer = pd.Timestamp("2024-01-01 10:00:00")
+        env.state_log = [{"a": 1, "b": 2, "c": 3}, {"a": 4, "b": 5, "c": 6}]
+
+        env.export_state_log(tmp_path / "state_log.csv", names=["b"])
+
+        report = pd.read_csv(tmp_path / "state_log.csv", sep=";", index_col=0)
+        assert list(report.columns) == ["b"]
+        assert list(report["b"]) == [2.0, 5.0]
