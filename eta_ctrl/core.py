@@ -141,8 +141,7 @@ class EtaCtrl:
             name=run_name,
             description=run_description,
             root_path=self.config.root_path,
-            results_path=self.config.results_path,
-            scenarios_path=self.config.scenarios_path,
+            paths=self.config.paths,
         )
         self.run_info.create_results_folders()
 
@@ -299,12 +298,15 @@ class EtaCtrl:
             # Set the seed for the environments before starting to learn
             self.environments.seed(self.config.settings.seed)
 
+            # Create Callback for saving model checkpoints
+            # Savepoint path is defined as follows (values supplied by CheckpointCallback):
+            # save_path / f"{self.name_prefix}_{checkpoint_type}{num_timesteps}_steps.{extension}")
             from stable_baselines3.common.callbacks import CheckpointCallback  # noqa: PLC0415
 
             callback_learn = merge_callbacks(
                 CheckpointCallback(
                     save_freq=save_freq,
-                    save_path=str(self.run_info.series_results_path / "models"),
+                    save_path=str(self.run_info.models_path),
                     name_prefix=self.run_info.name,
                 ),
                 callbacks,
@@ -319,7 +321,11 @@ class EtaCtrl:
                     tb_log_name=self.run_info.name,
                 )
             except OSError:
-                filename = str(self.run_info.series_results_path / f"{self.run_info.name}_model_before_error.pkl")
+                # Determine the filepath to save the model before it failed (not defined in RunInfo)
+                filename = str(
+                    self.run_info.series_results_path
+                    / f"{self.run_info.name}_{self.config.paths.model_before_error_filename}"
+                )
                 log.info(f"Saving model to file: {filename}.")
                 self.model.save(filename)
                 raise

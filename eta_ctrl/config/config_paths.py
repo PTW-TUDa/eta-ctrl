@@ -9,6 +9,8 @@ log = getLogger(__name__)
 
 
 class ConfigPaths(BaseModel):
+    """Relative paths and filenames set in the experiment config ``paths`` section."""
+
     model_config = ConfigDict(frozen=True, extra="forbid", use_attribute_docstrings=True)
 
     state_file_relpath: Path | None = None
@@ -22,3 +24,27 @@ class ConfigPaths(BaseModel):
 
     scenarios_relpath: Path = Path("scenarios")
     """Relative path to the scenarios folder."""
+
+    models_relpath: Path = Path("models")
+    """Relative path to model checkpoints within the series results folder."""
+
+    model_filename: Path = Path("model.zip")
+    """Filename of the saved ML model."""
+
+    model_before_error_filename: Path = Path("model_before_error.zip")
+    """Filename used to preserve a ML model when learning fails."""
+
+    info_filename: Path = Path("info.json")
+    """Filename of the run information."""
+
+    monitor_filename: Path = Path("monitor.csv")
+    """Filename of the monitoring data."""
+
+    log_output_filename: Path = Path("log_output.log")
+    """Filename of the run log."""
+
+    vec_normalize_filename: Path = Path("vec_normalize.pkl")
+    """Filename of the SB3 normalization wrapper."""
+
+    net_arch_filename: Path = Path("net_arch.txt")
+    """Filename of the neural network architecture."""

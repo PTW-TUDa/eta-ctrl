@@ -5,7 +5,7 @@ import tempfile
 
 import pytest
 
-from eta_ctrl.config import RunInfo
+from eta_ctrl.config import ConfigPaths, RunInfo
 
 
 class TestRunInfoStringRepresentations:
@@ -19,8 +19,7 @@ class TestRunInfoStringRepresentations:
             name="my_run",
             description="test description",
             root_path=temp_path,
-            results_path=temp_path / "results",
-            scenarios_path=temp_path / "scenarios",
+            paths=ConfigPaths(),
         )
 
     # --- __str__ ---
@@ -32,6 +31,18 @@ class TestRunInfoStringRepresentations:
         result = str(run_info)
         assert "series='my_series'" in result
         assert "name='my_run'" in result
+
+    def test_absolute_paths(self, run_info: RunInfo):
+        assert run_info.results_path == run_info.root_path / "results"
+        assert run_info.scenarios_path == run_info.root_path / "scenarios"
+        assert run_info.series_results_path == run_info.results_path / "my_series"
+        assert run_info.run_model_path == run_info.series_results_path / "my_run_model.zip"
+        assert run_info.run_info_path == run_info.series_results_path / "my_run_info.json"
+        assert run_info.run_monitor_path == run_info.series_results_path / "my_run_monitor.csv"
+        assert run_info.vec_normalize_path == run_info.series_results_path / "vec_normalize.pkl"
+        assert run_info.net_arch_path == run_info.series_results_path / "net_arch.txt"
+        assert run_info.log_output_path == run_info.series_results_path / "my_run_log_output.log"
+        assert run_info.models_path == run_info.series_results_path / "models"
 
 
 @pytest.mark.parametrize(
@@ -49,8 +60,7 @@ def test_run_info_rejects_path_separators(attribute_name, invalid_name, tmp_path
         "name": "my_run",
         "description": "test description",
         "root_path": tmp_path,
-        "results_path": tmp_path / "results",
-        "scenarios_path": tmp_path / "scenarios",
+        "paths": ConfigPaths(),
     }
     run_info_kwargs[attribute_name] = invalid_name
 

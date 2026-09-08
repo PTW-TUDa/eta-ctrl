@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from eta_ctrl.config import RunInfo
+from eta_ctrl.config import ConfigPaths, RunInfo
 from eta_ctrl.envs import BaseEnv, LiveEnv, PyomoSimEnv, SimEnv, StateConfig, StateVar
 from eta_ctrl.timeseries.scenario_manager import ScenarioManager
 
@@ -72,8 +72,10 @@ def run_info_factory(temp_directory_factory):
             name=name,
             description=description,
             root_path=temp_path,
-            results_path=temp_path / "results" if create_subdirs else temp_path,
-            scenarios_path=temp_path / "scenarios" if create_subdirs else temp_path,
+            paths=ConfigPaths(
+                results_relpath="results" if create_subdirs else ".",
+                scenarios_relpath="scenarios" if create_subdirs else ".",
+            ),
         )
         return config, temp_path
 

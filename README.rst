@@ -27,8 +27,11 @@ Core
 Configuration
 ==========================
 
-- **`Config`**: Represents the configuration for an optimization run.
-- **`RunInfo`**: Handles paths and metadata for optimization runs.
+- **`Config`**: Represents the configuration of an experiment.
+- **`ConfigPaths`**: Relative paths and file names of the run files (part of `Config`, configurable in the `paths` section of the experiment config file).
+- **`ConfigSetup`**: Import and setup parameters for agent, environment, vectorizer, and policy (part of `Config`, configurable in the `setup` section of the experiment config file).
+- **`ConfigSettings`**: Settings parameters such as sampling time, prediction horizon, and agent/environment/scenario settings (part of `Config`, configurable in the `settings` section of the experiment config file).
+- **`RunInfo`**: Handles metadata and absolute paths of a single optimization run (Is derived by `ETA Ctrl` for each run).
 
 Agent
 ==========================
