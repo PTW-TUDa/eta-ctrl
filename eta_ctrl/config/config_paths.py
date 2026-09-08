@@ -1,17 +1,33 @@
 from __future__ import annotations
 
+import warnings
 from logging import getLogger
 from pathlib import Path
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 log = getLogger(__name__)
+
+_DEPRECATED_PATHS_KEYS = frozenset({"monitor_filename"})
 
 
 class ConfigPaths(BaseModel):
     """Relative paths and filenames set in the experiment config ``paths`` section."""
 
     model_config = ConfigDict(frozen=True, extra="forbid", use_attribute_docstrings=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _warn_deprecated_keys(cls, data: Any) -> Any:
+        """Warn when a deprecated ``paths`` key is still specified in the config."""
+        if "monitor_filename" in data:
+            warnings.warn(
+                "'monitor_filename' is deprecated.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        return data
 
     state_file_relpath: Path | None = None
     """Relative path to the state_config file (default: [environment_classname]_state_config).

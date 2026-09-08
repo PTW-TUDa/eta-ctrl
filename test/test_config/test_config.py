@@ -94,6 +94,14 @@ class TestConfigFromFile:
         )
         assert config.paths.scenarios_relpath == Path("data_dir")
 
+    def test_from_file_deprecated_paths_key_warns(self, resources_path):
+        overwrite = {"paths": {"monitor_filename": "run.monitor"}}
+        with pytest.warns(DeprecationWarning, match=r"monitor_filename"):
+            config = Config.from_file(
+                root_path=resources_path, config_relpath="config", config_name="config2", overwrite=overwrite
+            )
+        assert config.paths.monitor_filename == Path("run.monitor")
+
     def test_from_file_overwrite_nested(self, resources_path):
         overwrite = {"settings": {"agent": {"foo": "bar"}}}
         config = Config.from_file(

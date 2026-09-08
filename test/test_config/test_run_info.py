@@ -38,11 +38,17 @@ class TestRunInfoStringRepresentations:
         assert run_info.series_results_path == run_info.results_path / "my_series"
         assert run_info.run_model_path == run_info.series_results_path / "my_run_model.zip"
         assert run_info.run_info_path == run_info.series_results_path / "my_run_info.json"
-        assert run_info.run_monitor_path == run_info.series_results_path / "my_run_monitor.csv"
         assert run_info.vec_normalize_path == run_info.series_results_path / "vec_normalize.pkl"
         assert run_info.net_arch_path == run_info.series_results_path / "net_arch.txt"
         assert run_info.log_output_path == run_info.series_results_path / "my_run_log_output.log"
         assert run_info.models_path == run_info.series_results_path / "models"
+
+    def test_run_monitor_path_deprecated(self, run_info: RunInfo):
+        with pytest.warns(DeprecationWarning, match="run_monitor_path"):
+            assert run_info.run_monitor_path == run_info.series_results_path / "my_run_monitor.csv"
+
+    def test_run_monitor_path_not_in_model_dump(self, run_info: RunInfo):
+        assert "run_monitor_path" not in run_info.model_dump()
 
 
 @pytest.mark.parametrize(
