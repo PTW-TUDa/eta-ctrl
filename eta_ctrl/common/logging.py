@@ -6,8 +6,6 @@ import pathlib
 from logging import getLogger
 from typing import TYPE_CHECKING
 
-from attrs import asdict
-
 from eta_ctrl.util import log_add_filehandler
 
 if TYPE_CHECKING:
@@ -54,7 +52,7 @@ def log_run_config(config: Config, run_info: RunInfo) -> None:
                 return repr(o)
 
         try:
-            json.dump({**asdict(run_info), **config.model_dump()}, f, indent=4, cls=Encoder)
+            json.dump({**run_info.model_dump(), **config.model_dump()}, f, indent=4, cls=Encoder)
             log.info("Log file successfully created.")
         except TypeError:
             log.warning("Log file could not be created because of non-serializable input in config.")

@@ -7,6 +7,10 @@ policy_import = "eta_ctrl.common.NoPolicy"
 [paths]
 results_relpath = "results"
 scenarios_relpath = "scenarios"
+models_relpath = "models"
+model_filename = "model.zip"
+info_filename = "info.json"
+log_output_filename = "log_output.log"
 
 [settings]
 sampling_time = 10

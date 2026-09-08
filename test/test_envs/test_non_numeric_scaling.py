@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from eta_ctrl.config.config_paths import ConfigPaths
 from eta_ctrl.config.run_info import RunInfo
 from eta_ctrl.envs.base_env import BaseEnv
 from eta_ctrl.envs.state import StateConfig, StateVar
@@ -23,8 +24,7 @@ def test_env():
         name="bool_test",
         description="Test",
         root_path=temp_path,
-        results_path=temp_path / "results",
-        scenarios_path=temp_path / "scenarios",
+        paths=ConfigPaths(),
     )
 
     state_config = StateConfig(
