@@ -44,7 +44,6 @@ dependencies = [
     "pyomo (>=6.9.2,<6.11.0)",
     "eta-nexus ==0.2.1",
     "pydantic (>=2.12.0,<3.0.0)",
-    "sphinxcontrib-mermaid (>=2.1.0,<3.0.0)",
 ]
 optional-dependencies.examples = [
     "matplotlib (>=3.10.0,<3.12.0)",
@@ -58,6 +57,7 @@ optional-dependencies.docs = [
     "sphinx (>=8.0.0,<10.0.0)",
     "sphinx-rtd-theme (>=3.0.0,<4.0.0)",
     "sphinx-copybutton (>=0.5.2,<1.0.0)",
+    "sphinxcontrib-mermaid (>=2.1.0,<3.0.0)",
     "autodoc-pydantic (>=2.2.0,<3.0.0)",
 ]
 [project.urls]
@@ -103,6 +103,7 @@ cplex = "*"
 sphinx = "*"
 sphinx-rtd-theme = "*"
 sphinx-copybutton = "*"
+sphinxcontrib-mermaid = "*"
 autodoc-pydantic = "*"
 
 [tool.poetry.group.dev.dependencies]
