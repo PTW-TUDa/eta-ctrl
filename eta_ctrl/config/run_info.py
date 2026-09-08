@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import pathlib  # noqa: TC003
 from logging import getLogger
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, ValidationInfo, computed_field, field_validator
+from typing_extensions import deprecated
 
 from eta_ctrl.config.config_paths import ConfigPaths  # noqa: TC001
 
 if TYPE_CHECKING:
+    from typing import Any
+
     from eta_ctrl.envs import BaseEnv
 
 log = getLogger(__name__)
@@ -81,10 +84,10 @@ class RunInfo(BaseModel):
         """Absolute path to information about the run."""
         return self.series_results_path / f"{self.name}_{self.paths.info_filename}"
 
-    @computed_field  # type: ignore[prop-decorator]
     @property
+    @deprecated("RunInfo.run_monitor_path is deprecated and will be removed in a future release.")
     def run_monitor_path(self) -> pathlib.Path:
-        """Absolute path to the monitoring information about the run."""
+        """Deprecated: Absolute path to the monitoring information about the run."""
         return self.series_results_path / f"{self.name}_{self.paths.monitor_filename}"
 
     @computed_field  # type: ignore[prop-decorator]
@@ -149,7 +152,6 @@ class RunInfo(BaseModel):
             "series_results_path": self.series_results_path,
             "run_model_path": self.run_model_path,
             "run_info_path": self.run_info_path,
-            "run_monitor_path": self.run_monitor_path,
             "vec_normalize_path": self.vec_normalize_path,
             "log_output_path": self.log_output_path,
             "models_path": self.models_path,

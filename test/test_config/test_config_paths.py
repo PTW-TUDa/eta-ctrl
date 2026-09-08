@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from eta_ctrl.config import ConfigPaths
 
 
@@ -13,7 +15,6 @@ class TestConfigPaths:
         assert config_paths.model_filename == Path("model.zip")
         assert config_paths.model_before_error_filename == Path("model_before_error.zip")
         assert config_paths.info_filename == Path("info.json")
-        assert config_paths.monitor_filename == Path("monitor.csv")
         assert config_paths.log_output_filename == Path("log_output.log")
         assert config_paths.vec_normalize_filename == Path("vec_normalize.pkl")
         assert config_paths.net_arch_filename == Path("net_arch.txt")
@@ -27,7 +28,6 @@ class TestConfigPaths:
             "model_filename": "agent.model",
             "model_before_error_filename": "failed.model",
             "info_filename": "run.info",
-            "monitor_filename": "run.monitor",
             "log_output_filename": "run.log",
             "vec_normalize_filename": "normalization.pkl",
             "net_arch_filename": "architecture.txt",
@@ -40,8 +40,16 @@ class TestConfigPaths:
         assert config_paths.model_filename == Path("agent.model")
         assert config_paths.model_before_error_filename == Path("failed.model")
         assert config_paths.info_filename == Path("run.info")
-        assert config_paths.monitor_filename == Path("run.monitor")
         assert config_paths.log_output_filename == Path("run.log")
         assert config_paths.vec_normalize_filename == Path("normalization.pkl")
         assert config_paths.net_arch_filename == Path("architecture.txt")
         assert config_paths.models_relpath == Path("saved_models")
+
+    def test_monitor_filename_still_accepted(self):
+        with pytest.warns(DeprecationWarning, match=r"monitor_filename"):
+            config_paths = ConfigPaths(monitor_filename="run.monitor")
+        assert config_paths.monitor_filename == Path("run.monitor")
+
+    def test_monitor_filename_default_does_not_warn(self):
+        config_paths = ConfigPaths()
+        assert config_paths.monitor_filename == Path("monitor.csv")
