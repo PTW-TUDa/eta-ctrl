@@ -35,8 +35,8 @@ Configuration
 
 Agent
 ==========================
-  - **`MpcAgent`**: Pyomo based optimization agent supporting multiple solvers.
-  - **`RuleBased`**: Simple agent using a control rule function.
+- **`MpcAgent`**: Pyomo based optimization agent supporting multiple solvers.
+- **`RuleBased`**: Simple agent using a control rule function.
 
 Environment
 ==========================
