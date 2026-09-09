@@ -21,6 +21,8 @@ LOG_INFO = 2
 LOG_WARNING = 3
 LOG_ERROR = 4
 LOG_PREFIX = "eta_ctrl"
+NEXUS_LOG_PREFIX = "eta_nexus"
+ASYNCUA_LOG_PREFIX = "asyncua"
 LOG_FORMATS = {
     "simple": "[%(levelname)s] %(message)s",
     "logname": "[%(levelname)s: %(name)s] %(message)s",
@@ -74,12 +76,19 @@ def log_add_filehandler(
     filename: Path | None = None,
     level: int = 1,
     log_format: str = "time",
+    *,
+    include_connection_logs: bool = True,
 ) -> logging.Logger:
     """Add a file handler to the logger to save the log output.
 
     :param filename: File path where logger is stored.
     :param level: Logging level (higher is more verbose between 0 - no output and 4 - debug).
     :param log_format: Format of the log output. One of: simple, logname, time. (default: time).
+    :param include_connection_logs: Also route ``eta_nexus`` and ``asyncua`` records into this
+        file. Those loggers are siblings of ``eta_ctrl`` and do not propagate to it, so
+        otherwise the experiment log contains nothing about the live connection. Enabling this
+        also raises the ``eta_nexus`` logger to the file handler's level so connection details
+        are actually recorded; the ``asyncua`` logger level is left as configured elsewhere.
     :return: The *FileHandler* logger.
     """
     log = logging.getLogger(LOG_PREFIX)
@@ -105,6 +114,18 @@ def log_add_filehandler(
     filehandler.setLevel(int(level * 10))
     filehandler.setFormatter(logging.Formatter(fmt=_format))
     log.addHandler(filehandler)
+
+    if include_connection_logs:
+        # eta_nexus and asyncua are sibling loggers that do not propagate to the eta_ctrl
+        # logger. Share the experiment file handler so connection details are written to
+        # the same log file.
+        nexus_log = logging.getLogger(NEXUS_LOG_PREFIX)
+        nexus_log.setLevel(filehandler.level)
+        nexus_log.addHandler(filehandler)
+
+        # OPC UA lifecycle messages are emitted by asyncua rather than eta_nexus.
+        # Do not change its level: the file should contain only records already enabled for the terminal.
+        logging.getLogger(ASYNCUA_LOG_PREFIX).addHandler(filehandler)
 
     return log
 
