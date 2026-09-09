@@ -3,6 +3,9 @@ from __future__ import annotations
 import abc
 from collections.abc import Sequence
 from logging import getLogger
+from math import isnan
+from numbers import Real
+from time import sleep
 from typing import TYPE_CHECKING
 
 from eta_nexus.connection_manager import ConnectionManager
@@ -13,10 +16,13 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from typing import Any
 
-    from eta_ctrl.config import ConfigRun
+    from eta_ctrl.config import RunInfo
     from eta_ctrl.util.type_annotations import Path, TimeStep
 
 log = getLogger(__name__)
+
+LIVE_READ_RETRY_ATTEMPTS = 10
+LIVE_READ_RETRY_DELAY_SECONDS = 10
 
 
 class LiveEnv(BaseEnv, abc.ABC):
@@ -31,7 +37,7 @@ class LiveEnv(BaseEnv, abc.ABC):
       - **config_name**: Name of the connection manager configuration.
 
     :param env_id: Identification for the environment, useful when creating multiple environments.
-    :param config_run: Configuration of the optimization run.
+    :param run_info: Configuration of the optimization run.
     :param verbose: Verbosity to use for logging.
     :param callback: callback which should be called after each episode.
     :param episode_duration: Duration of the episode in seconds.
@@ -54,7 +60,7 @@ class LiveEnv(BaseEnv, abc.ABC):
     def __init__(
         self,
         env_id: int,
-        config_run: ConfigRun,
+        run_info: RunInfo,
         verbose: int = 2,
         callback: Callable | None = None,
         *,
@@ -66,7 +72,7 @@ class LiveEnv(BaseEnv, abc.ABC):
     ) -> None:
         super().__init__(
             env_id=env_id,
-            config_run=config_run,
+            run_info=run_info,
             verbose=verbose,
             callback=callback,
             episode_duration=episode_duration,
@@ -160,7 +166,12 @@ class LiveEnv(BaseEnv, abc.ABC):
         :meta public:
         """
         # Set the external inputs in the live connector and read out the external outputs
-        results = self.connection_manager.step(value=self.get_external_inputs())
+        try:
+            results = self.connection_manager.step(value=self.get_external_inputs())
+        except (ConnectionError, TimeoutError):
+            log.exception("ConnectionManager step failed; retrying the external output read.")
+            results = {}
+        results = self._retry_read_if_invalid(results)
 
         self.set_external_outputs(external_outputs=results)
 
@@ -198,13 +209,60 @@ class LiveEnv(BaseEnv, abc.ABC):
         """
         self._init_connection_manager()
 
-        # Read out the start conditions from LiveConnect and store the results
-        start_obs_names = [self.state_config.map_ext_ids[name] for name in self.state_config.ext_outputs]
-        results = self.connection_manager.read(*start_obs_names)
+        # Read out the start conditions from the ConnectionManager and store the results
+        results = self._read_external_outputs()
+        results = self._retry_read_if_invalid(results)
 
         self.set_external_outputs(external_outputs=results)
 
         return {}
+
+    def _read_external_outputs(self) -> dict[str, Any]:
+        """Read all configured external outputs from the connection manager."""
+        external_output_ids = [self.state_config.map_ext_ids[name] for name in self.state_config.ext_outputs]
+        try:
+            return self.connection_manager.read(*external_output_ids)
+        except (ConnectionError, TimeoutError):
+            log.exception("ConnectionManager read failed; treating it as an invalid read result.")
+            return {}
+
+    @staticmethod
+    def _read_failure_reason(results: dict[str, Any]) -> str | None:
+        """Describe an unusable connection result, or return None when all values are usable."""
+        if not results:
+            return "empty result"
+
+        nan_value_count = sum(1 for value in results.values() if isinstance(value, Real) and isnan(value))
+        if nan_value_count:
+            return f"{nan_value_count} NaN value(s)"
+        return None
+
+    def _retry_read_if_invalid(self, results: dict[str, Any]) -> dict[str, Any]:
+        """Retry an empty or NaN live read up to ten times, waiting ten seconds between reads."""
+        failure_reason = self._read_failure_reason(results)
+        if failure_reason is None:
+            return results
+
+        log.warning(
+            "ConnectionManager returned an empty read result; retrying up to %d times with %d seconds between reads.",
+            LIVE_READ_RETRY_ATTEMPTS,
+            LIVE_READ_RETRY_DELAY_SECONDS,
+        )
+        retry_results = results
+        for attempt in range(1, LIVE_READ_RETRY_ATTEMPTS + 1):
+            sleep(LIVE_READ_RETRY_DELAY_SECONDS)
+            retry_results = self._read_external_outputs()
+            if retry_results:
+                log.info(
+                    "Live read retry %d/%d returned %d values.",
+                    attempt,
+                    LIVE_READ_RETRY_ATTEMPTS,
+                    len(retry_results),
+                )
+                return retry_results
+
+        log.error("Live read remained empty after %d retries.", LIVE_READ_RETRY_ATTEMPTS)
+        return retry_results
 
     def close(self) -> None:
         """Close the environment. This should always be called when an entire run is finished. It should be used to

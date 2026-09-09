@@ -4,21 +4,20 @@ import abc
 import inspect
 import pathlib
 import time
-from datetime import datetime, timedelta
 from logging import getLogger
 from typing import TYPE_CHECKING, cast
 
 import numpy as np
+import pandas as pd
 from gymnasium import Env, spaces
 
-from eta_ctrl.util import csv_export
 from eta_ctrl.util.utils import timestep_to_seconds
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping, Sequence
     from typing import Any
 
-    from eta_ctrl.config import ConfigRun
+    from eta_ctrl.config import RunInfo
     from eta_ctrl.envs.state import StateConfig
     from eta_ctrl.timeseries.scenario_manager import ScenarioManager
     from eta_ctrl.util.type_annotations import ObservationType, Path, StepResult, TimeStep
@@ -58,12 +57,15 @@ class BaseEnv(Env, abc.ABC):
         Gymnasium interface and state management automatically.
 
     :param env_id: Identification for the environment, useful when creating multiple environments.
-    :param config_run: Configuration of the optimization run.
+    :param run_info: Configuration of the optimization run.
     :param verbose: Verbosity to use for logging.
     :param callback: callback that should be called after each episode.
     :param state_modification_callback: callback that should be called after state setup, before logging the state.
     :param episode_duration: Duration of the episode in seconds.
     :param sampling_time: Duration of a single time sample / time step in seconds.
+    :param sim_steps_per_sample: Number of simulation steps to perform during every sample (default: 1). Each
+        simulation step advances the simulation by ``sampling_time / sim_steps_per_sample``. Whether values
+        greater than 1 are supported depends on the concrete environment.
     :param render_mode: Renders the environments to help visualise what the agent see, examples
         modes are "human", "rgb_array", "ansi" for text.
     :param path_env: Explicit path to the environment directory. If not provided, the path will be
@@ -92,7 +94,7 @@ class BaseEnv(Env, abc.ABC):
     def __init__(
         self,
         env_id: int,
-        config_run: ConfigRun,
+        run_info: RunInfo,
         state_config: StateConfig,
         verbose: int = 2,
         callback: Callable | None = None,
@@ -116,7 +118,7 @@ class BaseEnv(Env, abc.ABC):
         # Set some standard path settings
         #: Information about the optimization run and information about the paths.
         #: For example, it defines results_path and scenarios_path.
-        self.config_run: ConfigRun = config_run
+        self.run_info: RunInfo = run_info
 
         #: Callback can be used for logging and plotting.
         self.callback: Callable | None = callback
@@ -135,7 +137,10 @@ class BaseEnv(Env, abc.ABC):
         #: Number of time steps (of width sampling_time) in each episode.
         self.n_episode_steps: int = int(self.episode_duration // self.sampling_time)
 
-        #: Number of simulation steps to be taken for each sample. This must be a divisor of 'sampling_time'.
+        #: Number of simulation steps performed during every sample. Each simulation step advances the simulation by
+        #: ``sampling_time / sim_steps_per_sample``. Whether values greater than 1 are supported depends on the
+        #: concrete environment (``SimEnv`` subdivides each sample, while ``PyomoSimEnv`` only supports the
+        #: default of 1).
         self.sim_steps_per_sample: int = int(sim_steps_per_sample)
 
         #: State Configuration for defining State Variables.
@@ -200,22 +205,22 @@ class BaseEnv(Env, abc.ABC):
     @property
     def run_name(self) -> str:
         #: Name of the current optimization run.
-        return self.config_run.name
+        return self.run_info.name
 
     @property
     def results_path(self) -> pathlib.Path:
         #: Path for storing results.
-        return self.config_run.results_path
+        return self.run_info.results_path
 
     @property
     def scenarios_path(self) -> pathlib.Path | None:
         #: Path for the scenario data.
-        return self.config_run.scenarios_path
+        return self.run_info.scenarios_path
 
     @property
     def series_results_path(self) -> pathlib.Path:
         #: Path for storing results of series of runs.
-        return self.config_run.series_results_path
+        return self.run_info.series_results_path
 
     @abc.abstractmethod
     def _step(self) -> tuple[float, bool, bool, dict]:
@@ -651,6 +656,29 @@ class BaseEnv(Env, abc.ABC):
             f"episode_duration={self.episode_duration}, sampling_time={self.sampling_time})"
         )
 
+    def transform_state_log(self) -> pd.DataFrame:
+        """Return the current state log transformed as a Dataframe.
+
+        :return: Transformed Dataframe
+        :rtype: pd.DataFrame
+        """
+        if len(self.state_log) == 0:
+            msg = "State log is empty: Can't export state data from the environment before running the experiment."
+            raise RuntimeError(msg)
+
+        step_freq = pd.Timedelta(seconds=self.sampling_time / self.sim_steps_per_sample)
+        # Live Mode
+        if self.scenario_manager is None:
+            start_time = pd.Timestamp(self.episode_timer)
+        # Scenario Mode
+        else:
+            start_time = self.scenario_manager.scenarios.index[0] + self._scenario_offset * step_freq
+
+        end_time = start_time + len(self.state_log) * step_freq
+        state_log_index = pd.date_range(start=start_time, end=end_time, freq=step_freq, inclusive="left")
+
+        return pd.DataFrame(self.state_log, index=state_log_index)
+
     def export_state_log(
         self,
         path: Path,
@@ -659,16 +687,17 @@ class BaseEnv(Env, abc.ABC):
         sep: str = ";",
         decimal: str = ".",
     ) -> None:
-        """Extension of csv_export to include timeseries on the data.
+        """Export the current episode's state log as a CSV file.
 
-        :param names: Field names used when data is a Matrix without column names.
+        :param path: Target file path.
+        :param names: Optional subset of state variables to export, in the desired column order.
         :param sep: Separator to use between the fields.
         :param decimal: Sign to use for decimal points.
         """
-        start_time = datetime.fromtimestamp(self.episode_timer)
-        step = self.sampling_time / self.sim_steps_per_sample
-        timerange = [start_time + timedelta(seconds=(k * step)) for k in range(len(self.state_log))]
-        csv_export(path=path, data=self.state_log, index=timerange, names=names, sep=sep, decimal=decimal)
+        state_log_df = self.transform_state_log()
+        if names is not None:
+            state_log_df = state_log_df.reindex(columns=list(names))
+        state_log_df.to_csv(path_or_buf=path, sep=sep, decimal=decimal, mode="w")
 
     def get_observations(self) -> dict[str, np.ndarray]:
         """Gather observations from the state.

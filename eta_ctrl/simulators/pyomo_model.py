@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import abc
-import importlib
 from collections.abc import Mapping, Sequence
 from datetime import timedelta
 from logging import getLogger
@@ -11,7 +10,7 @@ import numpy as np
 import pandas as pd
 from pyomo import environ as pyo
 
-from eta_ctrl.util.utils import is_divisible
+from eta_ctrl.util.utils import import_class_from_module, is_divisible
 
 if TYPE_CHECKING:
     import pathlib
@@ -24,21 +23,31 @@ log = getLogger(__name__)
 
 
 class PyomoModel:
+    """Base class for Pyomo optimization models.
+
+    Subclasses implement :meth:`_model` to define the abstract model structure.
+    This class handles prediction horizon validation, parameter preparation, and
+    creation of the concrete model instance.
+
+    :param sampling_time: Optimization time step in seconds.
+    :param model_parameters: Optional mapping of initial model parameter values.
+    :param prediction_horizon: Total prediction horizon duration in seconds.
+    """
+
     def __init__(
         self,
         *,
         sampling_time: float,
         model_parameters: dict[str, Any] | None = None,
         prediction_horizon: TimeStep | str | None = None,
-        **kwargs: Any,
     ) -> None:
         #: Sampling time (interval between optimization time steps) in seconds.
         self.sampling_time = sampling_time
 
-        # #: Total duration of one prediction/optimization run when used with the MPC agent.
         if prediction_horizon is None:
             msg = "Prediction_horizon parameter is not present in config."
             raise ValueError(msg)
+        #: Total duration of one prediction/optimization run when used with the MPC agent.
         self.prediction_horizon = float(
             prediction_horizon if not isinstance(prediction_horizon, timedelta) else prediction_horizon.total_seconds()
         )
@@ -56,9 +65,8 @@ class PyomoModel:
         #: Configuration for the MILP model parameters.
         self.model_parameters = (model_parameters or {}).copy()  # prevent modifying original parameters
 
-        abstract_model = self._model()
         #: Concrete pyomo model as initialized by _model.
-        self.model: pyo.ConcreteModel = abstract_model.create_instance(data=self._pyo_init_params())
+        self.model: pyo.ConcreteModel = self._model().create_instance(data=self._pyo_init_params())
 
     @abc.abstractmethod
     def _model(self) -> pyo.AbstractModel:
@@ -148,101 +156,32 @@ class PyomoModel:
 
         return {None: out}
 
-    def pyo_init_params(self) -> PyoParams:
-        """Public proxy for initial parameter mapping used by utility workflows."""
-        return self._pyo_init_params()
-
-    def build_abstract_model(self) -> pyo.AbstractModel:
-        """Public proxy for creating the model definition."""
-        return self._model()
-
-    @classmethod
-    def _resolve_model_class(cls, model_import: str) -> type[PyomoModel]:
-        """Resolve and return a PyomoModel subclass from a dotted import path."""
-        module_path, cls_name = model_import.rsplit(".", 1)
-        target_class = getattr(importlib.import_module(module_path), cls_name)
-        if not issubclass(target_class, PyomoModel):
-            msg = f"Imported class '{cls_name}' is not a subclass of PyomoModel."
-            raise TypeError(msg)
-        return target_class
-
-    @classmethod
-    def _create_export_probe(
-        cls,
-        target_class: type[PyomoModel],
-        sampling_time: float,
-        prediction_horizon: float,
-        model_parameters: dict[str, Any] | None = None,
-    ) -> PyomoModel:
-        """Create a lightweight model probe for export without running subclass ``__init__``."""
-        probe = target_class.__new__(target_class)
-        probe.sampling_time = sampling_time
-        probe.prediction_horizon = prediction_horizon
-        probe.n_prediction_steps = int(prediction_horizon / sampling_time)
-        probe.model_parameters = (model_parameters or {}).copy()
-
-        return probe
-
     @classmethod
     def _create_concrete_model_for_export(
         cls,
         model_import: str,
-        *,
-        sampling_time: float,
-        prediction_horizon: float,
-        model_parameters: dict[str, Any] | None = None,
     ) -> pyo.ConcreteModel:
         """Build a concrete Pyomo model for export without requiring runtime setup parameters.
 
         This path intentionally bypasses subclass ``__init__`` to avoid side effects
         and parameter checks that are unrelated to static structure export.
         """
-        if prediction_horizon <= 0 or sampling_time <= 0:
-            msg = "sampling_time and prediction_horizon must be positive values."
-            raise ValueError(msg)
-
-        if not is_divisible(prediction_horizon, sampling_time):
-            msg = (
-                "The sampling_time must fit evenly into the prediction_horizon "
-                "(prediction_horizon % sampling_time must equal 0)."
-            )
-            raise ValueError(msg)
-
-        target_class = cls._resolve_model_class(model_import)
-        probe = cls._create_export_probe(
-            target_class,
-            sampling_time=sampling_time,
-            prediction_horizon=prediction_horizon,
-            model_parameters=model_parameters,
-        )
-
-        abstract_model = probe.build_abstract_model()
+        target_class = import_class_from_module(model_import, PyomoModel)
+        probe = target_class.__new__(target_class)
+        # Set dummy value, needed for time index of PyomoModel
+        probe.n_prediction_steps = 1
+        abstract_model = probe._model()  #  noqa: SLF001
 
         # Fill missing scalar parameters with neutral defaults to allow
         # concrete model instantiation for static export purposes.
+        model_parameters: dict[str, float] = {}
         for component in abstract_model.component_objects(pyo.Param):
             if component.is_indexed():
                 continue
-            probe.model_parameters.setdefault(component.name, 0.0)
+            model_parameters[component.name] = 0.0
+        probe.model_parameters = model_parameters
 
-        return abstract_model.create_instance(data=probe.pyo_init_params())
-
-    @classmethod
-    def load_from_import(cls, model_import: str, **kwargs: Any) -> PyomoModel:
-        """Load a :class:`PyomoModel` subclass from a dotted Python import string.
-
-        This is the single place where model classes are resolved from their
-        import path, so both :class:`~eta_ctrl.agents.MpcAgent` and
-        :meth:`create_state` can reuse it without duplicating the logic.
-
-        :param model_import: Dotted import path to the subclass
-            (e.g. ``"eta_ctrl.examples.kea_tank.kea_pyomo_model.DrKeaModel"``).
-        :param kwargs: Keyword arguments forwarded to the subclass constructor
-            (e.g. ``sampling_time``, ``prediction_horizon``, ``model_parameters``).
-        :return: Instantiated :class:`PyomoModel` subclass.
-        """
-        target_class = cls._resolve_model_class(model_import)
-        return target_class(**kwargs)
+        return abstract_model.create_instance(data=probe._pyo_init_params())  # noqa: SLF001
 
     @classmethod
     def create_state(
@@ -250,40 +189,26 @@ class PyomoModel:
         model_import: str,
         model_name: str,
         output_dir: pathlib.Path | str | None = None,
-        **kwargs: Any,
     ) -> None:
         """Generate state config and model parameters TOML files for a PyomoModel.
 
-        Creates a concrete model from the subclass ``_model`` definition (without
-        running subclass ``__init__``), then writes:
+        Creates a concrete model from the subclass ``_model`` definition, then writes:
 
-        * ``{model_name}_state_config.toml`` — indexed ``pyo.Var`` components as
-          actions and indexed ``pyo.Param`` components as observations.
-        * ``{model_name}_model_parameters.toml`` — scalar ``pyo.Param`` components
-          that belong in ``[agent_specific.model_parameters]`` of the run config.
+                * ``{model_name}_state_config.toml`` — indexed ``pyo.Var`` components as
+                    actions and mutable ``pyo.Param`` components as observations.
+                * ``{model_name}_model_parameters.toml`` — immutable scalar ``pyo.Param`` components
+                    that belong in ``[settings.agent.model_parameters]`` of the run config.
 
         :param model_import: Dotted import path to the :class:`PyomoModel` subclass
             (e.g. ``"eta_ctrl.examples.kea_tank.kea_pyomo_model.DrKeaModel"``).
         :param model_name: Name used as prefix for the output files.
         :param output_dir: Target directory for the output files.
             Defaults to the current working directory.
-        :param kwargs: Optional export-time kwargs:
-            ``sampling_time`` (default ``1.0``), ``prediction_horizon``
-            (default ``sampling_time``), and ``model_parameters``.
         """
         # Import here to avoid a circular dependency at module load time
         from eta_ctrl.common.export_pyomo import export_pyomo_model_state  # noqa: PLC0415
 
-        sampling_time = float(kwargs.get("sampling_time", 1.0))
-        prediction_horizon = float(kwargs.get("prediction_horizon", sampling_time))
-        model_parameters = kwargs.get("model_parameters")
-
-        concrete_model = cls._create_concrete_model_for_export(
-            model_import,
-            sampling_time=sampling_time,
-            prediction_horizon=prediction_horizon,
-            model_parameters=model_parameters,
-        )
+        concrete_model = cls._create_concrete_model_for_export(model_import)
 
         export_pyomo_model_state(concrete_model, model_name, output_dir)
 

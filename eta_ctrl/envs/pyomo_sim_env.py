@@ -37,6 +37,9 @@ class PyomoSimEnv(BaseEnv, abc.ABC):
     This allows reusing the same Pyomo model definition for both MPC optimization (with
     :class:`~eta_ctrl.agents.MpcAgent`) and step-by-step simulation.
 
+    As the model always advances by one full ``sampling_time`` per environment step, ``sim_steps_per_sample``
+    is always set to 1.
+
     :param args: Positional arguments forwarded to :class:`~eta_ctrl.envs.BaseEnv`.
     :param kwargs: Keyword arguments forwarded to :class:`~eta_ctrl.envs.BaseEnv`.
         May include ``model_parameters`` (dict) which is extracted and passed to the model constructor.
@@ -50,6 +53,17 @@ class PyomoSimEnv(BaseEnv, abc.ABC):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+
+        # PyomoSimEnv advances the model by one full sampling_time step per environment step. As the
+        # model is instantiated with prediction_horizon = sampling_time, sim_steps_per_sample cannot
+        # be used to subdivide a sample and must therefore stay at its default of 1.
+        if self.sim_steps_per_sample != 1:
+            msg = (
+                "PyomoSimEnv only supports 'sim_steps_per_sample = 1' because it advances the Pyomo model "
+                "by exactly one full sampling_time step per environment step. Got "
+                f"sim_steps_per_sample={self.sim_steps_per_sample}."
+            )
+            raise ValueError(msg)
 
         target_class: type[PyomoModel] = import_class_from_module(self.model_import, base_class=PyomoModel)
 

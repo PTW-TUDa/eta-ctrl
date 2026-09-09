@@ -1,0 +1,32 @@
+classDiagram
+    direction LR %% means left to right
+
+    class Agent {
+        +predict(observations)
+    }
+
+    class EtaCtrl {
+        +learn()
+        +play()
+    }
+
+    class Environment {
+        +State state
+        +reset()
+        +step(actions)
+    }
+
+    class ExternalModel {
+        +read()
+        +step(external_inputs)
+    }
+
+    class ScenarioManager {
+        +get_scenario_value(state variable, timestep)
+    }
+
+    Agent "" --* "1" EtaCtrl
+    EtaCtrl "1" *-- "" Environment
+
+    Environment "1" *-- "" ExternalModel
+    Environment "1" *-- "" ScenarioManager

@@ -153,6 +153,24 @@ class TestConfigSettingsScenarioManager:
         scenario_manager = scenario_manager_factory(prediction_horizon=None)
         assert scenario_manager.total_time == EPISODE_DURATION + SAMPLING_TIME
 
+    EPISODE_VALS = [
+        (100, 10, 100),
+        (100, 5, 100),
+        # Not divisible
+        (103, 10, 100),
+        (99, 10, 90),
+        (103, 3, 102),
+    ]
+
+    # Behaviour is identical for prediction_horizon
+    @pytest.mark.parametrize(("episode_duration", "sampling_time", "expected"), EPISODE_VALS)
+    def test_episode_duration_not_multiple(
+        self, config_settings_factory: Callable[..., ConfigSettings], episode_duration, sampling_time, expected
+    ):
+        config_settings = config_settings_factory(episode_duration=episode_duration, sampling_time=sampling_time)
+        config_settings.create_scenario_manager(Path())
+        assert config_settings.episode_duration == expected
+
     # Fail cases / early return
     def test_no_scenario_files(self, config_settings_factory: Callable[..., ConfigSettings]):
         config_settings = config_settings_factory(scenario_files=None)

@@ -38,6 +38,7 @@ extensions = [
     "sphinx_copybutton",
     "sphinxcontrib.autodoc_pydantic",
     "matplotlib.sphinxext.plot_directive",
+    "sphinxcontrib.mermaid",
 ]
 
 # List of patterns, relative to source directory, that match files and
@@ -90,3 +91,8 @@ autodoc_pydantic_model_show_validator_summary = False
 
 # matplotlib
 plot_html_show_source_link = False
+
+# mermaid
+mermaid_width = "100%"
+mermaid_dark_theme = "neutral"
+mermaid_light_theme = "neutral"

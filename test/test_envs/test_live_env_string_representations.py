@@ -14,7 +14,7 @@ class TestLiveEnvStringRepresentations:
         return unified_env_factory(
             env_type="live",
             env_id=88,
-            config_run_params={
+            run_info_params={
                 "series": "live_test_series",
                 "name": "live_repr_test_run",
                 "description": "Test run for LiveEnv string representations",
@@ -56,7 +56,7 @@ class TestLiveEnvStringRepresentations:
         env = unified_env_factory(
             env_type="live",
             env_id=77,
-            config_run_params={
+            run_info_params={
                 "series": "config_test_series",
                 "name": "config_test_run",
                 "description": "Config test",

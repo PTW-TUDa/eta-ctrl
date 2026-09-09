@@ -1,0 +1,45 @@
+classDiagram
+    direction LR
+
+    class Config {
+        +root_path: Path
+        +config_file_relpath: Path
+        +paths: ConfigPaths
+        +setup: ConfigSetup
+        +settings: ConfigSettings
+    }
+    class ConfigPaths {
+        +state_file_relpath: Path | None
+        +results_relpath: Path = "results"
+        +scenarios_relpath: Path = "scenarios"
+    }
+
+    class ConfigSetup {
+    }
+
+    class ConfigSettings {
+    }
+
+    class EtaCtrl {
+        +config: Config
+        +learn(series_name, run_name, ...)
+        +play(series_name, run_name, ...)
+    }
+
+    class RunInfo {
+        +series: str
+        +name: str
+        +description: str
+        +root_path: Path
+        +paths: ConfigPaths
+    }
+    RunInfo "1" o-- "1" ConfigPaths : reuses Config.paths
+
+    Config "1" *-- "1" ConfigPaths : contains
+    Config "1" *-- "1" ConfigSetup : contains
+    Config "1" *-- "1" ConfigSettings : contains
+    EtaCtrl "1" o-- "1" Config : holds
+
+    note for EtaCtrl "Config is frozen. Created once per experiment, <br> unchanged for its duration."
+    EtaCtrl ..> RunInfo : creates per series/run
+    note for RunInfo "root_path is taken from Config.root_path"

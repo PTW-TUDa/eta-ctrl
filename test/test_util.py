@@ -20,18 +20,77 @@ from test.resources.config.config_python import config as python_dict
 def test_log_file_handler():
     log_path = Path("test_log.log")
     log = log_add_filehandler(log_path, level=3)
+    nexus_log = logging.getLogger("eta_nexus.connection_manager")
     log.info("Info")
     log.error("Error")
+    nexus_log.error("Nexus error")
 
     with log_path.open() as f:
         log_content = f.read()
 
     assert "Info" not in log_content
     assert "Error" in log_content
+    assert "Nexus error" in log_content
 
     logging.shutdown()
     log.handlers.clear()
+    logging.getLogger("eta_nexus").handlers.clear()
+    logging.getLogger("asyncua").handlers.clear()
     log_path.unlink()
+
+
+def test_connection_loggers_use_experiment_file_handler(tmp_path):
+    log_path = tmp_path / "experiment.log"
+    log = log_add_filehandler(log_path)
+    nexus_log = logging.getLogger("eta_nexus.connections.opcua_connection")
+    asyncua_parent_log = logging.getLogger("asyncua")
+    asyncua_parent_log.setLevel(logging.INFO)
+
+    nexus_log.debug("Connected to OPC UA server")
+    connection_messages = {
+        "asyncua.client.ua_client.UaClient": ("activate_session", "close_session"),
+        "asyncua.client.client": ("disconnect",),
+        "asyncua.client.ua_client.UASocketProtocol": (
+            "close_secure_channel",
+            "Request to close socket received",
+            "Socket has closed connection",
+        ),
+    }
+    for logger_name, messages in connection_messages.items():
+        for message in messages:
+            logging.getLogger(logger_name).info(message)
+
+    log_content = log_path.read_text()
+    assert "Connected to OPC UA server" in log_content
+    for messages in connection_messages.values():
+        for message in messages:
+            assert message in log_content
+
+    logging.shutdown()
+    log.handlers.clear()
+    logging.getLogger("eta_nexus").handlers.clear()
+    asyncua_parent_log.handlers.clear()
+    asyncua_parent_log.setLevel(logging.NOTSET)
+
+
+def test_connection_loggers_excluded_when_flag_disabled(tmp_path):
+    log_path = tmp_path / "experiment.log"
+    nexus_log = logging.getLogger("eta_nexus")
+    asyncua_log = logging.getLogger("asyncua")
+    nexus_level_before = nexus_log.level
+
+    log = log_add_filehandler(log_path, include_connection_logs=False)
+    filehandler = log.handlers[-1]
+
+    assert filehandler not in nexus_log.handlers
+    assert filehandler not in asyncua_log.handlers
+    assert nexus_log.level == nexus_level_before
+
+    logging.getLogger("eta_nexus.connection_manager").error("Nexus error")
+    assert "Nexus error" not in log_path.read_text()
+
+    logging.shutdown()
+    log.handlers.clear()
 
 
 def test_log_file_handler_no_path(caplog):
@@ -43,6 +102,8 @@ def test_log_file_handler_no_path(caplog):
     logging.shutdown()
     Path(log.handlers[-1].baseFilename).unlink()
     log.handlers.clear()
+    logging.getLogger("eta_nexus").handlers.clear()
+    logging.getLogger("asyncua").handlers.clear()
 
 
 def test_dict_search():

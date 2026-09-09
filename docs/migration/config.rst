@@ -5,7 +5,7 @@ Summary
 -------
 
 The configuration system has been rewritten from attrs to Pydantic v2. This simplifies the internal
-class structure (removing manual ``from_dict`` parsing, converter chains, and the :py:class:`~eta_ctrl.config.config_run.ConfigRun` coupling)
+class structure (removing manual ``from_dict`` parsing, converter chains, and the :py:class:`~eta_ctrl.config.run_info.RunInfo` coupling)
 and brings automatic type validation, better error messages, and JSON schema generation for editor
 autocompletion.
 
@@ -225,6 +225,32 @@ Including scenario data (expecting scenario files in the default directory ``sce
 
 .. literalinclude:: /../examples/config/config_minimal_with_scenarios.toml
    :language: toml
+
+Python Code Changes
+-------------------
+
+The attrs-era class ``ConfigRun`` was renamed to :py:class:`~eta_ctrl.config.RunInfo`, and the parameter
+and attribute name ``config_run`` is now ``run_info`` throughout the framework. This only matters for
+Python code that uses these names directly, most importantly custom environments. Update your code as
+follows:
+
+- **Imports and type hints**: rename ``ConfigRun`` to ``RunInfo``.
+
+  .. code-block:: python
+
+      from eta_ctrl.config import RunInfo  # was: ConfigRun
+
+- **Environment constructor**: :py:class:`~eta_ctrl.envs.BaseEnv` and its subclasses now take ``run_info``
+  instead of ``config_run``. If your custom environment declares or forwards the old parameter, rename it
+  in both the method signature and the ``super().__init__`` call.
+
+  .. code-block:: python
+
+      class MyEnv(SimEnv):
+          def __init__(self, env_id, run_info, ...):  # was: config_run
+              super().__init__(env_id, run_info=run_info, ...)  # was: config_run=config_run
+
+- **Attribute accesses**: ``self.config_run`` is now ``self.run_info``.
 
 Validation Improvements
 -----------------------

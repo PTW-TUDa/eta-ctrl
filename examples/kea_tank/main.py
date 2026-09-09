@@ -23,8 +23,6 @@ def experiment(overwrite: dict[str, Any] | None = None) -> None:
     :param overwrite: Additional config values to overwrite values from JSON.
     """
     root_path = pathlib.Path(__file__).parent
-    env_path = root_path / "environments"
-    overwrite = {"settings": {"environment": {"path_env": env_path.absolute()}}}
     experiment = EtaCtrl(root_path=root_path, config_overwrite=overwrite, config_relpath=".", config_name="config.toml")
     experiment.play(series_name="kea_tank_base_env", run_name="example_run")
 
