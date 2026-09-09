@@ -86,6 +86,8 @@ class ConfigCsvScenario(BaseModel):
 
 
 class ScenarioManager(ABC):
+    scenarios: pd.DataFrame
+
     def compute_episode_offset(self, rng: np.random.Generator) -> int:
         """Compute the row offset into the scenario data for the next episode.
 

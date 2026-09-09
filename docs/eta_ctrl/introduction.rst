@@ -8,6 +8,12 @@ from the `stable_baselines3 <https://stable-baselines3.readthedocs.io/>`_ packag
 also contains some extensions for *stable_baselines3*, these include additional policies, extractors,
 schedules and agents.
 
+The main components and their relationships are illustrated as follows:
+
+.. mermaid:: /guide/figures/class_diagram.mmd
+   :name: class-diagram
+   :caption: `EtaCtrl` acts as an orchestrator for the Gymnasium based Agent-Environment loop.
+
 The module contains functions meant to simplify the general process of creating rolling horizon
 optimization models. It contains the *EtaCtrl* class which in turn combines all of this information
 such that you can start simple optimizations in just two lines. For example, to start the pendulum
@@ -95,13 +101,23 @@ After the class is instantiated, you can use the play and learn methods to execu
 Experiment configuration
 -------------------------
 The central part of the ETA Ctrl module is the experiment configuration. This configuration can be
-read  from a JSON file and determines the setup of the entire experiment, including which agent and
-environment to load and how to set each one up. The configuration is defined by the *Config*
-dataclass and its subsidiaries *ConfigSetup* and *ConfigSettings*.
+read from a JSON, TOML, or YAML file and determines the setup of the entire experiment, including
+which agent and environment to load and how to set each one up. The configuration is defined by the
+*Config* class and its subsidiaries *ConfigPaths*, *ConfigSetup*, and *ConfigSettings*.
+
+A *Config* object is frozen (immutable), created once when an experiment starts and unchanged for
+its entire duration. Based on the same configuration, a *RunInfo* object is created for every
+optimization run performed via the :meth:`~eta_ctrl.EtaCtrl.learn` and :meth:`~eta_ctrl.EtaCtrl.play`
+methods. *RunInfo* adds the identity of the specific run (series and run name) and resolves the
+relative paths configured in *ConfigPaths* to absolute paths for that run. This relationship is
+illustrated below:
+
+.. mermaid:: /guide/figures/config_class_diagram.mmd
+   :name: config-class-diagram
+   :caption: One frozen `Config` describes the experiment, while a new `RunInfo` is created for every optimization run.
 
 When you are using EtaCtrl (the class) the configuration will be read automatically.
-
-Use :func:`eta_ctrl.config::from_file` to read the configuration from a JSON, TOML or YAML file:
+If not, use :func:`eta_ctrl.config::from_file` to read the configuration directly:
 
 .. autofunction:: eta_ctrl.config::Config.from_file
 
@@ -122,8 +138,11 @@ The settings configured in the setup section are the following:
 
 
 Config section 'paths'
-^^^^^^^^^^^^^^^^^^^^^^^^
-The optional paths section can contain the following optional relative paths:
+^^^^^^^^^^^^^^^^^^^^^^^
+The optional paths section defines the relative paths and file names used to lay out the files of an
+optimization run, such as the results folders, names of model checkpoints, and log files. All
+paths are resolved relative to the config root path; see the *RunInfo* section below for how they are
+used.
 
 .. autopydantic_model:: eta_ctrl.config.config_paths::ConfigPaths
     :no-index:
@@ -144,18 +163,21 @@ The configuration options in the settings section are the following.
 
 Configuration for optimization runs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-An optimization run must also be configured. This is done through the *ConfigRun* class. The
-class uses the series name and run names for initialization. It provides facilities to
-create the paths required for optimization and to store information about the environments.
-Below, you can see the parameters that ConfigRun offers. Full documentation is in the API
-docs: :py:class:`eta_ctrl.config.ConfigRun`.
+While the *Config* object describes the experiment itself, every individual optimization run (for
+example a single training run or a single evaluation) needs its own identity and file paths. This
+is captured by the *RunInfo* class, which combines the series and run names of the current run with
+the *Config* that EtaCtrl holds, using the paths defined in *ConfigPaths* (see the paths section
+above) to determine where models, log files, and other run outputs are stored. It can also store
+information about the environments of the run.
+
+Below, the derived attributes of RunInfo that are available at runtime are listed. Full documentation is in the API
+docs: :py:class:`eta_ctrl.config.RunInfo`.
 
 .. note::
-    EtaCtrl instantiates an object of this class automatically from the JSON configuration file. You do not need
-    to specify any of the parameters listed here. They are listed here to show what is available for use
-    during the optimization run.
+    You do not need to set any of the parameters listed here yourself.
 
-.. autoclass:: eta_ctrl.config::ConfigRun
+.. autoclass:: eta_ctrl.config::RunInfo
     :members:
     :no-index:
-    :exclude-members: from_dict, set_env_info, create_results_folders
+
+    :exclude-members: model_config, set_env_info, create_results_folders

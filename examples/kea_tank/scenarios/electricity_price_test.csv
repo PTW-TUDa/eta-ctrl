@@ -1,4 +1,4 @@
-Date [yyyy-mm-dd-hh-mm];Electrical Energy Price [€/MWh]
+Date [dd.mm.yyyy hh:mm];Electrical Energy Price [€/MWh]
 18.03.2022 00:00;1000
 18.03.2022 00:05;8000
 18.03.2022 00:10;1000

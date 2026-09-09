@@ -15,7 +15,9 @@ log = getLogger(__name__)
 
 
 class DrKeaModel(PyomoModel):
-    def __init__(self, sampling_time: float, model_parameters: dict[str, Any], **kwargs: Any) -> None:
+    def __init__(
+        self, sampling_time: float, prediction_horizon: float, model_parameters: dict[str, Any], **kwargs: Any
+    ) -> None:
         self._start_value_mapping = {"tank_temperature_start": "temp_expr"}
 
         # Scale the fixed temperature change values from absolute seconds to relative to the sampling time
@@ -23,7 +25,9 @@ class DrKeaModel(PyomoModel):
         model_parameters["temperature_change_cleaning"] *= sampling_time
 
         # Instantiate PyomoModel
-        super().__init__(sampling_time=sampling_time, model_parameters=model_parameters, **kwargs)
+        super().__init__(
+            sampling_time=sampling_time, model_parameters=model_parameters, prediction_horizon=prediction_horizon
+        )
 
         self._use_model_time_increments = True  # Increment by one instead of the sampling time
 

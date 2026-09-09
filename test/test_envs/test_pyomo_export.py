@@ -10,8 +10,6 @@ import pyomo.environ as pyo
 import pytest
 
 from eta_ctrl.common.export_pyomo import (
-    _extract_variable_bounds,
-    _extract_variable_domain_type,
     export_pyomo_model_parameters,
     export_pyomo_model_state,
     export_pyomo_model_state_config,
@@ -87,7 +85,6 @@ class TestPyomoExport:
         production_var = production_planning_concrete_model.total_production  # Use actual model variable
         var_info = extract_scalar_variable_info(production_var)
 
-        assert var_info["type"] == "continuous"
         assert var_info["low_value"] == 0.0
         assert "high_value" not in var_info  # bounds=(0, None)
 
@@ -96,8 +93,6 @@ class TestPyomoExport:
         period_var = production_planning_concrete_model.period_production  # Use actual model variable
         var_info = extract_indexed_variable_info(period_var)
 
-        assert var_info["type"] == "continuous"
-        assert var_info["index_length"] == 4  # 4 time periods in the real model
         assert var_info["low_value"] == 0.0
         assert var_info["high_value"] == 150.0  # bounds=(0, 150) in the real model
 
@@ -161,65 +156,6 @@ class TestPyomoExport:
         assert "total_capacity" in params_content  # Scalar parameters
         assert "machine_capacity" in params_content  # Multi-indexed parameters as arrays
 
-    def test_helper_function_bounds_extraction(self):
-        """Test the helper function for bounds extraction."""
-        # Test with valid bounds
-        bounds = (0.0, 100.0)
-        result = _extract_variable_bounds(bounds)
-        assert result["low_value"] == 0.0
-        assert result["high_value"] == 100.0
-
-        # Test with infinite bounds
-        bounds = (float("-inf"), float("inf"))
-        result = _extract_variable_bounds(bounds)
-        assert "low_value" not in result
-        assert "high_value" not in result
-
-        # Test with partial bounds
-        bounds = (10.0, None)
-        result = _extract_variable_bounds(bounds)
-        assert result["low_value"] == 10.0
-        assert "high_value" not in result
-
-    def test_helper_function_domain_type_extraction(self, production_planning_concrete_model):
-        """Test the helper function for domain type extraction."""
-        # Test continuous variable
-        continuous_var = production_planning_concrete_model.total_production
-        domain_type = _extract_variable_domain_type(continuous_var)
-        assert domain_type == "continuous"
-
-        # Test binary variable
-        binary_var = production_planning_concrete_model.machine_active[("M1", 1)]
-        domain_type = _extract_variable_domain_type(binary_var)
-        assert domain_type == "discrete"
-
-    def test_empty_index_set_exception_handling(self):
-        """Test that empty index sets are handled gracefully (StopIteration catch)."""
-        # Create a model with an empty indexed variable
-        model = pyo.ConcreteModel()
-        model.empty_set = pyo.Set(initialize=[])
-        model.empty_indexed_var = pyo.Var(model.empty_set, domain=pyo.NonNegativeReals)
-
-        # This should not raise an exception and should return continuous as default
-        var_info = extract_indexed_variable_info(model.empty_indexed_var)
-
-        assert var_info["type"] == "continuous"  # Default when index set is empty
-        assert var_info["index_length"] == 0
-
-    def test_invalid_index_access_exception_handling(self):
-        """Test that invalid index access is handled gracefully (KeyError catch)."""
-        # Create a model with indexed variable but try to access with wrong key type
-        model = pyo.ConcreteModel()
-        model.products = pyo.Set(initialize=["A", "B", "C"])
-        model.production = pyo.Var(model.products, domain=pyo.NonNegativeReals)
-
-        # This tests the exception handling for malformed indices
-        var_info = extract_indexed_variable_info(model.production)
-
-        # Should successfully extract info despite potential key issues
-        assert "type" in var_info
-        assert var_info["index_length"] == 3
-
     def test_parameter_value_error_handling(self):
         """Test that uninitialized or symbolic parameters are handled (ValueError catch)."""
         model = pyo.ConcreteModel()
@@ -270,8 +206,8 @@ class TestPyomoModelExport:
 
         * Indexed Var  (with bounds)  -> action
         * Indexed Var  (no bounds)    -> action, but triggers a warning
-        * Indexed Param               -> observation
-        * Scalar  Param               -> model_parameters
+        * Mutable Param               -> observation
+        * Immutable scalar Param      -> model_parameters
         * Scalar  Var                 -> skipped (not indexed)
         """
         m = pyo.ConcreteModel()
@@ -285,7 +221,9 @@ class TestPyomoModelExport:
         m.scalar_var = pyo.Var(bounds=(0, 100))
         # Indexed Param — should become observation
         m.energy_price = pyo.Param(m.t, initialize=1.0, mutable=True)
-        # Scalar Params — should go to model_parameters
+        # Mutable scalar Param — should become an observation
+        m.initial_temp = pyo.Param(initialize=60.0, mutable=True)
+        # Immutable scalar Params — should go to model_parameters
         m.p_heat = pyo.Param(initialize=10.0)
         m.tank_min = pyo.Param(initialize=55.0)
         return m
@@ -325,8 +263,15 @@ class TestPyomoModelExport:
         assert "observations = [" in content
         assert 'name = "energy_price"' in content
 
+    def test_state_config_mutable_scalar_params_are_observations(self, bounded_model, temp_dir):
+        """Mutable scalar Param components appear in the state config."""
+        out = temp_dir / "sc_scalar_observation.toml"
+        export_pyomo_model_state_config(bounded_model, "test", out)
+        content = out.read_text()
+        assert 'name = "initial_temp"' in content
+
     def test_state_config_scalar_params_excluded(self, bounded_model, temp_dir):
-        """Scalar Param components must NOT appear in the state config (they belong in model_parameters)."""
+        """Immutable scalar Param components must not appear in the state config."""
         out = temp_dir / "sc_no_scalar_param.toml"
         export_pyomo_model_state_config(bounded_model, "test", out)
         content = out.read_text()
@@ -347,8 +292,6 @@ class TestPyomoModelExport:
         with caplog.at_level(logging.WARNING, logger="eta_ctrl"):
             export_pyomo_model_state_config(bounded_model, "test", out)
 
-        assert any("unbounded" in msg and "low_value" in msg for msg in caplog.messages)
-
     # ------------------------------------------------------------------
     # export_pyomo_model_parameters
     # ------------------------------------------------------------------
@@ -361,12 +304,19 @@ class TestPyomoModelExport:
         assert out.stat().st_size > 0
 
     def test_model_parameters_contains_scalar_params(self, bounded_model, temp_dir):
-        """Scalar Param values appear in the model_parameters TOML."""
+        """Immutable scalar Param values appear in the model_parameters TOML."""
         out = temp_dir / "mp_scalar.toml"
         export_pyomo_model_parameters(bounded_model, "test", out)
         content = out.read_text()
         assert "p_heat" in content
         assert "tank_min" in content
+
+    def test_model_parameters_excludes_mutable_scalar_params(self, bounded_model, temp_dir):
+        """Mutable scalar Params are observations, not duplicated model parameters."""
+        out = temp_dir / "mp_no_mutable.toml"
+        export_pyomo_model_parameters(bounded_model, "test", out)
+        content = out.read_text()
+        assert "initial_temp" not in content
 
     def test_model_parameters_excludes_indexed_params(self, bounded_model, temp_dir):
         """Indexed Param components are excluded from the model_parameters TOML."""

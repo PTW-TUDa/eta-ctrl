@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 import tomli_w
 import yaml
+from typing_extensions import deprecated
 
 if TYPE_CHECKING:
     from typing import Any
@@ -197,6 +198,14 @@ def _replace_decimal_str(value: str | float, decimal: str = ".") -> str:
     return str(value).replace(".", decimal)
 
 
+@deprecated(
+    "csv_export is deprecated and will be removed in a future release. "
+    "It silently behaves differently depending on the type of `data`: a Mapping is "
+    "appended to the file row by row, while a Sequence or DataFrame overwrites the "
+    "file. There is no explicit parameter for this behaviour, so swapping in a "
+    "different data type can silently discard or accumulate data. "
+    "Use DataFrame.to_csv() directly and pass mode= explicitly instead."
+)
 def csv_export(
     path: Path,
     data: Mapping[str, Any] | Sequence[Mapping[str, Any] | Any] | pd.DataFrame,
@@ -217,7 +226,7 @@ def csv_export(
     """
     _path = path if isinstance(path, pathlib.Path) else pathlib.Path(path)
     if _path.suffix != ".csv":
-        _path.with_suffix(".csv")
+        _path = _path.with_suffix(".csv")
 
     if isinstance(data, Mapping):
         with _path.open("a") as f:

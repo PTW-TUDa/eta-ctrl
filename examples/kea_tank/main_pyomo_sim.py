@@ -5,6 +5,7 @@ import pathlib
 from typing import TYPE_CHECKING
 
 from eta_ctrl import EtaCtrl, get_logger
+from eta_ctrl.util.utils import deep_mapping_update
 
 if TYPE_CHECKING:
     from typing import Any
@@ -23,14 +24,14 @@ def experiment(overwrite: dict[str, Any] | None = None) -> None:
     :param overwrite: Additional config values to overwrite values from JSON.
     """
     root_path = pathlib.Path(__file__).parent
-    env_path = root_path / "environments"
-    overwrite = {}
+    default_overwrite: dict[str, Any] = {}
 
     # Adapt config to PyomoSimEnv
-    overwrite["setup"] = {"environment_import": "examples.kea_tank.environments.kea_pyomo_sim_env.DrKeaPyomoSimEnv"}
-    overwrite["paths"] = {"state_file_relpath": "pyomo_sim_state_config.toml"}
+    default_overwrite["setup"] = {
+        "environment_import": "examples.kea_tank.environments.kea_pyomo_sim_env.DrKeaPyomoSimEnv"
+    }
+    default_overwrite["paths"] = {"state_file_relpath": "pyomo_sim_state_config.toml"}
     environment_specific = {
-        "path_env": env_path.absolute(),
         "model_parameters": {
             "p_heat": 10,  # kW, heating power consumption
             "tank_temperature_start": 60,  # °C
@@ -40,7 +41,8 @@ def experiment(overwrite: dict[str, Any] | None = None) -> None:
             "temperature_change_cleaning": -0.01,  # Kelvin per second
         },
     }
-    overwrite["settings"] = {"environment": environment_specific}
+    default_overwrite["settings"] = {"environment": environment_specific}
+    overwrite = default_overwrite if overwrite is None else deep_mapping_update(default_overwrite, overwrite)
     experiment = EtaCtrl(root_path=root_path, config_overwrite=overwrite, config_relpath=".", config_name="config.toml")
 
     experiment.play(series_name="kea_tank_pyomo_sim", run_name="example_run")

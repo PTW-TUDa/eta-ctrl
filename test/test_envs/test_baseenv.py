@@ -3,6 +3,7 @@ import shutil
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
+from unittest.mock import Mock
 
 import gymnasium
 import matplotlib as mpl
@@ -21,19 +22,29 @@ from examples.damped_oscillator.main import (
 class TestStateLog:
     @pytest.fixture(scope="class")
     def experiment_path(self):
-        path = get_oscillator_path()
-        yield path
-        shutil.rmtree(path / "results", ignore_errors=True)
-        logging.shutdown()
+        return get_oscillator_path()
 
     @pytest.fixture(scope="class")
-    def results_path(self, experiment_path):
-        return experiment_path / "results/conventional_series"
+    def results_root(self, tmp_path_factory):
+        return tmp_path_factory.mktemp("damped_oscillator_results") / "results"
 
     @pytest.fixture(scope="class")
-    def damped_oscillator_eta(self, experiment_path):
+    def results_path(self, results_root):
+        return results_root / "conventional_series"
+
+    @pytest.fixture(scope="class")
+    def damped_oscillator_eta(self, experiment_path, results_root):
         mpl.use("Agg")  # Prevents GUI from opening
-        return ex_oscillator(experiment_path, {"settings": {"log_to_file": False}})
+        try:
+            return ex_oscillator(
+                experiment_path,
+                {
+                    "paths": {"results_relpath": results_root},
+                    "settings": {"log_to_file": False},
+                },
+            )
+        finally:
+            logging.shutdown()
 
     def test_export_state_log(self, damped_oscillator_eta, results_path):
         assert episode_results_path(results_path, "run1", 1, 1).exists()
@@ -59,7 +70,7 @@ class TestBaseEnvStringRepresentations:
         return unified_env_factory(
             env_type="base",
             env_id=42,
-            config_run_params={
+            run_info_params={
                 "series": "test_series",
                 "name": "repr_test_run",
                 "description": "Test run for string representations",
@@ -83,7 +94,7 @@ class TestBaseEnvStringRepresentations:
         env = unified_env_factory(
             env_type="base",
             env_id=1,
-            config_run_params={"series": "test_series", "name": "size_test", "description": "Size test"},
+            run_info_params={"series": "test_series", "name": "size_test", "description": "Size test"},
             state_config_type="many_actions",
             scenario_time_begin=datetime(2023, 1, 1),
             scenario_time_end=datetime(2023, 1, 2),
@@ -116,7 +127,7 @@ class TestBaseEnvStringRepresentations:
         env = unified_env_factory(
             env_type="base",
             env_id=999,
-            config_run_params={
+            run_info_params={
                 "series": "duration_test_series",
                 "name": "duration_test_run_with_long_name",
                 "description": "Duration test",
@@ -156,7 +167,7 @@ class TestBaseEnvPublicMethods:
         return unified_env_factory(
             env_type="method",
             env_id=1,
-            config_run_params={"series": "api_series", "name": "api_run", "description": "api tests"},
+            run_info_params={"series": "api_series", "name": "api_run", "description": "api tests"},
             state_config_type="method_test",
             episode_duration=3600,
             sampling_time=60,
@@ -256,7 +267,7 @@ class TestActionValidation:
         return unified_env_factory(
             env_type="method",
             env_id=2,
-            config_run_params={"series": "validation_series", "name": "validation_run", "description": "validate"},
+            run_info_params={"series": "validation_series", "name": "validation_run", "description": "validate"},
             state_config_type="validation",
             episode_duration=3600,
             sampling_time=60,
@@ -395,3 +406,107 @@ class TestPathEnvResilience:
         )
         assert env.path_env is not None
         assert isinstance(env.path_env, Path)
+
+
+class TestTransformStateLog:
+    """Unit tests for BaseEnv.transform_state_log"""
+
+    @pytest.fixture
+    def env(self, unified_env_factory) -> BaseEnv:
+        return unified_env_factory(sampling_time=1)
+
+    def test_empty_state_log_raises_runtime_error(self, env: BaseEnv):
+        """Should raise RuntimeError when state_log is empty."""
+        env.state_log = []
+
+        with pytest.raises(RuntimeError, match="State log is empty"):
+            env.transform_state_log()
+
+    def test_returns_dataframe_with_correct_index_live_mode(self, env: BaseEnv):
+        """Should return DataFrame with proper datetime index in live mode."""
+        env.episode_timer = pd.Timestamp("2024-01-01 10:00:00")
+        env.state_log = [{"a": 1, "b": 2}, {"a": 3, "b": 4}]
+
+        result = env.transform_state_log()
+
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 2
+        start_time = pd.Timestamp("2024-01-01 10:00:00")
+        assert result.index[0] == start_time
+        assert result.index[1] == start_time + pd.Timedelta(seconds=1)
+        assert list(result.iloc[0]) == [1.0, 2.0]
+        assert list(result["b"]) == [2.0, 4.0]
+
+    def test_returns_dataframe_with_correct_index_scenario_mode(self, env: BaseEnv):
+        """Should return DataFrame with proper datetime index in scenario mode."""
+        start_date = pd.Timestamp("2024-01-01 10:00:00")
+        env.scenario_manager = Mock()
+        env.scenario_manager.scenarios = pd.DataFrame(index=[start_date])
+        env._scenario_offset = 5
+        env.state_log = [{"a": 1, "b": 2}, {"a": 3, "b": 4}]
+
+        result = env.transform_state_log()
+
+        expected_start = start_date + 5 * pd.Timedelta(seconds=1)
+        assert result.index[0] == expected_start
+        assert len(result) == 2
+        assert list(result.iloc[0]) == [1.0, 2.0]
+        assert list(result["b"]) == [2.0, 4.0]
+
+    def test_state_log_with_various_data_types(self, env: BaseEnv):
+        """Should handle different numeric data types in state_log."""
+        env.episode_timer = pd.Timestamp("2024-01-01")
+        env.state_log = [{"a": 1, "b": 2.1, "c": True, "d": "String1"}, {"a": 3, "b": 4}]
+
+        result = env.transform_state_log()
+
+        assert result.shape == (2, 4)
+        assert result.iloc[0, 0] == 1
+        assert result.iloc[0, 1] == 2.1
+        assert result.iloc[0, 2] == True  # noqa: E712
+        assert result.iloc[0, 3] == "String1"
+
+    def test_different_sim_steps_per_sample(self, env: BaseEnv):
+        """Should return DataFrame with proper datetime index in live mode."""
+        env.sim_steps_per_sample = 5
+        env.episode_timer = pd.Timestamp("2024-01-01 10:00:00")
+        env.state_log = [{"a": 1, "b": 2}, {"a": 3, "b": 4}]
+
+        result = env.transform_state_log()
+
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 2
+        start_time = pd.Timestamp("2024-01-01 10:00:00")
+        assert result.index[0] == start_time
+        assert result.index[1] == start_time + pd.Timedelta(seconds=0.2)  # 1.0 / 5
+        assert list(result.iloc[0]) == [1.0, 2.0]
+        assert list(result["b"]) == [2.0, 4.0]
+
+
+class TestExportStateLog:
+    """Unit tests for BaseEnv.export_state_log."""
+
+    @pytest.fixture
+    def env(self, unified_env_factory) -> BaseEnv:
+        return unified_env_factory(sampling_time=1)
+
+    def test_export_state_log(self, env: BaseEnv, tmp_path):
+        env.episode_timer = pd.Timestamp("2024-01-01 10:00:00")
+        env.state_log = [{"a": 1, "b": 2}, {"a": 3, "b": 4}]
+
+        path = tmp_path / "state_log.csv"
+        env.export_state_log(path)
+
+        report = pd.read_csv(path, sep=";", index_col=0)
+        assert list(report.columns) == ["a", "b"]
+        assert list(report["b"]) == [2.0, 4.0]
+
+    def test_export_filters_columns(self, env: BaseEnv, tmp_path):
+        env.episode_timer = pd.Timestamp("2024-01-01 10:00:00")
+        env.state_log = [{"a": 1, "b": 2, "c": 3}, {"a": 4, "b": 5, "c": 6}]
+
+        env.export_state_log(tmp_path / "state_log.csv", names=["b"])
+
+        report = pd.read_csv(tmp_path / "state_log.csv", sep=";", index_col=0)
+        assert list(report.columns) == ["b"]
+        assert list(report["b"]) == [2.0, 5.0]

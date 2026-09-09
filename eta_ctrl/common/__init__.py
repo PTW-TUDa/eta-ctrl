@@ -15,7 +15,7 @@ from .common import (
 )
 from .logging import (
     log_net_arch as log_net_arch,
-    log_run_info as log_run_info,
+    log_run_config as log_run_config,
     log_to_file as log_to_file,
 )
 from .sb3_extensions.schedules import LinearSchedule as LinearSchedule

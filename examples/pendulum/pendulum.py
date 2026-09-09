@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from typing import Any
 
-    from eta_ctrl.config import ConfigRun
+    from eta_ctrl.config import RunInfo
     from eta_ctrl.util.type_annotations import TimeStep
 
 log = getLogger(__name__)
@@ -40,7 +40,7 @@ class PendulumEnv(BaseEnv, GymPendulum):
     the Farama gymnasium: :py:class:`gymnasium.envs.classic_control.PendulumEnv`:
 
     :param env_id: Identification for the environment, useful when creating multiple environments
-    :param config_run: Configuration of the optimization run
+    :param run_info: Configuration of the optimization run
     :param verbose: Verbosity to use for logging (default: 2)
     :param callback: callback which should be called after each episode
     :param episode_duration: Duration of the episode in seconds
@@ -62,7 +62,7 @@ class PendulumEnv(BaseEnv, GymPendulum):
     def __init__(  # noqa: PLR0913
         self,
         env_id: int,
-        config_run: ConfigRun,
+        run_info: RunInfo,
         verbose: int = 2,
         callback: Callable | None = None,
         seed: int | None = None,
@@ -82,7 +82,7 @@ class PendulumEnv(BaseEnv, GymPendulum):
     ) -> None:
         super().__init__(
             env_id=env_id,
-            config_run=config_run,
+            run_info=run_info,
             state_config=state_config,
             verbose=verbose,
             callback=callback,
