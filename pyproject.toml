@@ -75,7 +75,6 @@ optional-dependencies.docs = [
 requires-poetry = ">=2.0"
 # Classifiers are defined in the poetry section to dynamically add the python version
 classifiers = [
-    "License :: OSI Approved :: BSD License",
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Education",
