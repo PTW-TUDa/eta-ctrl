@@ -4,9 +4,11 @@
 
 # Pass the python version as a build argument
 ARG PYTHON_VERSION=3.12
-ARG POETRY_VERSION=2.3.2
 
-FROM python:${PYTHON_VERSION}-slim-bullseye
+# Bullseye LTS ended in August 2026; use Bookworm for supported APT repositories.
+FROM python:${PYTHON_VERSION}-slim-bookworm
+
+ARG POETRY_VERSION=2.3.2
 
 # Environment variables
 ENV APP_PATH="/usr/src/app" \
