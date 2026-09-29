@@ -9,8 +9,6 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 log = getLogger(__name__)
 
-_DEPRECATED_PATHS_KEYS = frozenset({"monitor_filename"})
-
 
 class ConfigPaths(BaseModel):
     """Relative paths and filenames set in the experiment config ``paths`` section."""
