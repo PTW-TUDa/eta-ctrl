@@ -73,7 +73,7 @@ class ConfigCsvScenario(BaseModel):
         :raises FileNotFoundError: If file does not exist.
         """
         if self.scenarios_path is not None and not self.abs_path.exists():
-            msg = "Scenario file does not exist"
+            msg = f"Scenario file does not exist: {self.abs_path}"
             raise FileNotFoundError(msg)
 
     @property
