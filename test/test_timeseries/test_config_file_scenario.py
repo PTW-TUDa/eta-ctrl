@@ -71,7 +71,7 @@ def test_wrong_arguments(monkeypatch, argument):
 
 
 def test_path_not_found():
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError, match="foo"):
         ConfigCsvScenario(path="foo", scenarios_path=Path())
 
 
