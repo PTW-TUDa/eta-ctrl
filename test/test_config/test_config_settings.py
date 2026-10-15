@@ -90,6 +90,9 @@ class TestConfigSettings:
         assert not config_settings.log_to_file
         assert config_settings.scenario_files == config_csv_scenario
         assert config_settings.n_prediction_steps == int(PREDICTION_HORIZON / SAMPLING_TIME) + 1
+        assert config_settings.steps_per_episode == int(EPISODE_DURATION / SAMPLING_TIME)
+        assert config_settings.n_learn_timesteps == 4 * int(EPISODE_DURATION / SAMPLING_TIME)
+        assert config_settings.checkpoint_save_freq == int(EPISODE_DURATION / SAMPLING_TIME) * 5
 
         assert config_settings.environment["verbose"] == 1
         assert config_settings.environment["sampling_time"] == SAMPLING_TIME
@@ -220,6 +223,11 @@ class TestConfigSettingsFail:
         assert msg in str(excinfo.value)
         msg = "Use only 'environment'."
         assert msg in str(excinfo.value)
+
+    @pytest.mark.parametrize("key", ["n_episodes_play", "n_episodes_learn"])
+    def test_n_episodes_none_rejected(self, key: str):
+        with pytest.raises(ValidationError, match=f"{key}\n  Input should be a valid integer"):
+            ConfigSettings(**{**config["settings"], key: None})
 
     @pytest.mark.parametrize("missing_key", ["episode_duration", "sampling_time"])
     def test_from_dict_fail(self, missing_key: str):

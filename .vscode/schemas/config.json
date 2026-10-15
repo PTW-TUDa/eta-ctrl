@@ -4,6 +4,7 @@
             "additionalProperties": false,
             "properties": {
                 "path": {
+                    "description": "Relative path to the scenario.",
                     "title": "Path",
                     "type": "string"
                 },
@@ -23,6 +24,7 @@
                         }
                     ],
                     "default": null,
+                    "description": "Pandas method to use for filling missing data [\"ffill\", \"bfill\", \"interpolate\", \"asfreq\"].",
                     "title": "Interpolation Method"
                 },
                 "scale_factors": {
@@ -38,6 +40,7 @@
                         }
                     ],
                     "default": null,
+                    "description": "Scale factors for each column.",
                     "title": "Scale Factors"
                 },
                 "prefix": {
@@ -50,6 +53,7 @@
                         }
                     ],
                     "default": null,
+                    "description": "Prefix for all column names.",
                     "title": "Prefix"
                 },
                 "infer_datetime_cols": {
@@ -81,6 +85,7 @@
                 },
                 "time_conversion_str": {
                     "default": "%Y-%m-%d %H:%M",
+                    "description": "Time conversion string used when ``infer_datetime_cols`` is set to 'string'.\n\nShould specify the format for Python ``strptime``.",
                     "title": "Time Conversion Str",
                     "type": "string"
                 },
@@ -97,6 +102,7 @@
                         }
                     ],
                     "default": null,
+                    "description": "Dictionary for renaming column names.\n\n.. note::\n\n   The column names are stripped of illegal characters and underscores are added in place of spaces.\n   \"Water Temperature #2 [\u00b0C]\" becomes \"Water_Temperature_2_C\". If you want to rename the column,\n   you need to specify the processed name, for example: {\"Water_Temperature_2_C\": \"T_W\"}.",
                     "title": "Rename Cols"
                 },
                 "scenarios_path": {
@@ -110,6 +116,7 @@
                         }
                     ],
                     "default": null,
+                    "description": "Directory for the scenarios. Not included in config declaration, passed by main Config object.",
                     "title": "Scenarios Path"
                 }
             },
@@ -121,6 +128,7 @@
         },
         "ConfigPaths": {
             "additionalProperties": false,
+            "description": "Relative paths and filenames set in the experiment config ``paths`` section.",
             "properties": {
                 "state_file_relpath": {
                     "anyOf": [
@@ -148,6 +156,62 @@
                     "description": "Relative path to the scenarios folder.",
                     "format": "path",
                     "title": "Scenarios Relpath",
+                    "type": "string"
+                },
+                "models_relpath": {
+                    "default": "models",
+                    "description": "Relative path to model checkpoints within the series results folder.",
+                    "format": "path",
+                    "title": "Models Relpath",
+                    "type": "string"
+                },
+                "model_filename": {
+                    "default": "model.zip",
+                    "description": "Filename of the saved ML model.",
+                    "format": "path",
+                    "title": "Model Filename",
+                    "type": "string"
+                },
+                "model_before_error_filename": {
+                    "default": "model_before_error.zip",
+                    "description": "Filename used to preserve a ML model when learning fails.",
+                    "format": "path",
+                    "title": "Model Before Error Filename",
+                    "type": "string"
+                },
+                "info_filename": {
+                    "default": "info.json",
+                    "description": "Filename of the run information.",
+                    "format": "path",
+                    "title": "Info Filename",
+                    "type": "string"
+                },
+                "monitor_filename": {
+                    "default": "monitor.csv",
+                    "description": "Filename of the monitoring data.",
+                    "format": "path",
+                    "title": "Monitor Filename",
+                    "type": "string"
+                },
+                "log_output_filename": {
+                    "default": "log_output.log",
+                    "description": "Filename of the run log.",
+                    "format": "path",
+                    "title": "Log Output Filename",
+                    "type": "string"
+                },
+                "vec_normalize_filename": {
+                    "default": "vec_normalize.pkl",
+                    "description": "Filename of the SB3 normalization wrapper.",
+                    "format": "path",
+                    "title": "Vec Normalize Filename",
+                    "type": "string"
+                },
+                "net_arch_filename": {
+                    "default": "net_arch.txt",
+                    "description": "Filename of the neural network architecture.",
+                    "format": "path",
+                    "title": "Net Arch Filename",
                     "type": "string"
                 }
             },
@@ -187,32 +251,18 @@
                     "type": "integer"
                 },
                 "n_episodes_play": {
-                    "anyOf": [
-                        {
-                            "minimum": 1,
-                            "type": "integer"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
                     "default": 1,
-                    "description": "Number of episodes to execute when the agent is playing (default: None).",
-                    "title": "N Episodes Play"
+                    "description": "Number of episodes to execute when the agent is playing (default: 1).",
+                    "minimum": 1,
+                    "title": "N Episodes Play",
+                    "type": "integer"
                 },
                 "n_episodes_learn": {
-                    "anyOf": [
-                        {
-                            "minimum": 1,
-                            "type": "integer"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
                     "default": 1,
-                    "description": "Number of episodes to execute when the agent is learning (default: None).",
-                    "title": "N Episodes Learn"
+                    "description": "Number of episodes to execute when the agent is learning (default: 1).",
+                    "minimum": 1,
+                    "title": "N Episodes Learn",
+                    "type": "integer"
                 },
                 "save_model_every_x_episodes": {
                     "default": 10,

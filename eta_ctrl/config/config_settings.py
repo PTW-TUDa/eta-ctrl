@@ -37,10 +37,10 @@ class ConfigSettings(BaseModel):
     """Logging verbosity of the framework (default: 2)."""
     n_environments: int = Field(default=1, ge=1)
     """Number of vectorized environments to instantiate (if not using DummyVecEnv) (default: 1)."""
-    n_episodes_play: int | None = Field(default=1, ge=1)
-    """Number of episodes to execute when the agent is playing (default: None)."""
-    n_episodes_learn: int | None = Field(default=1, ge=1)
-    """Number of episodes to execute when the agent is learning (default: None)."""
+    n_episodes_play: int = Field(default=1, ge=1)
+    """Number of episodes to execute when the agent is playing (default: 1)."""
+    n_episodes_learn: int = Field(default=1, ge=1)
+    """Number of episodes to execute when the agent is learning (default: 1)."""
     save_model_every_x_episodes: int = Field(default=10, ge=1)
     """How often to save the model during training (default: 10 - after every ten episodes)."""
     plot_interval: int = Field(default=10, ge=1)
@@ -85,6 +85,21 @@ class ConfigSettings(BaseModel):
         if self.prediction_horizon is None:
             return None
         return int(self.prediction_horizon // self.sampling_time) + 1
+
+    @property
+    def steps_per_episode(self) -> int:
+        """Number of sampling steps that make up one episode."""
+        return int(self.episode_duration / self.sampling_time)
+
+    @property
+    def n_learn_timesteps(self) -> int:
+        """Total number of environment steps for a full learning run."""
+        return self.steps_per_episode * self.n_episodes_learn
+
+    @property
+    def checkpoint_save_freq(self) -> int:
+        """Interval, in environment steps, between model checkpoints during learning."""
+        return self.steps_per_episode * self.save_model_every_x_episodes
 
     def __str__(self) -> str:
         """Human-readable string representation of ConfigSettings."""

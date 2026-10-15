@@ -199,20 +199,6 @@ class EtaCtrl:
 
         :param training: Should preparation be done for training (alternative: playing)?
         """
-        # If the agents specifies the population parameter, the number of environments usually has to be
-        # equal to that value as well. See NSGA-II agent.
-        if (
-            "population" in self.config.settings.agent
-            and self.config.settings.n_environments != self.config.settings.agent["population"]
-        ):
-            if self.config.settings.n_environments != 1:
-                log.warning(
-                    f"Agent specifies 'population' parameter but the number of environments "
-                    f"({self.config.settings.n_environments}) is not equal to the population. "
-                    f"Setting 'n_environments' to {self.config.settings.agent['population']}"
-                )
-            self.config.settings.n_environments = self.config.settings.agent["population"]
-
         try:
             self._prepare_environments(training=training)
             yield
@@ -273,27 +259,9 @@ class EtaCtrl:
             log_net_arch(self.model, self.run_info)
             log_run_config(self.config, self.run_info)
 
-            # Genetic algorithm has a slightly different concept for saving since it does not stop between time steps
-            if "n_generations" in self.config.settings.agent:
-                save_freq = self.config.settings.save_model_every_x_episodes
-                total_timesteps = self.config.settings.agent["n_generations"]
-            else:
-                # Check if all required config values are present
-                if self.config.settings.n_episodes_learn is None:
-                    msg = "Missing configuration values for learning: 'n_episodes_learn'."
-                    raise ValueError(msg)
-
-                # define callback for periodically saving models
-                save_freq = int(
-                    self.config.settings.episode_duration
-                    / self.config.settings.sampling_time
-                    * self.config.settings.save_model_every_x_episodes
-                )
-                total_timesteps = int(
-                    self.config.settings.n_episodes_learn
-                    * self.config.settings.episode_duration
-                    / self.config.settings.sampling_time
-                )
+            # Total training length and checkpoint interval are derived from the settings.
+            total_timesteps = self.config.settings.n_learn_timesteps
+            save_freq = self.config.settings.checkpoint_save_freq
 
             # Set the seed for the environments before starting to learn
             self.environments.seed(self.config.settings.seed)
@@ -358,10 +326,6 @@ class EtaCtrl:
         with self.prepare_environments_models(
             series_name=series_name, run_name=run_name, run_description=run_description, reset=False, training=False
         ):
-            if self.config.settings.n_episodes_play is None:
-                msg = "Missing configuration value for playing: 'n_episodes_play' in section 'settings'"
-                raise ValueError(msg)
-
             # Log some information about the model and configuration
             log_net_arch(self.model, self.run_info)
             log_run_config(self.config, self.run_info)
