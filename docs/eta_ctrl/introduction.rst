@@ -96,6 +96,16 @@ After the class is instantiated, you can use the play and learn methods to execu
 
 .. autofunction:: eta_ctrl::EtaCtrl.play
 
+Preparing a run manually
+^^^^^^^^^^^^^^^^^^^^^^^^^
+If you need direct access to a run's environments or agent, for example to inspect the trained model or
+environments outside the built-in :meth:`~eta_ctrl.EtaCtrl.learn`/:meth:`~eta_ctrl.EtaCtrl.play` loop, use
+:meth:`~eta_ctrl.EtaCtrl.prepare_run`
+instead. It is a context manager yielding a :class:`~eta_ctrl.core.EtaCtrlRun`, valid only within the
+``with`` block:
+
+.. autofunction:: eta_ctrl::EtaCtrl.prepare_run
+
 .. _eta_experiment_config:
 
 Experiment configuration
