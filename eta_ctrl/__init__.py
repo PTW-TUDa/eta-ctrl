@@ -1,4 +1,7 @@
-from .core import EtaCtrl as EtaCtrl
+from .core import (
+    EtaCtrl as EtaCtrl,
+    EtaCtrlRun as EtaCtrlRun,
+)
 from .util import (
     LOG_DEBUG as LOG_DEBUG,
     LOG_ERROR as LOG_ERROR,
