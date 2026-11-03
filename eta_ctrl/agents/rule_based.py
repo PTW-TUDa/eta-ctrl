@@ -212,3 +212,19 @@ class RuleBased(BaseAlgorithm, abc.ABC):
         """
         msg = "The rule based agent cannot calculate action probabilities."
         raise NotImplementedError(msg)
+
+    def __str__(self) -> str:
+        """Human-readable string representation of RuleBased."""
+        agent_class_name: str = type(self).__name__
+        n_envs = self.env.num_envs if self.env is not None else 0
+
+        return f"{agent_class_name}({n_envs} environment(s))"
+
+    def __repr__(self) -> str:
+        """Developer-friendly string representation of RuleBased."""
+        agent_class_name: str = type(self).__name__
+        n_envs = self.env.num_envs if self.env is not None else 0
+        return (
+            f"{agent_class_name}(num_envs={n_envs}, "
+            f"observation_space={self.observation_space}, action_space={self.action_space})"
+        )

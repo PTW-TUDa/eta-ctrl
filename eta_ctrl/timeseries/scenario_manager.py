@@ -88,6 +88,15 @@ class ConfigCsvScenario(BaseModel):
 class ScenarioManager(ABC):
     scenarios: pd.DataFrame
 
+    def __str__(self) -> str:
+        """Human-readable string representation of ScenarioManager."""
+        n_rows, n_columns = self.scenarios.shape
+        return f"{type(self).__name__}({n_columns} column(s), {n_rows} row(s))"
+
+    def __repr__(self) -> str:
+        """Developer-friendly string representation of ScenarioManager."""
+        return f"{type(self).__name__}(n_rows={len(self.scenarios)}, columns={list(self.scenarios.columns)})"
+
     def compute_episode_offset(self, rng: np.random.Generator) -> int:
         """Compute the row offset into the scenario data for the next episode.
 

@@ -311,3 +311,22 @@ class MpcAgent(BaseAlgorithm):
 
         msg = "Solver failed to find feasible solution."
         raise InfeasibleConstraintException(msg)
+
+    def __str__(self) -> str:
+        """Human-readable string representation of MpcAgent."""
+        agent_class_name: str = type(self).__name__
+        model_class_name: str = type(self.model).__name__
+
+        return (
+            f"{agent_class_name}({model_class_name}, solver '{self.solver_name}', "
+            f"{self.model.n_prediction_steps} prediction steps)"
+        )
+
+    def __repr__(self) -> str:
+        """Developer-friendly string representation of MpcAgent."""
+        agent_class_name: str = type(self).__name__
+
+        return (
+            f"{agent_class_name}(solver_name='{self.solver_name}', action_index={self.action_index}, "
+            f"actions_order={self.actions_order}, model={self.model!r})"
+        )

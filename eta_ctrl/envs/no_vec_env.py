@@ -69,6 +69,14 @@ class NoVecEnv(DummyVecEnv):
             )
             raise ValueError(msg)
 
+    def __str__(self) -> str:
+        """Human-readable string representation of NoVecEnv."""
+        return f"{type(self).__name__}({type(self.envs[0]).__name__}, 1 instance, {self.num_envs} environment(s))"
+
+    def __repr__(self) -> str:
+        """Developer-friendly string representation of NoVecEnv."""
+        return f"{type(self).__name__}(env={self.envs[0]!r}, num_envs={self.num_envs})"
+
     def step_wait(self) -> VecEnvStepReturn:
         """Store observations and reset environments.
 

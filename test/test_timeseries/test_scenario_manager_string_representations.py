@@ -1,9 +1,9 @@
-"""Tests for __str__ and __repr__ of CsvScenarioManager."""
+"""Tests for __str__ and __repr__ of ScenarioManager and CsvScenarioManager."""
 
 import pandas as pd
 import pytest
 
-from eta_ctrl.timeseries.scenario_manager import ConfigCsvScenario, CsvScenarioManager
+from eta_ctrl.timeseries.scenario_manager import ConfigCsvScenario, CsvScenarioManager, ScenarioManager
 
 # Shared time constants
 _START_TIME = pd.Timestamp("2022-03-18 00:00")
@@ -97,3 +97,32 @@ class TestCsvScenarioManagerStringRepresentations:
         result = repr(single_scenario_manager)
         assert f"start_time={_START_TIME!r}" in result
         assert f"end_time={_END_TIME!r}" in result
+
+
+class _FrameScenarioManager(ScenarioManager):
+    """Minimal ScenarioManager subclass relying on the base class string representations."""
+
+    def __init__(self, scenarios: pd.DataFrame) -> None:
+        self.scenarios = scenarios
+
+    def _get_data(self, n_step, duration=1, names=None):
+        raise NotImplementedError
+
+
+class TestScenarioManagerStringRepresentations:
+    """Tests for the generic ScenarioManager.__str__ and __repr__."""
+
+    @pytest.fixture(scope="class")
+    def manager(self):
+        return _FrameScenarioManager(pd.DataFrame({"price": [1.0, 2.0, 3.0], "temperature": [20.0, 21.0, 22.0]}))
+
+    def test_str(self, manager):
+        assert str(manager) == "_FrameScenarioManager(2 column(s), 3 row(s))"
+
+    def test_repr(self, manager):
+        assert repr(manager) == "_FrameScenarioManager(n_rows=3, columns=['price', 'temperature'])"
+
+    def test_empty_scenarios(self):
+        manager = _FrameScenarioManager(pd.DataFrame())
+        assert str(manager) == "_FrameScenarioManager(0 column(s), 0 row(s))"
+        assert repr(manager) == "_FrameScenarioManager(n_rows=0, columns=[])"

@@ -23,6 +23,14 @@ class CallbackEnvironment:
     def __init__(self, plot_interval: int) -> None:
         self.plot_interval = plot_interval
 
+    def __str__(self) -> str:
+        """Human-readable string representation of CallbackEnvironment."""
+        return f"{type(self).__name__}(rendering every {self.plot_interval} episode(s))"
+
+    def __repr__(self) -> str:
+        """Developer-friendly string representation of CallbackEnvironment."""
+        return f"{type(self).__name__}(plot_interval={self.plot_interval})"
+
     def __call__(self, env: BaseEnv) -> None:
         """
         This callback should be called at the end of each episode.
