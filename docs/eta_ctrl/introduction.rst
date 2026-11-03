@@ -96,6 +96,19 @@ After the class is instantiated, you can use the play and learn methods to execu
 
 .. autofunction:: eta_ctrl::EtaCtrl.play
 
+Continuing vs. resetting a run
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+:meth:`~eta_ctrl.EtaCtrl.learn` accepts a ``reset`` flag. If ``reset`` is false (the default) and a model already exists for the
+given run, that model is loaded and training or playing continues from it. If a normalization wrapper is enabled
+(``norm_wrapper_obs`` or ``norm_wrapper_reward`` in the configuration), its previously stored running averages are
+loaded as well.
+
+If ``reset=True``, the existing run model is instead renamed to a timestamped ``.bak`` file (keeping its original
+file extension, e.g. ``run1_model_20260929_141203.bak.zip``) and a new model is initialized from scratch. If a
+normalization wrapper is enabled and normalization data already exists, it is backed up the same way instead of
+being loaded, so the new model starts with fresh statistics. Note that the normalization data file is stored at the
+*series* level (shared by all runs in a series), so resetting a single run backs it up for the entire series.
+
 Preparing a run manually
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 If you need direct access to a run's environments or agent, for example to inspect the trained model or
@@ -109,7 +122,7 @@ instead. It is a context manager yielding a :class:`~eta_ctrl.core.EtaCtrlRun`, 
 .. _eta_experiment_config:
 
 Experiment configuration
--------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^
 The central part of the ETA Ctrl module is the experiment configuration. This configuration can be
 read from a JSON, TOML, or YAML file and determines the setup of the entire experiment, including
 which agent and environment to load and how to set each one up. The configuration is defined by the

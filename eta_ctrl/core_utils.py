@@ -5,6 +5,8 @@ import pathlib
 from functools import partial
 from typing import TYPE_CHECKING
 
+from eta_ctrl.util.io_utils import backup_file
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -31,6 +33,7 @@ def vectorize_environment(
     seed: int | None = None,
     *,
     training: bool = False,
+    reset: bool = False,
     monitor_wrapper: bool = False,
     norm_wrapper_obs: bool = False,
     norm_wrapper_reward: bool = False,
@@ -46,6 +49,10 @@ def vectorize_environment(
     :param n: Number of vectorized environments to create.
     :param training: Flag to identify whether the environment should be initialized for training or playing. If true,
                      it will be initialized for training.
+    :param reset: Should new normalization data be created? If true, and a normalization wrapper is used, an
+                  existing normalization file is backed up (see
+                  :func:`~eta_ctrl.util.io_utils.backup_file`) and a fresh normalization wrapper is created
+                  instead of loading the stored running averages.
     :param norm_wrapper_obs: Flag to determine whether observations from the environments should be normalized.
     :param norm_wrapper_reward: Flag to determine whether rewards from the environments should be normalized.
     :return: Vectorized environments, possibly also wrapped in a normalizer.
@@ -79,7 +86,11 @@ def vectorize_environment(
     # Automatically normalize the input features
     if norm_wrapper_obs or norm_wrapper_reward:
         # check if normalization data is available and load it if possible, otherwise
-        # create a new normalization wrapper.
+        # create a new normalization wrapper. On reset, the existing data is backed up and not loaded.
+        if reset and run_info.vec_normalize_path.is_file():
+            log.info("Reset is active. Existing normalization data will be backed up.")
+            backup_file(run_info.vec_normalize_path)
+
         if run_info.vec_normalize_path.is_file():
             log.info(
                 f"Normalization data detected. Loading running averages into normalization wrapper: \n"
