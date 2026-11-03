@@ -66,6 +66,30 @@ class TestPyomoModel:
             model.start_value_mapping  # noqa: B018
 
 
+class TestPyomoModelStringRepresentations:
+    """Tests for PyomoModel.__str__ and __repr__."""
+
+    def test_str(self, model):
+        assert str(model) == "_SimpleModel with 6 prediction steps"
+
+    def test_repr(self, model):
+        expected = "_SimpleModel(sampling_time=10, prediction_horizon=60.0, n_prediction_steps=6, model_parameters=[])"
+        assert repr(model) == expected
+
+    def test_repr_lists_model_parameter_names_only(self):
+        model = _SimpleModel(sampling_time=10, prediction_horizon=60, model_parameters={"scalar_param": 2.5})
+        assert "model_parameters=['scalar_param']" in repr(model)
+        assert "2.5" not in repr(model)
+
+    def test_uses_subclass_name(self):
+        class _OtherModel(_SimpleModel):
+            pass
+
+        model = _OtherModel(sampling_time=1, prediction_horizon=4)
+        assert str(model) == "_OtherModel with 4 prediction steps"
+        assert repr(model).startswith("_OtherModel(")
+
+
 class TestPyoInitParams:
     def test_empty_returns_empty_dict(self, model: _SimpleModel) -> None:
         assert model._pyo_init_params() == {}

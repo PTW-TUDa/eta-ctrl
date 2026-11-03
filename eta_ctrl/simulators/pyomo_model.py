@@ -246,6 +246,22 @@ class PyomoModel:
             raise AttributeError(msg)
         return mapping
 
+    def __str__(self) -> str:
+        """Human-readable string representation of PyomoModel."""
+        subclass_name: str = type(self).__name__
+
+        return f"{subclass_name} with {self.n_prediction_steps} prediction steps"
+
+    def __repr__(self) -> str:
+        """Developer-friendly string representation of PyomoModel."""
+        subclass_name: str = type(self).__name__
+        model_parameter_names: list[str] = list(self.model_parameters.keys())
+
+        return (
+            f"{subclass_name}(sampling_time={self.sampling_time}, prediction_horizon={self.prediction_horizon}, "
+            f"n_prediction_steps={self.n_prediction_steps}, model_parameters={model_parameter_names})"
+        )
+
     def check_pyomo_sim_compatibility(self, ext_outputs: list[str]) -> None:
         """Validate that this model is compatible with :class:`~eta_ctrl.envs.PyomoSimEnv`.
 

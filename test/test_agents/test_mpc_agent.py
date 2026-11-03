@@ -53,6 +53,19 @@ class TestMpcAgent:
         assert isinstance(mpc_agent.model, PyomoBasicModel)
         assert mpc_agent.concrete_model is mpc_agent.model.model
 
+    def test_str(self, mpc_agent):
+        assert str(mpc_agent) == "MpcAgent(PyomoBasicModel, solver 'cplex_direct', 10 prediction steps)"
+
+    def test_repr(self, mpc_agent):
+        expected = (
+            f"MpcAgent(solver_name='cplex_direct', action_index=0, "
+            f"actions_order={mpc_agent.actions_order}, model={mpc_agent.model!r})"
+        )
+        assert repr(mpc_agent) == expected
+
+    def test_repr_contains_model_repr(self, mpc_agent):
+        assert "model=PyomoBasicModel(sampling_time=1, prediction_horizon=10.0" in repr(mpc_agent)
+
     def test_learn_returns_self(self, mpc_agent):
         result = mpc_agent.learn(total_timesteps=5)
         assert result is mpc_agent

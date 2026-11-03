@@ -39,6 +39,24 @@ class TestRuleBased:
         assert loaded_agent.num_timesteps == rb_agent.num_timesteps
         assert loaded_agent.state == rb_agent.state
 
+    def test_str(self, rb_agent):
+        assert str(rb_agent) == "RuleBasedController(1 environment(s))"
+
+    def test_repr(self, rb_agent, vec_env):
+        expected = (
+            f"RuleBasedController(num_envs=1, observation_space={vec_env.observation_space}, "
+            f"action_space={vec_env.action_space})"
+        )
+        assert repr(rb_agent) == expected
+
+    def test_str_without_env(self, rb_agent, monkeypatch):
+        monkeypatch.setattr(rb_agent, "env", None)
+        assert str(rb_agent) == "RuleBasedController(0 environment(s))"
+
+    def test_repr_without_env(self, rb_agent, monkeypatch):
+        monkeypatch.setattr(rb_agent, "env", None)
+        assert repr(rb_agent).startswith("RuleBasedController(num_envs=0, ")
+
     def test_rb_learn(self, rb_agent):
         assert rb_agent.learn(total_timesteps=5) is not None
         assert isinstance(rb_agent, RuleBasedController)
