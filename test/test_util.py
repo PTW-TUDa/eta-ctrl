@@ -1,8 +1,9 @@
 import json
 import logging
+import os
 import re
 import tomllib
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -12,7 +13,7 @@ from eta_ctrl.util import (
     json_import,
     log_add_filehandler,
 )
-from eta_ctrl.util.io_utils import load_config
+from eta_ctrl.util.io_utils import backup_file, load_config
 from eta_ctrl.util.utils import is_divisible, timestep_to_seconds, timestep_to_timedelta
 from test.resources.config.config_python import config as python_dict
 
@@ -210,3 +211,32 @@ class TestIsDivisible:
     )
     def test_is_not_divisible(self, a, b):
         assert not is_divisible(a=a, b=b)
+
+
+class TestBackupFile:
+    def test_renames_with_timestamp_and_preserves_suffix(self, tmp_path):
+        original = tmp_path / "run1_model.zip"
+        original.write_bytes(b"data")
+        mtime = datetime(2026, 9, 29, 14, 12, 3).timestamp()
+        os.utime(original, (mtime, mtime))
+
+        backup = backup_file(original)
+
+        assert not original.exists()
+        assert backup.exists()
+        assert backup.name == "run1_model_20260929_141203.bak.zip"
+        assert backup.read_bytes() == b"data"
+
+    def test_avoids_overwriting_existing_backup(self, tmp_path):
+        original = tmp_path / "run1_model.zip"
+        original.write_bytes(b"new")
+        mtime = datetime(2026, 9, 29, 14, 12, 3).timestamp()
+        os.utime(original, (mtime, mtime))
+        existing_bak = tmp_path / "run1_model_20260929_141203.bak.zip"
+        existing_bak.write_bytes(b"old")
+
+        backup = backup_file(original)
+
+        assert backup.name == "run1_model_20260929_141203_1.bak.zip"
+        assert existing_bak.read_bytes() == b"old"
+        assert backup.read_bytes() == b"new"

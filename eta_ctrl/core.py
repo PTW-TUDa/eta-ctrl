@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from datetime import datetime
 from logging import getLogger
 from typing import TYPE_CHECKING
 
@@ -15,6 +14,7 @@ from eta_ctrl.common import (
     merge_callbacks,
 )
 from eta_ctrl.config import Config, RunInfo
+from eta_ctrl.util.io_utils import backup_file
 
 from .core_utils import (
     initialize_model,
@@ -92,10 +92,8 @@ class EtaCtrl:
         :param series_name: Name for a series of runs.
         :param run_name: Name for a specific run.
         :param run_description: Description for a specific run.
-        :param reset: Flag to determine whether the model should reinitialize its parameters.
-              If true, any existing model files are renamed to timestamped
-              ``.bak`` files (see :func:`~eta_ctrl.util.io_utils.backup_file`) and new ones are
-              initialized. If false, existing files are loaded.
+        :param reset: If true, back up any existing model and normalization data and initialize them from scratch
+              instead of loading them.
         :param training: Should preparation be done for training/learning. Set this to True if you
                          intend to call :meth:`~eta_ctrl.core.EtaCtrlRun.learn`.
         :return: Context manager yielding the prepared :class:`~eta_ctrl.core.EtaCtrlRun`.
@@ -106,7 +104,7 @@ class EtaCtrl:
             run_description,
         )
 
-        with self.prepare_environments(run_info=run_info, training=training) as environments:
+        with self.prepare_environments(run_info=run_info, training=training, reset=reset) as environments:
             model = self.prepare_model(environments=environments, run_info=run_info, reset=reset)
             yield EtaCtrlRun(config=self.config, run_info=run_info, model=model, environments=environments)
 
@@ -141,16 +139,15 @@ class EtaCtrl:
 
         :param environments: Vectorized environments the model should be attached to.
         :param run_info: Run info of the run the model belongs to.
-        :param reset: Flag to determine whether an existing model should be reset.
+        :param reset: Flag to determine whether an existing model should be reset. If true, an existing model file is
+                      renamed to a timestamped ``.bak`` file (see :func:`~eta_ctrl.util.io_utils.backup_file`) and a new
+                      model is initialized.
         :return: Loaded or newly initialized model.
         """
         model_path = run_info.run_model_path
         if model_path.is_file() and reset:
-            log.info(f"Existing model detected: {model_path}")
-
-            bak_name = model_path / f"_{datetime.fromtimestamp(model_path.stat().st_mtime).strftime('%Y%m%d_%H%M')}.bak"
-            model_path.rename(bak_name)
-            log.info(f"Reset is active. Existing model will be backed up. Backup file name: {bak_name}")
+            log.info(f"Existing model detected: {model_path}. Reset is active, model will be backed up.")
+            backup_file(model_path)
         elif model_path.is_file():
             log.info(f"Existing model detected: {model_path}. Loading model.")
 
@@ -176,16 +173,18 @@ class EtaCtrl:
 
     @contextmanager
     def prepare_environments(
-        self, *, run_info: RunInfo, training: bool = True
+        self, *, run_info: RunInfo, training: bool = True, reset: bool = False
     ) -> Generator[VecEnv | VecNormalize, None, None]:
         """Context manager which creates the environments and closes them after it exits.
 
         :param run_info: Run info of the run the environments belong to.
         :param training: Should preparation be done for training/learning
+        :param reset: Flag to determine whether existing normalization data should be backed up and recreated.
+                      If false, it is loaded.
         """
         environments = None
         try:
-            environments = self._prepare_environments(run_info=run_info, training=training)
+            environments = self._prepare_environments(run_info=run_info, training=training, reset=reset)
             yield environments
         finally:
             if environments is None:
@@ -194,12 +193,16 @@ class EtaCtrl:
                 log.debug("Closing environments.")
                 environments.close()
 
-    def _prepare_environments(self, *, run_info: RunInfo, training: bool = True) -> VecEnv | VecNormalize:
+    def _prepare_environments(
+        self, *, run_info: RunInfo, training: bool = True, reset: bool = False
+    ) -> VecEnv | VecNormalize:
         """Vectorize and prepare the environments.
 
         :param run_info: Run info of the run the environments belong to.
         :param training: Should preparation be done for training/learning
         :return: Vectorized environments.
+        :param reset: Flag to determine whether existing normalization data should be reset. If true, it is backed up
+                      and not loaded.
         """
         env_class = self.config.setup.environment_class
         run_info.set_env_info(env_class)
@@ -216,6 +219,7 @@ class EtaCtrl:
             n=self.config.settings.n_environments,
             seed=self.config.settings.seed,
             training=training,
+            reset=reset,
             monitor_wrapper=self.config.setup.monitor_wrapper,
             norm_wrapper_obs=self.config.setup.norm_wrapper_obs,
             norm_wrapper_reward=self.config.setup.norm_wrapper_reward,
@@ -235,8 +239,10 @@ class EtaCtrl:
         :param series_name: Name for a series of runs.
         :param run_name: Name for a specific run.
         :param run_description: Description for a specific run.
-        :param reset: Indication whether possibly existing models should be reset. Learning will be continued if
-                           model exists and reset is false.
+        :param reset: Indication whether possibly existing models should be reset. If false and a model exists,
+                      learning is continued from it (along with any stored normalization data). If true, the existing
+                      run model and, if normalization wrappers are enabled, the normalization data are renamed to
+                      timestamped ``.bak`` files and learning starts from scratch.
         :param callbacks: Provide additional callbacks to send to the model.learn() call.
         """
         with self.prepare_run(

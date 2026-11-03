@@ -6,6 +6,7 @@ import pathlib
 import re
 import tomllib
 from collections.abc import Callable, Mapping, Sequence
+from datetime import datetime
 from logging import getLogger
 from typing import TYPE_CHECKING
 
@@ -42,6 +43,28 @@ def get_unique_output_path(base_path: pathlib.Path) -> pathlib.Path:
         output_path = parent / f"{stem}_{counter}{suffix}"
         counter += 1
     return output_path
+
+
+def backup_file(path: pathlib.Path) -> pathlib.Path:
+    """Back up a file by renaming it to a timestamped ``.bak`` file in the same directory.
+
+    The timestamp is taken from the file's last modification time and inserted before the suffix, so the backup
+    keeps its original file type (e.g. ``run1_model.zip`` becomes ``run1_model_20260929_141203.bak.zip``). If a
+    backup with that name already exists, a counter is appended instead of overwriting it.
+
+    :param path: Path of the file to back up.
+    :return: Path of the backup file.
+    """
+    timestamp = datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y%m%d_%H%M%S")
+    bak_path = path.with_name(f"{path.stem}_{timestamp}.bak{path.suffix}")
+    counter = 1
+    while bak_path.exists():
+        bak_path = path.with_name(f"{path.stem}_{timestamp}_{counter}.bak{path.suffix}")
+        counter += 1
+
+    path.rename(bak_path)
+    log.info(f"Backed up existing file {path} to {bak_path}.")
+    return bak_path
 
 
 def json_import(path: Path) -> list[Any] | dict[str, Any]:
