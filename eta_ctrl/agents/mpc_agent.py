@@ -2,16 +2,15 @@ from __future__ import annotations
 
 from logging import getLogger
 from pathlib import Path
-from typing import TYPE_CHECKING, Self, cast
+from typing import TYPE_CHECKING, cast
 
 import pyomo.environ as pyo
-from gymnasium import spaces
 from gymnasium.vector.utils import create_empty_array, iterate
 from pyomo import opt
 from pyomo.common.errors import InfeasibleConstraintException
-from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.vec_env import VecEnv, VecNormalize
 
+from eta_ctrl.agents.non_learning_agent import NonLearningAgent
 from eta_ctrl.common.sb3_extensions.policies import NoPolicy
 from eta_ctrl.simulators import PyomoModel
 from eta_ctrl.util.utils import import_class_from_module
@@ -21,25 +20,26 @@ if TYPE_CHECKING:
     from typing import Any
 
     import numpy as np
-    from stable_baselines3.common.policies import BasePolicy
-    from stable_baselines3.common.type_aliases import MaybeCallback
+    from stable_baselines3.common.base_class import BaseAlgorithm
 
 log = getLogger(__name__)
 
 
-class MpcAgent(BaseAlgorithm):
+class MpcAgent(NonLearningAgent):
     """Simple, Pyomo based optimization agent supporting multiple solvers.
 
     The MpcAgent requires a PyomoModel which is passed via the `model_import` parameter.
     It must be defined in the config under the 'agent_specific' section.
-    Common stablebaselines3 parameters are ignored for the MpcAgent as it cannot be used for learning or training.
+    Common stablebaselines3 parameters are ignored for the MpcAgent as it cannot be used for learning or training
+    (see :py:class:`~eta_ctrl.agents.non_learning_agent.NonLearningAgent`).
     It can only be used to predict actions via predict(); use EtaCtrl.play() to run experiments.
 
-    :param policy: Agent policy. Parameter is not used in this agent
     :param env: Environment to be optimized
     :param sampling_time: Interval for one timestep. Used to calcucate n_prediction_steps
     :param prediction_horizon: Duration of the prediction in seconds (usually a subsample of the episode duration)
     :param model_import: Dotted import path to the PyomoModel subclass (e.g. ``"my_package.my_module.MyModel"``)
+    :param actions_order: Ordered names of the actions (usually the actions of the environment's StateConfig). They
+        determine the order of the action array. Set automatically in the agent settings by the config.
     :param verbose: Logging verbosity
     :param solver_name: Name of the solver (e.g. gurobi, cplex, or glpk). Is passed to ``pyomo.SolverFactory``.
     :param action_index: Index of the solution value to be used as action
@@ -57,6 +57,7 @@ class MpcAgent(BaseAlgorithm):
         model_import: str,
         verbose: int = 1,
         *,
+        actions_order: list[str],
         solver_name: str = "cplex",
         action_index: int = 0,
         model_parameters: dict[str, Any] | None = None,
@@ -67,20 +68,16 @@ class MpcAgent(BaseAlgorithm):
         super().__init__(
             policy=NoPolicy,
             env=env,
-            learning_rate=0.0,
             verbose=verbose,
+            actions_order=actions_order,
             use_sde=False,
             monitor_wrapper=False,
-            supported_action_spaces=(spaces.Box,),
         )
         log.setLevel(int(verbose * 10))  # Set logging verbosity
 
         if isinstance(self.get_env(), VecNormalize):
             msg = "The MPC agent does not allow the use of normalized environments."
             raise TypeError(msg)
-
-        #: Specification of the order in which action values should be returned.
-        self.actions_order = self.get_env().get_attr("state_config", 0)[0].actions
 
         # Solver parameters
         #: Name of the solver to be used
@@ -95,8 +92,6 @@ class MpcAgent(BaseAlgorithm):
         self.solver = pyo.SolverFactory(self.solver_name)
         self.solver.options.update(solver_options or {})  # Adjust solver settings
 
-        self.policy_class: type[BasePolicy]
-
         target_class: type[PyomoModel] = import_class_from_module(model_import, base_class=PyomoModel)
         #: PyomoModel instance
         self.model: PyomoModel = target_class(
@@ -106,23 +101,6 @@ class MpcAgent(BaseAlgorithm):
         )
         # Shortcut for model access
         self.concrete_model: pyo.ConcreteModel = self.model.model
-
-        self._setup_model()
-
-    def _setup_model(self) -> None:
-        """Required method by the BaseAlgorithm interface."""
-        if self.policy_class is not None:
-            self.policy: type[BasePolicy] = self.policy_class(  # type: ignore[assignment]
-                self.observation_space,
-                self.action_space,
-            )
-
-    def get_env(self) -> VecEnv:
-        """Helper method for type annotation."""
-        if self.env is None:
-            msg = "Can't access attribute 'self.env', initialize environment first"
-            raise AttributeError(msg)
-        return self.env
 
     def solve(self) -> pyo.ConcreteModel:
         """Solve the current pyomo model instance with given parameters. This could also be used separately to solve
@@ -189,7 +167,8 @@ class MpcAgent(BaseAlgorithm):
         """
         Solve the current pyomo model instance with given parameters and observations and return the optimal actions.
 
-        :param observation: the input observation (not used here).
+        :param observation: The observations of all (vectorized) environments, used to update model parameters and
+                            variables.
         :param state: The last states (not used here).
         :param episode_start: The last masks (not used here).
         :param deterministic: Whether to return deterministic actions. This agent always returns
@@ -224,33 +203,13 @@ class MpcAgent(BaseAlgorithm):
                     msg = f"Couldn't fetch the value for action '{com.name}' in the PyomoModel {model_name}"
                     raise ValueError(msg) from e
 
-            for i, action in enumerate(self.actions_order):
-                log.debug(f"Action '{action}' value: {solution[action]}")
-                action_array[idx][i] = solution[action]
+            # The solution contains all indexed variables of the model, only the actions are used
+            actions = {name: value for name, value in solution.items() if name in self.actions_order}
+            for name, value in actions.items():
+                log.debug(f"Action '{name}' value: {value}")
+            action_array[idx] = self._actions_to_array(actions)
 
         return action_array, state
-
-    def learn(
-        self,
-        total_timesteps: int,
-        callback: MaybeCallback = None,
-        log_interval: int = 100,
-        tb_log_name: str = "run",
-        reset_num_timesteps: bool = True,
-        progress_bar: bool = False,
-    ) -> Self:
-        """The MPC approach cannot learn a new model.
-        Specify the model attribute as a pyomo Concrete model instead, to use the prediction function of this agent.
-
-        :param total_timesteps: The total number of samples (env steps) to train on
-        :param callback: callback(s) called at every step with state of the algorithm.
-        :param log_interval: The number of timesteps before logging.
-        :param tb_log_name: the name of the run for TensorBoard logging
-        :param reset_num_timesteps: whether or not to reset the current timestep number (used in logging)
-        :param progress_bar: Display a progress bar using tqdm and rich.
-        :return: The trained model.
-        """
-        return self
 
     def handle_solve_failed(self, result: Any) -> None:
         """Called when the solver did not reach an optimal solution.

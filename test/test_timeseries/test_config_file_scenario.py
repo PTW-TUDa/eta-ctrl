@@ -83,6 +83,7 @@ def prevent_state_config_loading(monkeypatch):
     class _DummyStateConfig:
         def __init__(self, source_file: Path):
             self.source_file = source_file
+            self.actions = ["action1"]
 
     monkeypatch.setattr(
         StateConfig,

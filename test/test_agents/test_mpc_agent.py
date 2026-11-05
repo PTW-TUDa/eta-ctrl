@@ -26,6 +26,7 @@ def mpc_agent_factory():
             sampling_time=sampling_time,
             prediction_horizon=prediction_horizon,
             model_import=MODEL_IMPORT,
+            actions_order=["x"],
             solver_name="cplex_direct",
         )
 
@@ -65,10 +66,6 @@ class TestMpcAgent:
 
     def test_repr_contains_model_repr(self, mpc_agent):
         assert "model=PyomoBasicModel(sampling_time=1, prediction_horizon=10.0" in repr(mpc_agent)
-
-    def test_learn_returns_self(self, mpc_agent):
-        result = mpc_agent.learn(total_timesteps=5)
-        assert result is mpc_agent
 
 
 class TestMpcAgentSolverIntegration:

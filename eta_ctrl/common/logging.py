@@ -68,7 +68,7 @@ def log_net_arch(model: BaseAlgorithm, run_info: RunInfo) -> None:
     """
     from .sb3_extensions.policies import NoPolicy  # noqa: PLC0415
 
-    if not run_info.net_arch_path.exists() and model.policy is not None and model.policy.__class__ is not NoPolicy:
+    if not run_info.net_arch_path.exists() and hasattr(model, "policy") and model.policy.__class__ is not NoPolicy:
         with pathlib.Path(run_info.net_arch_path).open("w") as f:
             f.write(str(model.policy))
 
