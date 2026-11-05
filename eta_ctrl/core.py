@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from eta_ctrl.agents import NonLearningAgent
 from eta_ctrl.common import (
     CallbackEnvironment,
     log_net_arch,
@@ -236,6 +237,9 @@ class EtaCtrl:
     ) -> None:
         """Start the learning job for an agent with the specified environment.
 
+        Agents which can't learn (:py:class:`~eta_ctrl.agents.non_learning_agent.NonLearningAgent`, e.g. the MPC agent)
+        are skipped with an error message. Use :py:meth:`play` for these agents.
+
         :param series_name: Name for a series of runs.
         :param run_name: Name for a specific run.
         :param run_description: Description for a specific run.
@@ -245,6 +249,12 @@ class EtaCtrl:
                       timestamped ``.bak`` files and learning starts from scratch.
         :param callbacks: Provide additional callbacks to send to the model.learn() call.
         """
+        # For non-learning agents: Skip before environments and models are set up
+        agent_class = self.config.setup.agent_class
+        if issubclass(agent_class, NonLearningAgent):
+            log.error(f"Agent {agent_class.__name__} does not support learning, skipping learn(). Use play() instead.")
+            return
+
         with self.prepare_run(
             series_name=series_name, run_name=run_name, run_description=run_description, reset=reset, training=True
         ) as run:

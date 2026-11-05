@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel, ConfigDict, Field, GetJsonSchemaHandler
 
 import __main__
+from eta_ctrl.agents import MpcAgent, NonLearningAgent
 
 # Pydantic needs type annotations at runtime, ruff doesn't know.
 from eta_ctrl.config.config_paths import ConfigPaths
@@ -83,14 +84,18 @@ class Config(BaseModel):
 
     def model_post_init(self, _: Any) -> None:
         # MpcAgent needs sampling_time and prediction_horizon
-        from eta_ctrl.agents.mpc_agent import MpcAgent  # noqa: PLC0415
-
         if issubclass(self.setup.agent_class, MpcAgent):
             self.settings.agent["sampling_time"] = self.settings.sampling_time
             self.settings.agent["prediction_horizon"] = self.settings.prediction_horizon
 
         # Create StateConfig (moved to helper to lower function complexity)
         self._create_state_config()
+
+        # NonLearningAgents need the order of StateConfig actions
+        if issubclass(self.setup.agent_class, NonLearningAgent):
+            state_config: StateConfig = self.settings.environment["state_config"]
+            self.settings.agent["actions_order"] = state_config.actions
+
         self.settings.create_scenario_manager(self.scenarios_path)
 
     def _create_state_config(self) -> None:
